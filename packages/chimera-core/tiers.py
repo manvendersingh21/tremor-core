@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from .router import complexity_score
 
 HUD_KEYS = {"phone_3b", "mac_3b", "gpu_small", "gpu_large", "crusoe"}
+DEVICE_LABEL = {"phone": "Phone", "laptop": "Mac", "gpu": "GPU", "cloud": "Crusoe"}  # HUD labels
 PROBES = {"llamacpp": "/health", "ollama": "/api/tags", "openai": "/v1/models"}
 
 
@@ -42,6 +43,7 @@ class TierUsage(BaseModel):
     tokens_in: int = 0
     tokens_out: int = 0
     dollars: float = 0.0
+    latency_ms: float = 0.0
 
 
 class PoolResult(BaseModel):
@@ -155,13 +157,16 @@ class TierPool:
             attempts.append(t.name)
             u = usage.setdefault(t.name, TierUsage())
             u.calls += 1
+            ta = time.perf_counter()
             try:
                 be = self._backends.get(t.name) or self._backends.setdefault(t.name, self._factory(t))
                 text, tin, tout, conf = be.complete(prompt, self.max_tokens)
             except Exception:  # timeout, connection or HTTP error: climb
+                u.latency_ms += (time.perf_counter() - ta) * 1000
                 u.errors += 1
                 self._record(t, False)
                 continue
+            u.latency_ms += (time.perf_counter() - ta) * 1000
             self._record(t, True)
             u.tokens_in, u.tokens_out = tin, tout
             u.dollars = tin / 1000 * t.cost_per_1k_in + tout / 1000 * t.cost_per_1k_out
@@ -183,11 +188,12 @@ class TierPool:
             key = "crusoe" if t.device == "cloud" else name.replace("-", "_")
             if key not in HUD_KEYS:  # shortcut: Telemetry.per_tier has fixed keys; extra tiers are left out until it takes any name
                 continue
-            h = out.setdefault(key, HudUsage(model=t.model, device=t.device))
+            h = out.setdefault(key, HudUsage(model=t.model, device=DEVICE_LABEL[t.device]))
+            h.model = t.model  # actual model name (e.g. Qwen2.5-3B on the phone), last tier touched wins
             h.input_tokens += u.tokens_in
             h.output_tokens += u.tokens_out
             h.dollars += u.dollars
-            h.latency_ms += r.latency_ms if name == r.tier else 0.0
+            h.latency_ms += u.latency_ms
         return out
 
     @staticmethod

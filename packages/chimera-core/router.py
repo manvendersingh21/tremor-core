@@ -118,8 +118,8 @@ class SpeculativeCascadeRouter:
         return self._done(
             r.text, {"phone": "local", "laptop": "local", "gpu": "gpu", "cloud": "top"}[r.device], t0,
             tokens_saved=(tin + tout) if owned else 0,
-            local_tokens=sum(u.output_tokens for u in per.values() if u.device in ("phone", "laptop")),
-            cloud_tokens=sum(u.output_tokens for u in per.values() if u.device == "cloud"),
+            local_tokens=sum(u.output_tokens for u in per.values() if u.device in ("Phone", "Mac")),
+            cloud_tokens=sum(u.output_tokens for u in per.values() if u.device == "Crusoe"),
             per_tier=per,
         )
 
