@@ -14,7 +14,7 @@ def _files(root: pathlib.Path) -> set[str]:
 def test_default_config_has_no_local_cache_and_writes_no_file(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))  # ~/.chimera/cache.db would land here
     monkeypatch.setenv("CHIMERA_DB_URL", "postgresql://u:p@127.0.0.1:1/none")  # refused at once: DB down
-    cfg = ChimeraConfig(use_pool=True, telemetry={"path": str(tmp_path / "logs" / "t.jsonl")},
+    cfg = ChimeraConfig(use_pool=True, memory={"enabled": False}, telemetry={"path": str(tmp_path / "logs" / "t.jsonl")},
                         tiers=[TierCfg(name="mac", device="laptop", backend="llamacpp", url="http://x", model="m")])
     assert cfg.cache.backend == "supabase" and cfg.cache.guard and cfg.thresholds.confidence == 0.95
     r = build_router(cfg, embedder=Bag())
@@ -35,8 +35,20 @@ def test_no_dsn_means_no_cache_at_all(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("CHIMERA_DB_URL", raising=False)
     monkeypatch.setattr("chimera_core.config.load_env", lambda *a, **k: None)
-    cfg = ChimeraConfig(use_pool=True, telemetry={"path": str(tmp_path / "t.jsonl")},
+    cfg = ChimeraConfig(use_pool=True, memory={"enabled": False}, telemetry={"path": str(tmp_path / "t.jsonl")},
                         tiers=[TierCfg(name="mac", device="laptop", backend="llamacpp", url="http://x", model="m")])
     r = build_router(cfg, embedder=Bag())
     assert (r.exact, r.semantic, r.shared) == (None, None, None)
     assert not (tmp_path / ".chimera").exists()
+
+
+def test_memory_that_cannot_start_is_turned_off(monkeypatch):
+    import chimera_core.memory as mem
+    from chimera_core.config import make_memory
+
+    def boom(*a, **k):
+        raise ModuleNotFoundError("neo4j")
+
+    monkeypatch.setattr(mem, "build", boom)
+    assert make_memory(ChimeraConfig(), Bag()) is None
+    assert make_memory(ChimeraConfig(memory={"enabled": False}), Bag()) is None
