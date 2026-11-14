@@ -1,0 +1,306 @@
+{
+ "answers": {
+  "A:e1": {
+   "answer": "The capital of France is **Paris**.\n\nLocated along the Seine River in the north of the country, Paris has been the political, economic, and cultural center of France since the 10th century and remains a major global hub for art, fashion, gastronomy, and tourism."
+  },
+  "A:e2": {
+   "answer": "The chemical symbol for gold is **Au**.\n\n### Reasoning\nThe symbol **Au** is derived from the Latin word for gold, ***Aurum***. Many chemical symbols (especially for elements known in ancient times) are based on their Latin, Greek, or historical names rather than their modern English names.\n\n### Final Answer\n**Au**"
+  },
+  "A:e3": {
+   "answer": "A leap year has **366** days.\n\n### Explanation:\n1.  **Common Year**: A standard year has 365 days.\n2.  **Leap Year**: To keep the calendar in alignment with the Earth's revolutions around the Sun (which take approximately 365.2422 days), an extra day is added every four years.\n3.  **Placement of the Extra Day**: This extra day is added to the month of February, which becomes 29 days long instead of the usual 28.\n\n$$365 \\text{ days} + 1 \\text{ extra day} = 366 \\text{ days}$$\n\n### Note on the Rule for Leap Years:\nA year is a leap year if:\n*   It is divisible by 4, **BUT**\n*   If it is divisible by 100, it is **not** a leap year, **UNLESS**\n*   It is also divisible by 400.\n\n*(Example: 2000 was a leap year, but 1900 was not.)*"
+  },
+  "A:e4": {
+   "answer": "The novel *Pride and Prejudice* was written by **Jane Austen**.\n\nIt was originally published in 1813. Austen is widely regarded as one of the most important novelists in English literature, known for her insightful commentary on the social norms and manners of the British gentry of the 18th and early 19th centuries."
+  },
+  "A:e5": {
+   "answer": "**HTTP status code 404** stands for **\"Not Found.\"**\n\n### What It Means:\nIt indicates that the server **cannot find** the requested resource (such as a webpage, image, file, or API endpoint) at the specified URL.\n\n### Common Causes:\n- The URL was mistyped.\n- The page or resource has been moved or deleted.\n- The link is outdated (a \"broken link\").\n- The server is misconfigured or the path does not exist.\n\n### Example:\nIf you try to access `https://example.com/nonexistent-page`, the server may respond:\n```\nHTTP/1.1 404 Not Found\n```\n\n### What Should Happen Next?\n- **For users**: Check the URL, use the site\u2019s search function, or navigate back to a main page.\n- **For developers**: Verify the resource path, check server logs, and ensure routing is correctly configured.\n\n### Note:\nA 404 error is **not** a server malfunction\u2014it\u2019s an expected response when a resource is genuinely absent."
+  },
+  "A:e6": {
+   "answer": "To convert 100 degrees Celsius to Fahrenheit, we use the standard conversion formula:\n\n$$F = \\frac{9}{5}C + 32$$\n\nwhere:\n*   $F$ is the temperature in Fahrenheit\n*   $C$ is the temperature in Celsius\n\n**Step-by-step Calculation:**\n\n1.  Substitute $100$ for $C$ in the formula:\n    $$F = \\frac{9}{5}(100) + 32$$\n\n2.  Multiply 100 by $\\frac{9}{5}$ (or 1.8):\n    $$100 \\times 1.8 = 180$$\n\n3.  Add 32 to the result:\n    $$180 + 32 = 212$$\n\n**Conclusion:**\n\n100 degrees Celsius is equal to **212 degrees Fahrenheit**."
+  },
+  "A:e7": {
+   "answer": "The time complexity of Binary Search is **$O(\\log n)$**.\n\nHere is the step-by-step logical deduction for this complexity:\n\n### 1. Prerequisites\nBinary search operates only on **sorted** datasets. It utilizes a divide-and-conquer strategy.\n\n### 2. The Process\nAt each iteration (or recursive step) of the algorithm:\n1.  The algorithm compares the target value with the **middle element** of the current search interval.\n2.  If the middle element is the target, the search ends.\n3.  If the target is smaller than the middle element, the algorithm discards the upper half.\n4.  If the target is larger than the middle element, the algorithm discards the lower half.\n\n### 3. Mathematical Derivation\nLet $n$ be the number of elements in the array.\n-   **Step 1:** We examine the array of size $n$.\n-   **Step 2:** We split the problem in half, leaving a sub-problem of size $n/2$.\n-   **Step 3:** We split that in half, leaving $n/4$.\n-   **Step $k$:** The remaining size is $n / 2^k$.\n\nWe continue this process until the search interval is empty (size 0) or the element is found. In the **worst case**, we continue until the size is reduced to 1. We need to find the number of steps ($k$) such that:\n\n$$ \\frac{n}{2^k} = 1 $$\n\nSolving for $k$:\n\n$$ n = 2^k $$\n$$ k = \\log_2 n $$\n\n### 4. Conclusion\nSince the number of operations required is proportional to the logarithm (base 2) of the number of elements, the time complexity is:\n\n**$O(\\log n)$**\n\n***\n\n### Comparison with Linear Search\n| Algorithm | Time Complexity | Behavior |\n| :--- | :--- | :--- |\n| **Linear Search** | $O(n)$ | Checks every element one by one. |\n| **Binary Search** | **$O(\\log n)$** | Cuts the search space in half every step. |\n\n*Note: While the time complexity is $O(\\log n)$, the **space complexity** depends on the implementation: $O(1)$ for the iterative approach, and $O(\\log n)$ for the recursive approach due to the call stack.*"
+  },
+  "A:e8": {
+   "answer": "The `git stash` command temporarily saves the changes in your working directory and index to a special stack, allowing you to start working on a different task with a clean state without committing those changes."
+  },
+  "A:e9": {
+   "answer": "The largest planet in our solar system is **Jupiter**.\n\n### Key Facts:\n*   **Size**: Jupiter is so large that all the other planets in the solar system could fit inside it.\n*   **Mass**: It has more than twice the mass of all the other planets combined.\n*   **Type**: It is a gas giant, composed primarily of hydrogen and helium."
+  },
+  "A:e10": {
+   "answer": "The acronym **JSON** stands for **JavaScript Object Notation**.\n\n### Breakdown:\n- **JavaScript**: It is named after the JavaScript programming language, although JSON is **language-independent**. It can be used with many programming languages (Python, Java, C++, Ruby, etc.).\n- **Object**: It is designed to represent data in a structured way, similar to how objects are represented in JavaScript.\n- **Notation**: It is a lightweight text format for storing and transmitting data in a human-readable manner.\n\n### Key Characteristics:\n- **Text-based**: JSON uses a standard text format (ASCII/UTF-8) to represent data structures.\n- **Structured**: It supports data types like strings, numbers, booleans, arrays, objects, and null.\n- **Universal**: Widely used for web APIs, configuration files, and data exchange between servers and clients.\n\nExample of JSON:\n```json\n{\n  \"name\": \"Alice\",\n  \"age\": 30,\n  \"isMember\": true,\n  \"hobbies\": [\"reading\", \"hiking\"],\n  \"address\": null\n}\n```"
+  },
+  "A:r1": {
+   "answer": "The capital of France is **Paris**.\n\nIt serves as the political, economic, and cultural center of the country and is the most populous city in France."
+  },
+  "A:r2": {
+   "answer": "HTTP status code **404** stands for **\"Not Found.\"**\n\n### Meaning\nIt indicates that the server **cannot find the resource** requested by the client (e.g., a webpage, API endpoint, or file). This is a client-side error, meaning the request is syntactically correct, but the specified resource does not exist or is unavailable on the server.\n\n### Common Causes\n- **Typo in the URL**: The user or client entered an incorrect address.\n- **Deleted or moved content**: The resource was removed from the server or relocated without a proper redirect.\n- **Incorrect path or query parameters**: The server received a request for a non-existent route.\n- **Broken links**: A link on another page points to a resource that no longer exists.\n\n### Example\nIf you visit `https://example.com/nonexistent-page`, and that page does not exist, the server will return:\n```\nHTTP/1.1 404 Not Found\n```\n\n### How to Handle\n- **For users**: Check the URL for typos or navigate to the homepage.\n- **For developers**:\n  - Ensure URLs are correct.\n  - Implement proper redirects for moved resources.\n  - Use custom 404 error pages to improve user experience.\n  - Check server logs to verify the requested path.\n\nThis status code is one of the most common in web development and is a standard part of the HTTP protocol."
+  },
+  "A:r3": {
+   "answer": "The largest planet in our solar system is **Jupiter**.\n\n### Key Facts:\n- **Size**: Jupiter is the fifth planet from the Sun and is significantly larger than all the other planets combined.\n- **Diameter**: Approximately 139,820 kilometers (86,881 miles).\n- **Mass**: It has about 2.5 times the mass of all the other planets in the Solar System combined.\n- **Type**: It is a gas giant, composed mostly of hydrogen and helium.\n\nFor comparison, Earth would fit inside Jupiter about 1,300 times over by volume."
+  },
+  "A:p1": {
+   "answer": "The capital of France is **Paris**."
+  },
+  "A:p2": {
+   "answer": "The chemical symbol of gold is **Au**.\n\nThis symbol is derived from *aurum*, the Latin word for gold. It was originally chosen because ancient alchemists and scholars referred to the metal by this name, rather than using the modern English spelling."
+  },
+  "A:p3": {
+   "answer": "A leap year has **366** days.\n\n**Explanation:**\n*   A standard (non-leap) year has 365 days.\n*   A leap year adds one extra day to the calendar to keep it aligned with the Earth's revolutions around the Sun.\n*   This extra day is added to February, which has 29 days instead of the usual 28.\n\n$$365 \\text{ days} + 1 \\text{ day} = 366 \\text{ days}$$"
+  },
+  "A:p4": {
+   "answer": "A **404** status code in HTTP signifies **\"Not Found.\"**\n\n### Detailed Explanation:\n\n1. **Meaning**:\n   - The server has received the request and understood it, but it cannot find the requested resource (e.g., web page, API endpoint, file) at the specified URL.\n   - This does **not** imply that the resource has been permanently moved or that the server is misconfigured; it simply means the server does not recognize the address provided.\n\n2. **Common Causes**:\n   - Typo in the URL.\n   - The resource was deleted or renamed.\n   - The resource was moved to a different location without setting up a redirect.\n   - The resource exists but is private or restricted (though a 403 Forbidden is more accurate in these cases).\n\n3. **Standard Response Behavior**:\n   - The server returns a `404 Not Found` status in the HTTP response header.\n   - Typically, the server includes an HTML error page (e.g., a custom \"Page Not Found\" message) in the response body.\n\n4. **Difference from Similar Codes**:\n   - **403 Forbidden**: The server understands the request and the resource exists, but the client is not authorized to access it.\n   - **500 Internal Server Error**: The server encountered an unexpected condition that prevented it from fulfilling the request.\n\n### Example:\nIf a user navigates to `https://example.com/nonexistent-page`, the server will return:\n```\nHTTP/1.1 404 Not Found\nContent-Type: text/html; charset=UTF-8\n\n<html>\n<head><title>404 Not Found</title></head>\n<body><h1>404 Error</h1><p>The requested resource was not found on this server.</p></body>\n</html>\n```\n\nIn summary, a **404** status code indicates that the requested resource could not be found on the server."
+  },
+  "A:p5": {
+   "answer": "The biggest planet in our solar system is **Jupiter**.\n\n### Key Facts:\n- **Size**: Jupiter is the largest planet by both volume and mass.\n- **Mass**: It is more than twice as massive as all the other planets in the solar system combined.\n- **Diameter**: Its diameter is approximately 139,820 km (86,881 miles), which is about 11 times the diameter of Earth.\n\nJupiter is a gas giant, meaning it does not have a solid surface like Earth or Mars. It is composed mostly of hydrogen and helium."
+  },
+  "A:c1": {
+   "answer": "```python\ndef is_palindrome(s):\n    filtered = [char.lower() for char in s if char.isalnum()]\n    return filtered == filtered[::-1]\n```"
+  },
+  "A:c2": {
+   "answer": "```python\ndef fizzbuzz(n):\n    result = []\n    for i in range(1, n + 1):\n        if i % 3 == 0 and i % 5 == 0:\n            result.append('FizzBuzz')\n        elif i % 3 == 0:\n            result.append('Fizz')\n        elif i % 5 == 0:\n            result.append('Buzz')\n        else:\n            result.append(str(i))\n    return result\n```"
+  },
+  "A:c3": {
+   "answer": "```python\ndef flatten(items):\n    result = []\n    for item in items:\n        if isinstance(item, list):\n            result.extend(flatten(item))\n        else:\n            result.append(item)\n    return result\n```"
+  },
+  "A:c4": {
+   "answer": "```python\ndef word_count(text):\n    words = text.lower().split()\n    punctuation = '.,!?'\n    count = {}\n    for word in words:\n        word = word.strip(punctuation)\n        if word:\n            count[word] = count.get(word, 0) + 1\n    return count\n```"
+  },
+  "A:c5": {
+   "answer": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n    \n    intervals.sort(key=lambda x: x[0])\n    merged = [intervals[0]]\n    \n    for i in range(1, len(intervals)):\n        current_start, current_end = intervals[i]\n        prev_start, prev_end = merged[-1]\n        \n        if current_start <= prev_end:\n            merged[-1] = [prev_start, max(prev_end, current_end)]\n        else:\n            merged.append([current_start, current_end])\n    \n    return merged\n```"
+  },
+  "A:c6": {
+   "answer": "```python\ndef roman_to_int(s: str) -> int:\n    values = {\n        'I': 1,\n        'V': 5,\n        'X': 10,\n        'L': 50,\n        'C': 100,\n        'D': 500,\n        'M': 1000\n    }\n    total = 0\n    for i in range(len(s)):\n        if i + 1 < len(s) and values[s[i]] < values[s[i + 1]]:\n            total -= values[s[i]]\n        else:\n            total += values[s[i]]\n    return total\n```"
+  },
+  "A:h1": {
+   "answer": "**Design:**\nUse a Strategy pattern via a dictionary mapping shape names to lambdas. This decouples shape logic from the main function, allowing new shapes to be added by inserting a single dictionary entry without modifying existing code or adding conditional branches.\n\n```python\nimport math\n\n# Registry of shape calculations\n# Each shape maps to a dict with 'area' and 'perimeter' callables\nSHAPES = {\n    'circle': {\n        'area': lambda a, b=None: math.pi * a * a,\n        'perimeter': lambda a, b=None, c=None: 2 * math.pi * a\n    },\n    'rect': {\n        'area': lambda a, b=None: a * b,\n        'perimeter': lambda a, b=None, c=None: 2 * (a + b)\n    },\n    'tri': {\n        'area': lambda a, b=None: 0.5 * a * b,\n        'perimeter': lambda a, b=None, c=None: a + b + c\n    }\n}\n\ndef area(kind, a, b=None):\n    if kind not in SHAPES:\n        raise ValueError(f\"Unknown shape: {kind}\")\n    return SHAPES[kind]['area'](a, b)\n\ndef perimeter(kind, a, b=None, c=None):\n    if kind not in SHAPES:\n        raise ValueError(f\"Unknown shape: {kind}\")\n    return SHAPES[kind]['perimeter'](a, b, c)\n```"
+  },
+  "A:h2": {
+   "answer": "### Architecture Design\n\n**Algorithm Choice**\nUse the **Token Bucket** algorithm. Unlike Fixed Window, it handles burst traffic gracefully (allowing up to `limit` requests instantly if tokens are available) while enforcing the average rate. For 100 req/min, initialize each user with 100 tokens, refilling at ~1.67 tokens/second.\n\n**Data Store**\nUse **Redis** with a distributed cluster. Redis offers sub-millisecond latency and atomic operations necessary for high-concurrency rate limiting. Store state in two keys per user: `tokens:user:<id>` (current token count) and `last_refill:user:<id>` (timestamp of last update). Use string serialization for floats/timestamps to maximize speed.\n\n**Concurrency & Race Conditions**\nThe core race condition occurs when two API servers simultaneously check and decrement tokens for the same user. To ensure atomicity, do **not** use separate `GET` and `SET` commands. Instead, use a **Lua script** executed via `EVAL`. Lua scripts in Redis run atomically; no other command can interleave during execution. This guarantees that only one server can successfully deduct a token per check, preventing overselling.\n\n**Failure Modes**\n*   **Redis Outage:** If Redis is unreachable, API servers should default to **fail-open** (allow requests) to preserve availability, assuming the rate limit is for protection against abuse, not critical security. Log errors for monitoring.\n*   **Cluster Split-Brain:** With Redis Cluster, ensure consistent hashing. If a shard is down, fail-open for that user\u2019s shard to maintain service continuity, though this reduces limit accuracy temporarily.\n*   **Clock Skew:** Use the server\u2019s clock for refill calculations. If API servers have skewed clocks, use NTP synchronization. Since Lua scripts use the Redis server\u2019s time for `TIME` command, this mitigates client clock issues.\n\n**Core Check Function (Python)**\n\n```python\nimport redis\nimport time\n\nclass RateLimiter:\n    def __init__(self, redis_client):\n        self.redis = redis_client\n        # Atomic Lua script:\n        # 1. Get last timestamp and current tokens\n        # 2. Calculate tokens added since last update\n        # 3. Cap at max limit (100)\n        # 4. If tokens >= 1, deduct and return 1 (allowed)\n        # 5. Else return 0 (denied)\n        self.script = \"\"\"\n        local key = KEYS[1]\n        local limit = tonumber(ARGV[1])\n        local refill_rate = tonumber(ARGV[2])\n        local now = tonumber(ARGV[3])\n        \n        local data = redis.call('MGET', key .. ':tokens', key .. ':last')\n        local tokens = tonumber(data[1])\n        local last = tonumber(data[2])\n        \n        if not tokens then\n            tokens = limit\n            last = now\n        end\n        \n        local elapsed = now - last\n        if elapsed > 0 then\n            tokens = math.min(limit, tokens + (elapsed * refill_rate))\n            last = now\n        end\n        \n        local allowed = 0\n        if tokens >= 1 then\n            tokens = tokens - 1\n            allowed = 1\n        end\n        \n        redis.call('MSET', key .. ':tokens', tokens, key .. ':last', last)\n        return allowed\n        \"\"\"\n        self.lua = self.redis.register_script(self.script)\n\n    def is_allowed(self, user_id):\n        limit = 100\n        refill_rate = limit / 60.0  # 100 tokens per 60 seconds\n        now = time.time()\n        key = f\"rate:{user_id}\"\n        \n        try:\n            return bool(self.lua(keys=[key], args=[limit, refill_rate, now]))\n        except redis.exceptions.ConnectionError:\n            return True  # Fail-open\n```\n\nThis design ensures high availability, precise rate limiting via atomicity, and resilience to infrastructure failures."
+  },
+  "A:h3": {
+   "answer": "**Root Cause**\nThe bug is a classic race condition caused by the non-atomic read-modify-write operation. In `work()`, the line `count = tmp + 1` is not a single CPU instruction. Multiple threads can read the same value of `count` into `tmp` simultaneously before any of them write back. For example, if two threads both read `count=5`, both calculate `6`, and both write `6`. The expected increment is lost, resulting in a final count less than 4000.\n\n**Fix 1: Explicit Locking**\nUse a `threading.Lock` to ensure only one thread executes the critical section at a time.\n\n```python\nimport threading\n\ncount = 0\nlock = threading.Lock()\n\ndef work():\n    global count\n    for _ in range(1000):\n        with lock:\n            count += 1\n\nthreads = [threading.Thread(target=work) for _ in range(4)]\nfor t in threads: t.start()\nfor t in threads: t.join()\nprint(count)\n```\n\n**Fix 2: Atomic Operation (CPython GIL or `itertools.count`)**\nWhile the GIL provides some protection for simple bytecodes, relying on it is fragile. A better \"atomic\" approach for simple counters in CPython is often just using `+=` if the GIL is assumed, but the *safest* general-purpose fix without explicit locks is to use a thread-safe counter class or a lock-protected atomic operation. However, a common practical alternative is using `threading.local` is overkill. Let's use a dedicated lock-free pattern if available, but standard Python lacks CAS. So, the second *distinct* valid fix is to use a **single-threaded queue** approach, but that changes the architecture. \n\nA more direct second fix is relying on the fact that `itertools.count` is thread-safe for next() in CPython, but it\u2019s not a general pattern. Let's stick to a **Lock-free using `threading.Condition`** is still locking. \n\nActually, the cleanest *second* distinct approach is to **avoid shared mutable state** by having each thread compute its own partial sum and aggregate at the end.\n\n```python\nimport threading\n\ndef work():\n    local_count = 0\n    for _ in range(1000):\n        local_count += 1\n    return local_count\n\nthreads = [threading.Thread(target=work) for _ in range(4)]\nresults = [None] * 4\n\ndef wrapper(i):\n    results[i] = work()\n\nthreads = [threading.Thread(target=wrapper, args=(i,)) for i in range(4)]\nfor t in threads: t.start()\nfor t in threads: t.join()\nprint(sum(results))\n```\n\n**Recommendation**\nI would ship **Fix 1 (Explicit Locking)**. It is explicit, easy to understand, and correct regardless of Python implementation details (e.g., if the GIL is removed in future Python versions). The aggregation approach (Fix 2) is also excellent for performance but changes the code structure significantly; if the logic were more complex than a simple counter, the lock would be easier to maintain."
+  },
+  "A:h4": {
+   "answer": "```python\nimport asyncio\nimport aiohttp  # Assumed library for async HTTP; replace with your actual async client\n\nasync def fetch_all(urls: list[str]) -> list:\n    \"\"\"Fetch all URLs concurrently; collect results and log errors per-URL.\"\"\"\n    async def fetch_one(url: str) -> tuple[str, bytes | None, Exception | None]:\n        try:\n            async with aiohttp.ClientSession() as session:\n                async with session.get(url) as resp:\n                    data = await resp.read()\n                    return url, data, None\n        except Exception as e:\n            return url, None, e\n\n    tasks = [fetch_one(u) for u in urls]\n    outcomes = await asyncio.gather(*tasks)\n    results = []\n    for url, data, err in outcomes:\n        if err is None:\n            results.append((url, data))\n        else:\n            print(f\"Failed to fetch {url}: {err}\")\n    return results\n\n# Example usage:\n# async def main():\n#     results = await fetch_all([\"http://example.com\", \"http://bad.url\"])\n#     print(results)\n# asyncio.run(main())\n```\n\n**Changes:**\n\n1. **Concurrency:** The original `step` function fetched URLs strictly sequentially (`step(i+1)` only after `i` completes). The new version uses `asyncio.gather` to launch all fetches as concurrent tasks, dramatically reducing total wall-clock time for multiple URLs.\n\n2. **Error Isolation:** The original passed a single `on_error` callback per request, but the callback pattern made it fragile and opaque about which URL failed. Here, `fetch_one` catches exceptions per-URL, returning a tuple with the error. `gather` continues collecting all outcomes even if some raise, because we catch inside the coroutine. One failure never cancels others.\n\n3. **Async/await over callbacks:** The deeply nested callback chain (`lambda r: (results.append(r), step(i+1))`) is replaced with linear, readable `async/await` syntax. Each `fetch_one` coroutine uses `async with` for clean resource management (HTTP session), replacing manual callback-based lifecycle.\n\n4. **Result Structure:** Results are returned as a list of `(url, data)` tuples for successful fetches. Failures are logged and omitted from results, making the caller\u2019s job simpler\u2014no need to inspect mixed success/failure arrays. If the caller needs error details, we could return `(url, data, err)` triples instead.\n\n5. **No Implicit State:** The closure-based `results` list and index counter are eliminated. The `asyncio.gather` call naturally accumulates results, and each coroutine is self-contained.\n\n> **Note:** Replace `aiohttp` with your actual async HTTP library (e.g., `httpx.AsyncClient`). The pattern remains identical. If you need strict timeout or retry policies, add them inside `fetch_one`."
+  },
+  "A:h5": {
+   "answer": "```python\nfrom collections import defaultdict\n\ndef order_totals(db, customer_ids):\n    if not customer_ids:\n        return {}\n    placeholders = ','.join('?' * len(customer_ids))\n    sql = f'''\n        SELECT customer_id, SUM(price * qty) AS total\n        FROM orders\n        WHERE customer_id IN ({placeholders})\n        GROUP BY customer_id\n    '''\n    rows = db.execute(sql, tuple(customer_ids)).fetchall()\n    totals = {row[0]: row[1] for row in rows}\n    return {cid: totals.get(cid, 0) for cid in customer_ids}\n```\n\n**Key optimizations:**\n\n1. **Single query instead of N**: Replaces the N+1 pattern with one `IN` + `GROUP BY` query, reducing round-trips from O(N) to O(1).\n\n2. **Aggregation pushed to the database**: `SUM(price * qty)` is computed in SQL, avoiding transferring all rows to Python. This drastically reduces network payload and CPU work on the app side.\n\n3. **Index requirement**: Ensure a composite index `(customer_id, price, qty)` or at minimum `(customer_id)` exists. A covering index on `(customer_id, price, qty)` allows the entire query to be satisfied from the index alone (index-only scan), avoiding table lookups entirely.\n\n4. **Batched parameter binding**: Uses a single `IN` clause with bound parameters. For very large `customer_ids` lists (>1000), consider batching into chunks of ~500\u20131000 to stay within database limits (e.g., Oracle's 1000-element `IN` limit).\n\n5. **Memory efficiency**: The result set size is bounded by the number of distinct customers, not the number of orders, making it scalable to 100k+ orders.\n\n**Scaling considerations for 100k orders:**\n\n- If `customer_ids` itself is very large (e.g., >10k), chunk the `IN` list and merge results.\n- For extreme scale, consider a materialized view or cached aggregate table updated via triggers or async jobs.\n- Monitor query plan: `EXPLAIN` should show an index range scan, not a full table scan.\n- Connection pooling: Reuse DB connections; don't open one per call.\n\nThis approach turns an O(N) I/O-bound process into a single efficient aggregate query, scaling linearly with database hardware rather than application overhead."
+  },
+  "A:h6": {
+   "answer": "```python\n# mycli/__init__.py\nfrom .loader import PluginLoader\nfrom .registry import CommandRegistry\n\nloader = PluginLoader()\nregistry = CommandRegistry()\nloader.load_plugins()\n\n# mycli/cli.py\nimport sys\nfrom . import registry\n\ndef main():\n    if len(sys.argv) < 2:\n        print(\"Usage: mycli <command> [args...]\")\n        return\n    \n    cmd = sys.argv[1]\n    if cmd in registry:\n        try:\n            registry.execute(cmd, sys.argv[2:])\n        except Exception as e:\n            print(f\"Error executing {cmd}: {e}\")\n    else:\n        print(f\"Unknown command: {cmd}\")\n\nif __name__ == \"__main__\":\n    main()\n\n# mycli/registry.py\nclass CommandRegistry:\n    def __init__(self):\n        self._commands = {}\n\n    def register(self, name, func):\n        self._commands[name] = func\n\n    def execute(self, name, args):\n        self._commands[name](args)\n\n    def __contains__(self, name):\n        return name in self._commands\n\n# mycli/loader.py\nimport importlib\nimport pkgutil\nimport traceback\n\nclass PluginLoader:\n    def __init__(self):\n        self.plugins = []\n\n    def load_plugins(self):\n        import mycli.plugins\n        for finder, name, ispkg in pkgutil.iter_modules(mycli.plugins.__path__):\n            full_name = f\"mycli.plugins.{name}\"\n            self._load_single(full_name)\n\n    def _load_single(self, module_name):\n        try:\n            module = importlib.import_module(module_name)\n            if hasattr(module, 'register'):\n                module.register()\n            self.plugins.append(module_name)\n        except Exception:\n            traceback.print_exc()\n\n# mycli/plugins/__init__.py\n# Empty\n\n# mycli/plugins/greet.py\ndef register():\n    from .. import registry\n    def greet(args):\n        print(f\"Hello, {args[0] if args else 'world'}!\")\n    registry.register('greet', greet)\n\n# mycli/plugins/crashy.py\ndef register():\n    from .. import registry\n    def crashy(args):\n        raise RuntimeError(\"Intentional crash\")\n    registry.register('crashy', crashy)\n```\n\nThis architecture separates concerns: `registry.py` stores and executes commands, `loader.py` discovers plugins via `pkgutil`, and `cli.py` handles user input. Each plugin in `mycli/plugins/` defines a `register()` function that adds commands to the global registry. The loader imports each plugin module inside a try/except block, preventing any single plugin from crashing the host application. If a plugin raises an exception during registration or execution, it is caught and logged, while the rest of the CLI continues operating normally. The multi-file layout allows adding new plugins by simply creating a new Python file in the `plugins` directory without modifying core code."
+  },
+  "B:e1": {
+   "answer": "The capital of France is Paris."
+  },
+  "B:e2": {
+   "answer": "The chemical symbol for gold is Au."
+  },
+  "B:e3": {
+   "answer": "A leap year has 366 days. This is the same as a common year plus one additional day, which is added to February (which has 29 days in a leap year) while keeping all other months with 30 or 31 days as usual."
+  },
+  "B:e4": {
+   "answer": "The novel \"Pride and Prejudice\" was written by Jane Austen."
+  },
+  "B:e5": {
+   "answer": "The local model's draft is **correct and sufficient**. It accurately states the meaning of the HTTP 404 status code and provides clear, practical context for why it occurs.\n\nNo changes are needed to the core explanation. However, to fully satisfy the \"Expected output format\" constraint (which asks for a reference to the official HTTP specification), I will add the specific RFC reference.\n\n### Final Answer\n\nHTTP status code **404** means **\"Not Found\"**.\n\nThis code is returned by a server to indicate that it cannot find the requested resource at the specified URI (Uniform Resource Identifier). Common causes include:\n*   Typing an incorrect URL (typo).\n*   The resource has been deleted or moved without a redirect.\n*   Accessing a resource that does not exist on the server.\n\n**Official Specification:**\n*   **RFC 7231** (Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content), Section 6.5.4: *\"The origin server did not find a current representation for the target resource or is not willing to disclose that one exists.\"*\n*   Note: Older references may cite **RFC 2616**, but RFC 7231 is the current standard for HTTP/1.1 semantics."
+  },
+  "B:e6": {
+   "answer": "To convert from Celsius to Fahrenheit, you can use the formula:\n\n\\[ F = \\frac{9}{5}C + 32 \\]\n\nwhere \\( F \\) is the temperature in Fahrenheit and \\( C \\) is the temperature in Celsius.\n\nFor 100 degrees Celsius:\n\n\\[ F = \\frac{9}{5} \\times 100 + 32 \\]\n\\[ F = 180 + 32 \\]\n\\[ F = 212 \\]\n\nSo, 100 degrees Celsius is equivalent to 212 degrees Fahrenheit."
+  },
+  "B:e7": {
+   "answer": "The time complexity of binary search is O(log n)"
+  },
+  "B:e8": {
+   "answer": "The `git stash` command in Git allows you to temporarily store changes in your working directory so you can switch branches or perform other operations without committing your changes."
+  },
+  "B:e9": {
+   "answer": "The largest planet in our solar system is Jupiter."
+  },
+  "B:e10": {
+   "answer": "The acronym JSON stands for JavaScript Object Notation."
+  },
+  "B:r1": {
+   "answer": "The capital of France is Paris."
+  },
+  "B:r2": {
+   "answer": "The local model's draft is **correct and sufficient**. It accurately states the meaning of the HTTP 404 status code and provides clear, practical context for why it occurs.\n\nNo changes are needed to the core explanation. However, to fully satisfy the \"Expected output format\" constraint (which asks for a reference to the official HTTP specification), I will add the specific RFC reference.\n\n### Final Answer\n\nHTTP status code **404** means **\"Not Found\"**.\n\nThis code is returned by a server to indicate that it cannot find the requested resource at the specified URI (Uniform Resource Identifier). Common causes include:\n*   Typing an incorrect URL (typo).\n*   The resource has been deleted or moved without a redirect.\n*   Accessing a resource that does not exist on the server.\n\n**Official Specification:**\n*   **RFC 7231** (Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content), Section 6.5.4: *\"The origin server did not find a current representation for the target resource or is not willing to disclose that one exists.\"*\n*   Note: Older references may cite **RFC 2616**, but RFC 7231 is the current standard for HTTP/1.1 semantics."
+  },
+  "B:r3": {
+   "answer": "The largest planet in our solar system is Jupiter."
+  },
+  "B:p1": {
+   "answer": "The capital of France is Paris."
+  },
+  "B:p2": {
+   "answer": "The chemical symbol for gold is Au."
+  },
+  "B:p3": {
+   "answer": "A leap year has 366 days. This is the same as a common year plus one additional day, which is added to February (which has 29 days in a leap year) while keeping all other months with 30 or 31 days as usual."
+  },
+  "B:p4": {
+   "answer": "The local model's draft is **correct and sufficient**. It accurately states the meaning of the HTTP 404 status code and provides clear, practical context for why it occurs.\n\nNo changes are needed to the core explanation. However, to fully satisfy the \"Expected output format\" constraint (which asks for a reference to the official HTTP specification), I will add the specific RFC reference.\n\n### Final Answer\n\nHTTP status code **404** means **\"Not Found\"**.\n\nThis code is returned by a server to indicate that it cannot find the requested resource at the specified URI (Uniform Resource Identifier). Common causes include:\n*   Typing an incorrect URL (typo).\n*   The resource has been deleted or moved without a redirect.\n*   Accessing a resource that does not exist on the server.\n\n**Official Specification:**\n*   **RFC 7231** (Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content), Section 6.5.4: *\"The origin server did not find a current representation for the target resource or is not willing to disclose that one exists.\"*\n*   Note: Older references may cite **RFC 2616**, but RFC 7231 is the current standard for HTTP/1.1 semantics."
+  },
+  "B:p5": {
+   "answer": "The largest planet in our solar system is Jupiter."
+  },
+  "B:c1": {
+   "answer": "```python\ndef is_palindrome(s):\n    import re\n    \n    # Remove non-alphanumeric characters and convert to lowercase\n    cleaned_s = re.sub(r'[^a-zA-Z0-9]', '', s).lower()\n    \n    # Check if the cleaned string is equal to its reverse\n    return cleaned_s == cleaned_s[::-1]\n```"
+  },
+  "B:c2": {
+   "answer": "```python\ndef fizzbuzz(n):\n    result = []\n    for i in range(1, n + 1):\n        if i % 3 == 0 and i % 5 == 0:\n            result.append('FizzBuzz')\n        elif i % 3 == 0:\n            result.append('Fizz')\n        elif i % 5 == 0:\n            result.append('Buzz')\n        else:\n            result.append(str(i))\n    return result\n```"
+  },
+  "B:c3": {
+   "answer": "```python\ndef flatten(items):\n    \"\"\"Flattens a nested list structure into a single flat list.\"\"\"\n    for item in items:\n        if isinstance(item, list):\n            yield from flatten(item)\n        else:\n            yield item\n```"
+  },
+  "B:c4": {
+   "answer": "```python\nimport re\nfrom collections import defaultdict\n\ndef word_count(text):\n    # Split the text into words, convert to lowercase, and strip punctuation\n    words = re.findall(r'\\b\\w+\\b', text.lower())\n    # Use defaultdict to automatically handle missing keys\n    return defaultdict(int, {word: words.count(word) for word in set(words)})\n```"
+  },
+  "B:c5": {
+   "answer": "```python\ndef merge_intervals(intervals):\n    # Sort intervals based on the start value\n    intervals.sort(key=lambda x: x[0])\n    \n    merged = []\n    for current in intervals:\n        # If the list of merged intervals is empty or if the current\n        # interval does not overlap with the previous, simply append it.\n        if not merged or merged[-1][1] < current[0]:\n            merged.append(current)\n        else:\n            # Otherwise, there is overlap, so we merge the current and previous intervals.\n            merged[-1][1] = max(merged[-1][1], current[1])\n    \n    return merged\n```"
+  },
+  "B:c6": {
+   "answer": "```python\ndef roman_to_int(s):\n    roman_values = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}\n    total = 0\n    for i in range(len(s)):\n        if i > 0 and roman_values[s[i]] > roman_values[s[i - 1]]:\n            total += roman_values[s[i]] - 2 * roman_values[s[i - 1]]\n        else:\n            total += roman_values[s[i]]\n    return total\n```"
+  },
+  "B:h1": {
+   "answer": "The local model's proposal breaks the original behavior: it returns only area or only perimeter, not both, and it changes the function signatures (e.g., `calculate` returns a single value instead of the two distinct functions `area` and `perimeter`). The original code has **two separate public functions** (`area` and `perimeter`), each branching on `kind`. The duplication is the *dispatch logic*, not the math itself.\n\n**Design:**  \nUse a registry mapping shape names to objects that encapsulate both `area` and `perimeter` calculations. This removes the `if/elif` chains from both functions, centralizes shape logic, and makes adding new shapes a one-line registry entry plus a small class or lambda. Behavior remains identical: same function names, signatures, and return values.\n\n**Refactored code:**\n\n```python\nimport math\n\nclass Shape:\n    def area(self, a, b=None):\n        raise NotImplementedError\n    def perimeter(self, a, b=None, c=None):\n        raise NotImplementedError\n\nclass Circle(Shape):\n    def area(self, a, b=None):\n        return math.pi * a * a\n    def perimeter(self, a, b=None, c=None):\n        return 2 * math.pi * a\n\nclass Rect(Shape):\n    def area(self, a, b=None):\n        return a * b\n    def perimeter(self, a, b=None, c=None):\n        return 2 * (a + b)\n\nclass Tri(Shape):\n    def area(self, a, b=None):\n        return 0.5 * a * b\n    def perimeter(self, a, b=None, c=None):\n        return a + b + c\n\nSHAPES = {'circle': Circle(), 'rect': Rect(), 'tri': Tri()}\n\ndef area(kind, a, b=None):\n    return SHAPES[kind].area(a, b)\n\ndef perimeter(kind, a, b=None, c=None):\n    return SHAPES[kind].perimeter(a, b, c)\n```\n\nThis keeps the original API identical. Adding a new shape requires only defining a new `Shape` subclass and registering it in `SHAPES`. The dispatch logic is eliminated from both `area` and `perimeter`, removing duplication while preserving readability and testability."
+  },
+  "B:h2": {
+   "answer": "I have reviewed the local model's draft. It suffers from two critical flaws:\n1.  **Logic Inversion:** It returns `False` (meaning \"not exceeded\") when the limit *is* hit, and `True` when it is safe. This would break the API.\n2.  **Race Condition:** It uses separate `zcount` and `zincrby` commands. In a concurrent environment (20 servers), multiple requests can pass the count check before any are recorded, allowing users to burst far above 100 requests.\n\nBelow is the corrected architecture and a robust implementation using a **Sliding Window Log** with **Redis Lua scripting** to ensure atomicity.\n\n### Architecture\n\n1.  **Algorithm:** **Sliding Window Log**. We store individual request timestamps in a Redis Sorted Set (ZSet) per user. This provides exact precision without the drift of fixed windows or the complexity of token buckets.\n2.  **Data Store:** **Redis**. It is in-memory, supports atomic Lua scripts, and is shared across all 20 API servers.\n3.  **Concurrency & Race Conditions:** We use a **Lua script** executed via `EVAL`. Redis executes Lua scripts atomically. This eliminates the TOCTOU (Time-of-check to time-of-use) race condition where two requests simultaneously check the count (see 99) and both increment it.\n4.  **Failure Modes:** If Redis is unreachable, the system fails open (allowing requests) to prioritize availability over strict limiting, or fails closed depending on business requirements. Here, we assume fail-open for resilience.\n\n### Implementation\n\n```python\nimport redis\nimport time\n\n# Initialize Redis client\nr = redis.Redis(host='localhost', port=6379, db=0)\n\n# Lua script ensures atomicity: Check count -> Remove old -> Add new\nLUA_SCRIPT = \"\"\"\nlocal key = KEYS[1]\nlocal now = tonumber(ARGV[1])\nlocal limit = tonumber(ARGV[2])\nlocal window = tonumber(ARGV[3])\nlocal timestamp = ARGV[4]\n\n-- Remove entries older than the sliding window\nredis.call('zremrangebyscore', key, '-inf', now - window)\n\n-- Count current requests in the window\nlocal current_count = redis.call('zcard', key)\n\n-- Check if limit is exceeded\nif current_count >= limit then\n    return 0\nend\n\n-- Add the current request\nredis.call('zadd', key, now, timestamp)\n\n-- Set expiration to clean up inactive users\nredis.call('expire', key, window + 1)\n\nreturn 1\n\"\"\"\n\n# Register the script for efficient reuse\ncheck_script = r.register_script(LUA_SCRIPT)\n\ndef check_rate_limit(user_id, timestamp=None):\n    \"\"\"\n    Check if a user has exceeded the rate limit of 100 requests per minute.\n\n    :param user_id: The unique identifier for the user.\n    :param timestamp: The current timestamp in seconds (float).\n    :return: True if the request is allowed, False if rate limited.\n    \"\"\"\n    if timestamp is None:\n        timestamp = time.time()\n    \n    now = int(timestamp * 1000) # Milliseconds for higher precision\n    window_ms = 60000           # 60 seconds in ms\n    limit = 100\n    key = f\"rate_limit:{user_id}\"\n    \n    # Use a unique string for the ZSet member to handle duplicate millisecond timestamps\n    member = f\"{now}:{id(user_id)}\" \n    \n    try:\n        # Execute atomic Lua script\n        result = check_script(keys=[key], args=[now, limit, window_ms, member])\n        return bool(result)\n    except redis.ConnectionError:\n        # Fail open strategy: Allow request if Redis is down\n        print(f\"Warning: Redis connection failed for {user_id}. Failing open.\")\n        return True\n\n# Example usage\nif check_rate_limit(\"user_123\"):\n    print(\"Request Allowed\")\nelse:\n    print(\"Request Denied: Rate Limit Exceeded\")\n```\n\n### Key Improvements\n1.  **Atomicity:** The Lua script guarantees that checking the count and adding the new timestamp happens in a single atomic operation.\n2.  **Correct Return Values:** Returns `True` if allowed, `False` if denied, matching standard boolean conventions.\n3.  **Cleanup:** Uses `zremrangebyscore` to purge old entries and `expire` to remove keys for inactive users, preventing memory leaks.\n4.  **Precision:** Uses milliseconds to handle high-frequency bursts better than integer seconds."
+  },
+  "B:h3": {
+   "answer": "**Root Cause**\nThe bug is a classic race condition. `count = tmp + 1` is not atomic; it compiles to multiple bytecode instructions (load, add, store). Since four threads read `count` concurrently before any of them writes back, increments are lost.\n\n**Fix 1: `threading.Lock`**\nThis serializes the critical section. It is the standard, explicit way to protect shared mutable state.\n```python\nimport threading\n\ncount = 0\nlock = threading.Lock()\n\ndef work():\n    global count\n    for _ in range(1000):\n        with lock:\n            count += 1\n\nthreads = [threading.Thread(target=work) for _ in range(4)]\nfor t in threads: t.start()\nfor t in threads: t.join()\nprint(count)\n```\n\n**Fix 2: Atomic Queue-based Counter**\nInstead of protecting a shared variable, pass work through a thread-safe queue. Threads consume items and atomically increment a local counter that is only shared via `join` (or use `queue.Queue` for the result). However, for a simple counter, a more distinct \"fix\" is using the GIL-safe `itertools` or simply accepting that `+=` on ints is safe *only* under the GIL for single operations, but here we have a read-modify-write cycle. A better second fix is to **remove shared state** by having each thread return its local count, which is inherently race-free.\n\n```python\nimport threading\n\ndef work():\n    local = 0\n    for _ in range(1000):\n        local += 1\n    return local\n\nthreads = [threading.Thread(target=work) for _ in range(4)]\n# Note: Thread doesn't return values. We must use a list or queue to capture.\nresults = [0]*4\ndef work_with_capture(index):\n    local = 0\n    for _ in range(1000):\n        local += 1\n    results[index] = local\n\nthreads = [threading.Thread(target=work_with_capture, args=(i,)) for i in range(4)]\nfor t in threads: t.start()\nfor t in threads: t.join()\nprint(sum(results))\n```\n\n**Recommendation**\nShip **Fix 1 (Lock)**. It is the most idiomatic, readable, and generalizable solution for protecting shared state in Python. While Fix 2 (local variables) is faster due to no lock contention, it requires changing the program structure to capture results, which is less intuitive for a simple shared counter. The lock ensures correctness with minimal cognitive overhead and scales to more complex shared state scenarios."
+  },
+  "B:h4": {
+   "answer": "I'll implement the async refactor directly, then verify it runs.\n\n**Changes:**\n- `http_get` is now an `await`-able coroutine (assume it returns the fetched data or raises).\n- Each URL is fetched as an independent task via `asyncio.gather(..., return_exceptions=True)` \u2014 a failure produces an exception object instead of cancelling siblings.\n- Results and errors are partitioned; `on_error` is called for each failure (non-fatal), and `on_done` always runs with the successful results list.\n\n```python\nimport asyncio\n\nasync def _safe_fetch(url):\n    \"\"\"Fetch a single URL; re-raise any error so gather(return_exceptions=True) captures it.\"\"\"\n    return await http_get(url)\n\nasync def fetch_all(urls, on_done, on_error):\n    tasks = [_safe_fetch(url) for url in urls]\n    # return_exceptions=True => one failure never cancels the others;\n    # each task's exception is returned as an element instead of raised.\n    outcomes = await asyncio.gather(*tasks, return_exceptions=True)\n\n    results = []\n    for url, outcome in zip(urls, outcomes):\n        if isinstance(outcome, Exception):\n            on_error(url, outcome)      # report, but keep going\n        else:\n            results.append(outcome)\n\n    on_done(results)                    # always called after all fetches settle\n    return results\n```\n\n**Usage / assumption**\n`http_get` must be an async coroutine returning the data (or raising). If your existing `http_get` is still callback-based, wrap it once:\n\n```python\nimport asyncio\n\nasync def http_get(url, _on_done=None, _on_error=None):\n    loop = asyncio.get_running_loop()\n    fut = loop.create_future()\n    def done(r): fut.set_result(r)\n    def err(e): fut.set_exception(e)\n    http_get_cb(url, done, err)          # legacy callback version\n    return await fut\n```\n\nThen `fetch_all(urls, on_done, on_error)` works unchanged, called as `await fetch_all(...)`.\n\n**Why this meets the constraints**\n- `asyncio` + `async/await` throughout.\n- `return_exceptions=True` guarantees a failed fetch does **not** cancel the others.\n- Errors are handled per-URL via `on_error`; successes collected into a single `results` list.\n- `on_done(results)` is invoked exactly once, after every fetch has settled.\n\nLet me verify it runs end-to-end."
+  },
+  "B:h5": {
+   "answer": "```python\ndef order_totals(db, customer_ids):\n    \"\"\"\n    Optimized version that fetches all order totals in a single query.\n    Returns a dict mapping customer_id -> total order amount.\n    \"\"\"\n    if not customer_ids:\n        return {}\n\n    # Build a single query with IN clause for all customer IDs\n    placeholders = ','.join(['?'] * len(customer_ids))\n    query = f\"\"\"\n        SELECT customer_id, SUM(price * qty) as total\n        FROM orders\n        WHERE customer_id IN ({placeholders})\n        GROUP BY customer_id\n    \"\"\"\n    \n    cursor = db.execute(query, customer_ids)\n    rows = cursor.fetchall()\n    \n    # Initialize all customer IDs with 0, then fill in totals\n    out = {cid: 0 for cid in customer_ids}\n    for cid, total in rows:\n        out[cid] = total if total is not None else 0\n    \n    return out\n```\n\n**Key optimizations:**\n\n1. **Single query instead of N queries**: The original code ran one query per customer ID (N+1 problem). The optimized version uses a single `IN` clause with `GROUP BY`, reducing database round-trips from O(N) to O(1).\n\n2. **Database-side aggregation**: Using `SUM(price * qty)` and `GROUP BY customer_id` pushes the computation to the database, which is far more efficient than fetching all rows and computing in Python.\n\n3. **Missing customers handled**: Customers with no orders get a total of 0, matching the original behavior.\n\n**Recommended indexes** (create once at schema setup):\n\n```sql\n-- Composite index to cover the query without touching the heap\nCREATE INDEX idx_orders_customer_id ON orders (customer_id, price, qty);\n```\n\nThis covering index means the query can be satisfied entirely from the index, avoiding table lookups. For 100k orders across many customers, this index enables fast seek operations and eliminates full table scans.\n\n**Additional considerations for scale:**\n\n- If `customer_ids` is extremely large (e.g., >10,000), some databases have limits on `IN` clause size. In that case, batch the IDs into chunks of ~5,000 and run multiple queries, or use a temporary table/join approach.\n- Ensure the database connection pool is properly sized to avoid connection exhaustion under load.\n- Monitor query plan with `EXPLAIN` to confirm the index is being used."
+  },
+  "B:h6": {
+   "answer": "I will design a minimal, fault-tolerant plugin architecture. The previous draft had significant issues: it hardcoded imports (preventing discovery), placed `try/except` inside the plugin (which doesn't prevent import crashes), and used a fragile `argparse` structure.\n\nHere is the corrected implementation.\n\n### 1. Directory Structure\n\n```text\nmytool/\n\u251c\u2500\u2500 __init__.py\n\u251c\u2500\u2500 cli.py          # Entry point\n\u251c\u2500\u2500 loader.py       # Plugin discovery & loading logic\n\u2514\u2500\u2500 plugins/\n    \u251c\u2500\u2500 __init__.py # Empty\n    \u251c\u2500\u2500 hello.py    # Example plugin 1\n    \u2514\u2500\u2500 greet.py    # Example plugin 2\n```\n\n### 2. Core Loader Code (`loader.py`)\n\nThis module uses `importlib` to dynamically discover Python files in the `plugins` directory. It wraps import and registration in `try/except` blocks to ensure a bad plugin cannot crash the host.\n\n```python\nimport importlib.util\nimport inspect\nimport os\nimport logging\nfrom typing import Dict, Any\n\nlogger = logging.getLogger(__name__)\n\nclass PluginRegistry:\n    def __init__(self):\n        self.commands: Dict[str, Any] = {}\n\n    def register(self, name: str, func):\n        \"\"\"Registers a command function.\"\"\"\n        if name in self.commands:\n            logger.warning(f\"Command '{name}' already registered. Overwriting.\")\n        self.commands[name] = func\n\n    def execute(self, name: str, *args, **kwargs):\n        \"\"\"Executes a registered command with error isolation.\"\"\"\n        if name not in self.commands:\n            raise KeyError(f\"Unknown command: {name}\")\n        try:\n            return self.commands[name](*args, **kwargs)\n        except Exception as e:\n            logger.error(f\"Plugin command '{name}' crashed: {e}\")\n            raise # Or return None depending on CLI requirements\n\ndef load_plugins(package_path: str, registry: PluginRegistry):\n    \"\"\"\n    Discovers and loads plugins from the specified package directory.\n    \"\"\"\n    plugins_dir = os.path.join(package_path, \"plugins\")\n    \n    if not os.path.exists(plugins_dir):\n        return\n\n    # Iterate over .py files in the plugins directory\n    for filename in os.listdir(plugins_dir):\n        if filename.startswith(\"_\") or not filename.endswith(\".py\"):\n            continue\n            \n        module_name = f\"mytool.plugins.{filename[:-3]}\"\n        file_path = os.path.join(plugins_dir, filename)\n\n        try:\n            # 1. Dynamic Import\n            spec = importlib.util.spec_from_file_location(module_name, file_path)\n            module = importlib.util.module_from_spec(spec)\n            spec.loader.exec_module(module)\n\n            # 2. Find registration functions (e.g., functions starting with 'register_')\n            # Convention: Plugin must define a function 'register(registry)' \n            # OR we auto-detect functions annotated as commands.\n            # For minimalism, we look for a 'register' function in the module.\n            if hasattr(module, 'register'):\n                module.register(registry)\n            else:\n                logger.debug(f\"Plugin {module_name} has no 'register' function.\")\n\n        except Exception as e:\n            # CRITICAL: Isolate plugin errors so host doesn't crash\n            logger.error(f\"Failed to load plugin {filename}: {e}\")\n```\n\n### 3. CLI Entry Point (`cli.py`)\n\n```python\nimport sys\nfrom mytool.loader import PluginRegistry, load_plugins\nfrom mytool import __path__ as package_path\n\ndef main():\n    registry = PluginRegistry()\n    \n    # Load all plugins\n    load_plugins(package_path[0], registry)\n    \n    if len(sys.argv) < 2:\n        print(\"Usage: python -m mytool <command>\")\n        print(f\"Available commands: {list(registry.commands.keys())}\")\n        return\n\n    command_name = sys.argv[1]\n    args = sys.argv[2:]\n\n    if command_name not in registry.commands:\n        print(f\"Error: Command '{command_name}' not found.\")\n        sys.exit(1)\n\n    # Execute\n    registry.execute(command_name, *args)\n\nif __name__ == \"__main__\":\n    main()\n```\n\n### 4. Example Plugin (`plugins/hello.py`)\n\nPlugins must expose a `register(registry)` function.\n\n```python\ndef register(registry):\n    def hello_command(name=\"World\"):\n        print(f\"Hello, {name}!\")\n    \n    registry.register(\"hello\", hello_command)\n```\n\n### 5. How the Host Stays Safe\n\n1.  **Import Isolation**: `importlib.util.spec_from_file_location` and `exec_module` are wrapped in a `try/except`. If a plugin has syntax errors or missing dependencies, the loader logs the error and skips the file. The host continues running.\n2.  **Registration Safety**: The `register` function call is also within the try block. If a plugin attempts to register an invalid command or throws an exception during registration, the host remains stable.\n3.  **Execution Safety**: The `PluginRegistry.execute` method wraps the command call. If a plugin command fails at runtime, the exception is caught and logged. Depending on your CLI requirements, you can choose to exit gracefully or report the error without crashing the Python process."
+  }
+ },
+ "scores": {
+  "e1": {
+   "A": 1,
+   "B": 1
+  },
+  "e2": {
+   "A": 1,
+   "B": 1
+  },
+  "e3": {
+   "A": 1,
+   "B": 1
+  },
+  "e4": {
+   "A": 1,
+   "B": 1
+  },
+  "e5": {
+   "A": 1,
+   "B": 1
+  },
+  "e6": {
+   "A": 1,
+   "B": 1
+  },
+  "e7": {
+   "A": 1,
+   "B": 1
+  },
+  "e8": {
+   "A": 1,
+   "B": 1
+  },
+  "e9": {
+   "A": 1,
+   "B": 1
+  },
+  "e10": {
+   "A": 1,
+   "B": 1
+  },
+  "r1": {
+   "A": 1,
+   "B": 1
+  },
+  "r2": {
+   "A": 1,
+   "B": 1
+  },
+  "r3": {
+   "A": 1,
+   "B": 1
+  },
+  "p1": {
+   "A": 1,
+   "B": 1
+  },
+  "p2": {
+   "A": 1,
+   "B": 1
+  },
+  "p3": {
+   "A": 1,
+   "B": 1
+  },
+  "p4": {
+   "A": 1,
+   "B": 1
+  },
+  "p5": {
+   "A": 1,
+   "B": 1
+  },
+  "c1": {
+   "A": 1,
+   "B": 1
+  },
+  "c2": {
+   "A": 1,
+   "B": 1
+  },
+  "c3": {
+   "A": 1,
+   "B": 0
+  },
+  "c4": {
+   "A": 1,
+   "B": 1
+  },
+  "c5": {
+   "A": 1,
+   "B": 1
+  },
+  "c6": {
+   "A": 1,
+   "B": 1
+  },
+  "h1": {
+   "A": 4,
+   "B": 5
+  },
+  "h2": {
+   "B": 4,
+   "A": 5
+  },
+  "h3": {
+   "A": 3,
+   "B": 5
+  },
+  "h4": {
+   "B": 5,
+   "A": 4
+  },
+  "h5": {
+   "B": 5,
+   "A": 5
+  },
+  "h6": {
+   "B": 4,
+   "A": 4
+  }
+ }
+}
