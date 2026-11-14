@@ -15,7 +15,7 @@ from .cache.exact_cache import ExactCache
 from .cache.semantic_cache import SemanticCache
 from .inference.cloud_verifier import CloudVerifier
 from .inference.handoff import build_brief, cloud_prompt
-from .inference.local_draft import DraftBackend, DraftResult, should_escalate
+from .inference.local_draft import DraftBackend, DraftResult, chatml, should_escalate
 from .inference.telemetry import Telemetry, TelemetryTracker
 
 HEAVY_HINTS = re.compile(
@@ -108,7 +108,8 @@ class SpeculativeCascadeRouter:
 
     def _verify(self, prompt: str, draft: DraftResult, t0: float) -> GenerateResult:
         assert self.cloud and self.tokenizer
-        prompt_ids = self.tokenizer.encode(prompt)
+        # The draft saw the ChatML-wrapped prompt, so the target must score the same ids.
+        prompt_ids = self.tokenizer.encode(chatml(prompt) if getattr(self.local, "chatml", False) else prompt)
         draft_ids = [i for i in draft.token_ids if i is not None]
         res = self.cloud.verify(prompt_ids, draft_ids, draft.logprobs)
         out_ids = res.accepted_ids + ([res.correction_id] if res.correction_id is not None else [])

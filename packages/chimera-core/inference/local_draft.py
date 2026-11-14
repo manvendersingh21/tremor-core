@@ -52,6 +52,26 @@ def chatml(prompt: str, system: str | None = None) -> str:
     return f"{sys_part}<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
 
 
+class LlamaCppTokenizer:
+    """Router `Tokenizer` backed by a llama-server's /tokenize and /detokenize (the draft's own ids)."""
+
+    def __init__(self, base_url: str = "http://127.0.0.1:8080", timeout: float = 30) -> None:
+        self.base_url, self.timeout = base_url.rstrip("/"), timeout
+
+    def _post(self, path: str, body: dict) -> dict:
+        req = urllib.request.Request(f"{self.base_url}{path}", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310 (local URL)
+            return json.load(resp)
+
+    def encode(self, text: str) -> list[int]:
+        return self._post("/tokenize", {"content": text, "add_special": False,
+                                        "parse_special": True})["tokens"]
+
+    def decode(self, ids: list[int]) -> str:
+        return self._post("/detokenize", {"tokens": ids})["content"]
+
+
 class LlamaCppBackend:
     """Talks to a llama.cpp server (`llama-server`) using its native /completion endpoint.
 
