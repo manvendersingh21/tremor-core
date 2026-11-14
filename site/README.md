@@ -26,7 +26,12 @@ Then run `python3 site/build.py`. It writes the no-JS fallback (doors and one pl
 
 - `index.html`: page, Dracula SVG, generated fallback.
 - `styles.css`, `tour.js`, `rooms.js`, `build.py`.
-- `docs/landing.png` (hall), `docs/room.png` (a room).
+- `life.js`: Pause motion button (saved in localStorage `chimera-motion`), pause when the tab is hidden, mouse parallax on desktop.
+- `docs/landing.png` (hall), `docs/room.png` (a room), `docs/animated.gif` (4.8 s of the gate), `docs/animated_still.png`.
+
+## Motion
+
+Bats (10, or 6 on phones) slide across on a linear x layer and swoop on a y layer, with a flapping SVG. Three bats circle the moon now and then. Clouds are three seamless gradient strips, 70 to 170 s per loop. The moon glow and halo breathe at 7 and 9 s. Candle flames, castle windows and embers use opacity and scale. Only `transform` and `opacity` animate. Bats and fog sit behind the speech bubble and posters.
 
 ## Deploy
 
@@ -37,4 +42,6 @@ GitHub Pages: `.github/workflows/pages.yml` publishes `site/` on pushes to `dev`
 ## Limits
 
 - Screenshots came from headless Chromium driven over the DevTools protocol. Only Chromium was checked.
-- No JS: all rooms show as plain sections. Reduced motion: no flying, no typing, no door swing.
+- No JS: all rooms show as plain sections. Reduced motion: no flying, no typing, no door swing, no bats; the moon glow stays as a still.
+- Bats are not cut out behind the castle: the art has no depth layers, so far bats are small and dim instead.
+- Candle and window glows are placed by eye on `gate.webp`; they drift a little from the art during the slow zoom.

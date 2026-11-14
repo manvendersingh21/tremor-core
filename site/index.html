@@ -14,6 +14,7 @@
 </head>
 <body data-view="entrance">
 <a class="skip-link" href="#stage">Skip to content</a>
+<button type="button" class="motion-toggle" id="motion-toggle">Pause motion</button>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
@@ -25,13 +26,53 @@
 
 <div class="sky" aria-hidden="true">
   <div class="sky-art">
-    <img class="sky-img" src="art/gate-1024.webp" srcset="art/gate-1024.webp 1024w, art/gate.webp 2048w" sizes="100vw" width="2048" height="1152" alt="" fetchpriority="high">
-    <div class="moon"></div>
-    <div class="flame" style="left:11%;top:68%"></div>
-    <div class="flame f2" style="left:92.5%;top:69%"></div>
-    <svg class="fbat fb1" viewBox="0 0 64 32"><use href="#bat"/></svg>
-    <svg class="fbat fb2" viewBox="0 0 64 32"><use href="#bat"/></svg>
-    <svg class="fbat fb3" viewBox="0 0 64 32"><use href="#bat"/></svg>
+    <div class="sky-zoom">
+      <img class="sky-img" src="art/gate-1024.webp" srcset="art/gate-1024.webp 1024w, art/gate.webp 2048w" sizes="100vw" width="2048" height="1152" alt="" fetchpriority="high">
+      <div class="halo"></div>
+      <div class="moon"></div>
+      <div class="win" style="left:41%;top:37%"></div>
+      <div class="win" style="left:46%;top:35%"></div>
+      <div class="win" style="left:49%;top:41%"></div>
+      <div class="win" style="left:35%;top:43%"></div>
+      <div class="win" style="left:30%;top:31%"></div>
+      <div class="win" style="left:51%;top:46%"></div>
+      <div class="win" style="left:44%;top:45%"></div>
+      <div class="win" style="left:56%;top:47%"></div>
+      <div class="win" style="left:39%;top:46%"></div>
+      <div class="win" style="left:29%;top:41%"></div>
+      <div class="win" style="left:54%;top:40%"></div>
+      <div class="win" style="left:37%;top:39%"></div>
+      <div class="flame" style="left:10.7%;top:67.4%"></div>
+      <div class="flame" style="left:12.4%;top:68.2%"></div>
+      <div class="flame" style="left:33%;top:76.6%"></div>
+      <div class="flame" style="left:35.2%;top:83%"></div>
+      <div class="flame" style="left:72.8%;top:76.4%"></div>
+      <div class="flame" style="left:78.3%;top:75.2%"></div>
+      <div class="flame" style="left:90%;top:73.6%"></div>
+      <div class="flame" style="left:93.5%;top:70.3%"></div>
+      <div class="ember" style="left:10.7%;top:66%;--d:12s;--s:-1s;--dx:14px"></div>
+      <div class="ember" style="left:33%;top:76%;--d:15s;--s:-6s;--dx:-10px"></div>
+      <div class="ember x" style="left:73%;top:75%;--d:11s;--s:-3s;--dx:10px"></div>
+      <div class="ember" style="left:90%;top:72%;--d:14s;--s:-9s;--dx:-12px"></div>
+      <div class="ember x" style="left:78%;top:74%;--d:17s;--s:-12s;--dx:8px"></div>
+      <div class="wisp"></div>
+      <div class="orbit" style="--o:0s;--r:11vw;--p:7s"><div class="orbit-spin" style="--p:7s"><div class="orbit-arm" style="--p:7s"><svg class="bf" style="--c:#07020a;--f:.07s" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div></div>
+      <div class="orbit" style="--o:-17s;--r:13vw;--p:9s"><div class="orbit-spin" style="--p:9s"><div class="orbit-arm" style="--p:9s"><svg class="bf" style="--c:#07020a;--f:.07s" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div></div>
+      <div class="orbit" style="--o:-34s;--r:10vw;--p:6.5s"><div class="orbit-spin" style="--p:6.5s"><div class="orbit-arm" style="--p:6.5s"><svg class="bf" style="--c:#07020a;--f:.07s" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div></div>
+    </div>
+    <div class="clouds"><div class="cl cl-1"></div><div class="cl cl-2"></div><div class="cl cl-3"></div></div>
+  </div>
+  <div class="bats">
+    <div class="bx" style="--t:12vh;--d:95s;--s:-10s"><div class="by" style="--a:5vh;--w:6.3s;--s2:-2.1s"><svg class="bf" style="--z:14px;--f:0.09s;--c:#1b0b24;--o:0.55" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx rev" style="--t:22vh;--d:85s;--s:-52s"><div class="by" style="--a:6vh;--w:7.1s;--s2:-2.4s"><svg class="bf" style="--z:16px;--f:0.1s;--c:#1b0b24;--o:0.55" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx x" style="--t:30vh;--d:110s;--s:-70s"><div class="by" style="--a:5vh;--w:5.7s;--s2:-1.9s"><svg class="bf" style="--z:13px;--f:0.085s;--c:#1b0b24;--o:0.5" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx rev x" style="--t:8vh;--d:100s;--s:-33s"><div class="by" style="--a:4vh;--w:8.2s;--s2:-2.7s"><svg class="bf" style="--z:15px;--f:0.095s;--c:#1b0b24;--o:0.5" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx" style="--t:18vh;--d:58s;--s:-21s"><div class="by" style="--a:9vh;--w:4.6s;--s2:-1.5s"><svg class="bf" style="--z:26px;--f:0.08s;--c:#0e0510;--o:0.8" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx rev" style="--t:34vh;--d:64s;--s:-44s"><div class="by" style="--a:8vh;--w:5.3s;--s2:-1.8s"><svg class="bf" style="--z:24px;--f:0.075s;--c:#0e0510;--o:0.8" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx x" style="--t:10vh;--d:70s;--s:-60s"><div class="by" style="--a:7vh;--w:6.1s;--s2:-2.0s"><svg class="bf" style="--z:28px;--f:0.085s;--c:#0e0510;--o:0.8" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx" style="--t:26vh;--d:34s;--s:-9s"><div class="by" style="--a:12vh;--w:3.9s;--s2:-1.3s"><svg class="bf" style="--z:46px;--f:0.07s;--c:#07020a;--o:0.95" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx rev x" style="--t:40vh;--d:40s;--s:-27s"><div class="by" style="--a:14vh;--w:4.4s;--s2:-1.5s"><svg class="bf" style="--z:54px;--f:0.075s;--c:#07020a;--o:0.95" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
+    <div class="bx x" style="--t:16vh;--d:30s;--s:-18s"><div class="by" style="--a:10vh;--w:3.5s;--s2:-1.2s"><svg class="bf" style="--z:40px;--f:0.07s;--c:#07020a;--o:0.95" viewBox="0 0 64 32"><use href="#bat"/></svg></div></div>
   </div>
   <div class="mist mist-a"></div>
   <div class="mist mist-b"></div>
@@ -93,5 +134,6 @@
 
 <script src="rooms.js"></script>
 <script src="tour.js"></script>
+<script src="life.js"></script>
 </body>
 </html>
