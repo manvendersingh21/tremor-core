@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en" data-theme="halloween">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CHIMERA dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('chimera-theme');if(t==='standard'||t==='halloween')document.documentElement.dataset.theme=t;else document.documentElement.dataset.theme='halloween'}catch(_){}</script>
+<style>
+:root,[data-theme=halloween]{
+  --bg:#0d1512;--bg2:#141f1a;--card:rgba(239,230,214,.045);--card-glow:rgba(232,149,90,.07);
+  --line:rgba(239,230,214,.14);--fg:#efe6d6;--mut:#9aa59c;--accent:#e8955a;--accent-fg:#14100b;
+  --cache:#8fd3a8;--local:#e8955a;--gpu:#d9c26a;--cloud:#c3a4e6;--bad:#ff8f86;--good:#8fd3a8;
+  --serif:"Cormorant Garamond",Georgia,"Times New Roman",serif;
+  --art:1;--glow1:rgba(232,149,90,.13);--glow2:rgba(70,120,96,.18);--hl:rgba(232,149,90,.16)}
+[data-theme=standard]{
+  --bg:#0d1117;--bg2:#0d1117;--card:#161b22;--card-glow:transparent;
+  --line:#30363d;--fg:#e6edf3;--mut:#8b949e;--accent:#58a6ff;--accent-fg:#06121f;
+  --cache:#3fb950;--local:#58a6ff;--gpu:#d29922;--cloud:#f778ba;--bad:#ff7b72;--good:#3fb950;
+  --serif:Inter,system-ui,sans-serif;
+  --art:0;--glow1:transparent;--glow2:transparent;--hl:rgba(31,111,235,.27)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:var(--fg);font:15px/1.55 Inter,system-ui,sans-serif;
+  background:radial-gradient(900px 500px at 85% -5%,var(--glow1),transparent 70%),radial-gradient(800px 600px at 0% 30%,var(--glow2),transparent 70%),linear-gradient(180deg,var(--bg2),var(--bg) 60%);
+  background-attachment:fixed;overflow-x:hidden}
+.scene{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:var(--art);transition:opacity .4s}
+.scene svg{position:absolute}
+.moon{top:70px;right:6%;width:clamp(90px,14vw,170px)}
+.manor{bottom:0;left:0;width:100%;height:min(34vh,300px);opacity:.55}
+.fog{left:-20%;width:140%;height:240px;background:radial-gradient(closest-side,rgba(239,230,214,.07),transparent);filter:blur(24px);animation:drift 60s linear infinite alternate}
+.fog.f1{bottom:6%}.fog.f2{bottom:18%;animation-duration:85s;animation-direction:alternate-reverse;opacity:.7}
+@keyframes drift{from{transform:translateX(-6%)}to{transform:translateX(8%)}}
+/* bats: each flies across the sky (fly), bobs (bob) and beats its wings (wing). Always on. */
+.batfly{position:absolute;left:0;top:var(--y);animation:fly var(--d) linear infinite;animation-delay:var(--s)}
+.batbob{animation:bob var(--b) ease-in-out infinite alternate}
+.batfly svg{display:block;width:var(--w);height:auto;color:#050b08;opacity:var(--o)}
+.batfly.rev{animation-name:flyr}
+.batfly.rev svg{transform:scaleX(-1)}
+.wing{transform-box:fill-box;animation:wing var(--f) ease-in-out infinite alternate}
+.wing.l{transform-origin:100% 40%}.wing.r{transform-origin:0% 40%}
+@keyframes wing{from{transform:scaleY(1) rotate(0)}to{transform:scaleY(.25) rotate(var(--rot,0deg))}}
+@keyframes fly{from{transform:translateX(-8vw)}to{transform:translateX(108vw)}}
+@keyframes flyr{from{transform:translateX(108vw)}to{transform:translateX(-8vw)}}
+@keyframes bob{from{transform:translateY(0)}to{transform:translateY(var(--a))}}
+.moon{animation:moonglow 6s ease-in-out infinite alternate}
+@keyframes moonglow{from{filter:drop-shadow(0 0 18px rgba(246,227,196,.25))}to{filter:drop-shadow(0 0 42px rgba(246,227,196,.55))}}
+#village{position:absolute;left:0;bottom:0;width:100%;height:min(34vh,300px);opacity:.8}
+.pend{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--accent-fg);background:var(--accent);border-radius:99px;padding:1px 8px;vertical-align:1px}
+.cards2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px;align-items:stretch}
+.cards2 .card{margin:0}
+.trace{border-top:1px solid var(--line);padding:8px 0;font-size:13px}.trace:first-child{border-top:0}
+.trace b{color:var(--fg)}.steps{color:var(--mut);margin:3px 0}.steps span{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:0 6px;margin:2px 4px 2px 0}
+.tag{color:var(--accent)}
+.spark{width:100%;height:110px;display:block}
+.chatgrid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:12px;align-items:start}
+@media (max-width:900px){.chatgrid{grid-template-columns:1fr}}
+.chatcard{min-height:62vh;display:flex;flex-direction:column}
+#chatmount{flex:1;display:flex;flex-direction:column}
+#chatmount .c-wrap{flex:1}
+/* chat.js in this theme */
+#chat .c-trace,#chat .t-lane,#chat .c-chip,#chat .c-form input{background:var(--card);border-color:var(--line);color:var(--fg)}
+#chat .c-trace h4,#chat .t-chip.warn,#chat .c-tag{color:var(--accent)}
+#chat .c-msg.bat{background:var(--card);border-color:var(--line)}
+#chat .c-msg.me{background:var(--accent);color:var(--accent-fg)}
+#chat .t-k,#chat .t-lane h5{color:var(--mut)}
+#chat .t-bar{background:var(--line)}#chat .t-bar i{background:var(--accent)}#chat .t-bar s{background:var(--fg)}
+#chat .t-lane.hit{border-color:var(--good);background:rgba(143,211,168,.08)}
+#chat .t-chip{background:transparent;border-color:var(--line)}
+#chat .w-btn{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
+.embed nav{display:none}
+.embed .hero{padding-top:20px}
+.split{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--line);margin:10px 0 6px}
+@keyframes flicker{0%,100%{opacity:1}45%{opacity:.78}55%{opacity:.95}70%{opacity:.82}}
+.wrap-all{position:relative;z-index:1;max-width:1120px;margin:auto;padding:0 16px 48px}
+header.top{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;padding:14px 0;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.22em;font-size:14px}
+.brand svg{color:var(--accent)}
+nav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+nav button,.tbtn{background:transparent;color:var(--mut);border:1px solid transparent;padding:8px 14px;border-radius:99px;font:500 13px Inter,system-ui,sans-serif;cursor:pointer;min-height:40px}
+nav button:hover,.tbtn:hover{color:var(--fg)}
+nav button[aria-selected=true]{color:var(--fg);border-color:var(--line);background:var(--card)}
+.tbtn{border-color:var(--line)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.badge{display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:5px 12px;border:1px solid var(--line);border-radius:99px;color:var(--fg);background:var(--card)}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:flicker 3.2s infinite}
+.badge.demo{color:var(--gpu)}
+.eyebrow{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);font-weight:500}
+.eyebrow.acc{color:var(--accent)}
+h1,h2.serif,.big,.hero-num{font-family:var(--serif);font-weight:500}
+.hero{padding:44px 0 26px}
+.hero h1{font-size:clamp(38px,8vw,76px);line-height:1.04;margin:10px 0 8px;letter-spacing:-.01em}
+em{font-style:italic;color:var(--accent)}
+[data-theme=standard] em{font-style:normal}
+.hero p{max-width:560px;color:var(--mut);margin:0 0 26px}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.hero-num{font-size:clamp(40px,7vw,64px);line-height:1;font-variant-numeric:tabular-nums;margin:6px 0 4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:12px;box-shadow:inset 0 0 40px var(--card-glow);backdrop-filter:blur(6px)}
+.lbl{color:var(--mut);font-size:13px}
+.prog{margin-top:16px}
+.prog .track{height:6px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:8px}
+.prog .fill{height:100%;width:0;background:var(--accent);border-radius:4px;transition:width .6s}
+.sec-head{margin:36px 0 14px}
+.sec-head h2{font-size:clamp(26px,4.5vw,38px);margin:6px 0 0;line-height:1.1}
+.cards3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;align-items:stretch}
+.cards3 .card{margin:0}
+.big{font-size:34px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.row{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+#donut{flex:none}
+.leg div{margin:5px 0;font-size:13px}
+.leg small{color:var(--mut);display:block;margin-left:16px;font-size:11.5px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+#feed{max-height:340px;overflow:auto;font-size:13px;margin-top:8px}
+.call{display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:7px 0;border-top:1px solid var(--line);animation:in .8s}
+.call:first-child{border-top:0}
+@keyframes in{from{background:var(--hl)}to{background:transparent}}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:right;padding:6px 8px;border-top:1px solid var(--line)}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
+.wrap{overflow-x:auto}
+.bar{height:8px;border-radius:4px;background:var(--accent);min-width:2px}
+.lose{color:var(--bad);font-weight:600}.win{color:var(--good)}
+code{background:var(--card);padding:1px 6px;border-radius:4px;border:1px solid var(--line)}
+.rung{border:1px solid var(--line);border-left-width:3px;border-radius:12px;padding:12px 14px;margin:6px 0;background:var(--card)}
+.arrow{text-align:center;color:var(--mut);font-size:12px}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--mut);font-size:12px}
+[hidden]{display:none!important}
+@media (max-width:520px){nav{margin-left:0;width:100%}nav button{flex:1;padding:8px 6px}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:28px}}
+</style>
+<link rel="stylesheet" href="../world/world.css">
+<script src="../world/chat.js"></script>
+</head>
+<body>
+<div class="scene" aria-hidden="true">
+  <div class="fog f1" style="position:absolute"></div><div class="fog f2" style="position:absolute"></div>
+  <svg class="moon" viewBox="0 0 100 100"><defs><radialGradient id="mg"><stop offset="0" stop-color="#f6e3c4"/><stop offset="1" stop-color="#d9b98a"/></radialGradient><radialGradient id="mh"><stop offset="0.6" stop-color="#f6e3c4" stop-opacity=".18"/><stop offset="1" stop-color="#f6e3c4" stop-opacity="0"/></radialGradient></defs><circle cx="50" cy="50" r="48" fill="url(#mh)"/><circle cx="50" cy="50" r="26" fill="url(#mg)" opacity=".92"/><circle cx="42" cy="44" r="4" fill="#c9a574" opacity=".5"/><circle cx="58" cy="57" r="5.5" fill="#c9a574" opacity=".4"/><circle cx="55" cy="38" r="2.5" fill="#c9a574" opacity=".45"/></svg>
+  <div id="bats"></div>
+  <canvas id="village"></canvas>
+</div>
+
+<div class="wrap-all">
+<header class="top">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M12 3v2M8 8c0-2 1.8-3 4-3s4 1 4 3v9a2 2 0 01-2 2h-4a2 2 0 01-2-2z"/><path d="M8 10h8M8 15h8M10 21h4"/><circle cx="12" cy="12.5" r="1.2" fill="currentColor"/></svg>
+    CHIMERA
+  </div>
+  <span id="src" class="badge" role="status">waiting for data</span>
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" aria-selected="true" data-t="live">Live</button>
+    <button role="tab" aria-selected="false" data-t="bench">Benchmarks</button>
+    <button role="tab" aria-selected="false" data-t="how">How it works</button>
+    <button role="tab" aria-selected="false" data-t="evals">Evals</button>
+    <button role="tab" aria-selected="false" data-t="chat">Chat</button>
+  </nav>
+  <button class="tbtn" id="theme" type="button" aria-pressed="true" title="Switch theme">Halloween</button>
+</header>
+
+<main>
+<section id="live">
+  <div class="hero">
+    <div class="eyebrow acc" data-h>The house is awake</div>
+    <h1 data-h>Every token <em>counts.</em></h1>
+    <p>CHIMERA answers each call at the cheapest tier that can do it, and logs what never reached the cloud.</p>
+    <div class="nums">
+      <div class="card"><div class="eyebrow">Tokens saved</div><div class="hero-num" id="tok">0</div><div class="lbl">tokens kept off the big model (Crusoe 763B)</div></div>
+      <div class="card"><div class="eyebrow">Dollars saved</div><div class="hero-num" id="usd">$0.0000</div><div class="lbl">against sending every call to the big model · spent <span id="spent">$0</span></div>
+        <div class="prog"><div class="lbl"><span id="progtxt">00 / 00</span> calls answered below the cloud</div><div class="track" role="progressbar" aria-label="Calls answered below the cloud" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progbar"><div class="fill" id="progfill"></div></div></div></div>
+    </div>
+  </div>
+
+  <div class="sec-head"><div class="eyebrow acc" data-h>Tier by tier</div><h2 class="serif">A little further <em>into the dark</em></h2></div>
+  <div class="cards3">
+    <div class="card"><div class="eyebrow">Latest calls</div><div id="feed" aria-live="off"></div></div>
+    <div class="card"><div class="eyebrow">Calls by tier</div>
+      <div class="row" style="margin-top:10px"><svg id="donut" width="140" height="140" viewBox="0 0 42 42" role="img" aria-label="Share of calls by tier"></svg><div id="legend" class="leg"></div></div></div>
+    <div class="card"><div class="eyebrow">Totals</div>
+      <div class="stats"><div><div class="big" id="calls">0</div><div class="lbl">calls</div></div><div><div class="big" id="gpuav">0</div><div class="lbl">GPU calls avoided</div></div>
+        <div><div class="big" id="hit">–</div><div class="lbl">cache hit rate</div></div><div><div class="big" id="alpha">–</div><div class="lbl">mean acceptance (alpha)</div></div></div></div>
+  </div>
+
+  <div class="sec-head"><div class="eyebrow acc" data-h>The cellar books</div><h2 class="serif">What the house <em>keeps</em></h2></div>
+  <div class="cards2">
+    <div class="card"><div class="eyebrow">Savings over time</div><svg class="spark" id="spark" viewBox="0 0 600 110" preserveAspectRatio="none" role="img" aria-label="Tokens saved over time"></svg>
+      <div class="lbl" id="sparklbl">waiting for the telemetry stream</div></div>
+    <div class="card"><div class="eyebrow">Cache hits: exact vs cosine</div><div class="split" id="split" role="img" aria-label="Exact versus cosine cache hits"></div>
+      <div class="lbl" id="splitlbl">reading /api/stats</div>
+      <div class="eyebrow" style="margin-top:16px">Database size</div>
+      <table><tr><th>Store</th><th>Rows or nodes</th><th>Size</th></tr>
+        <tr><td>Supabase cache (prompts)</td><td><span class="pend">pending API</span></td><td><span class="pend">pending API</span></td></tr>
+        <tr><td>Memory: teacher_pairs</td><td><span class="pend">pending API</span></td><td><span class="pend">pending API</span></td></tr>
+        <tr><td>Neo4j graph</td><td><span class="pend">pending API</span></td><td>–</td></tr></table>
+      <div class="lbl" id="dbnote" style="margin-top:6px"></div></div>
+  </div>
+  <div class="card" style="margin-top:12px"><div class="eyebrow">How it answered</div><div class="lbl">Questions asked from this browser (the guide and the Chat door). Every user's traces: <span class="pend">pending API</span></div><div id="traces"></div></div>
+</section>
+
+
+<section id="bench" hidden>
+  <div class="sec-head"><div class="eyebrow acc" data-h>The ledger</div><h2 class="serif">Measured, <em>not promised</em></h2></div>
+  <p class="lbl">Merged from the CSVs in <code>bench/</code>. Red = the non-baseline mode did worse than the first mode in that run.</p>
+  <div id="benchbody">loading…</div>
+</section>
+
+<section id="how" hidden>
+  <div class="sec-head"><div class="eyebrow acc" data-h>Four rungs</div><h2 class="serif">Climb only <em>when needed</em></h2></div>
+  <div class="card">Each call tries the cheapest rung first and climbs only when needed. Single runs, no repeats; the sources are <code>bench/results*.md</code>.</div>
+  <div class="rung" style="border-left-color:var(--cache)"><div class="eyebrow">Tier 0</div><b>The Crypt (Supabase cache)</b><br><span class="lbl">Exact hash, then meaning match (cosine ≥ 0.97). No model runs. On a second machine it avoided 48 of 60 GPU calls, 0 false hits (docs/vector-store.md).</span></div>
+  <div class="arrow">miss ↓</div>
+  <div class="rung" style="border-left-color:var(--gpu)"><div class="eyebrow">Tier I</div><b>The Manor (Akash 30B, self-hosted)</b><br><span class="lbl">qwen3:30b-instruct on a V100. Answers if its token confidence is ≥ 0.95, else its self-check decides. Solved examples from N+1 memory come with the prompt.</span></div>
+  <div class="arrow">unsure, timeout or heavy ↓</div>
+  <div class="rung" style="border-left-color:var(--cloud)"><div class="eyebrow">Tier II</div><b>The Tower (Crusoe 763B)</b>, DeepSeek-V4.1-Flash, the largest model on the key<br><span class="lbl">Ladder vs this model alone: 65.6% fewer top tokens, but a slower median (1.9 s vs 0.7 s) (bench/results_ladder.md). Its checked answers become teacher data.</span></div>
+  <div class="rung" style="border-left-color:var(--local);opacity:.7"><div class="eyebrow">Off</div><b>The Lantern (Mac 3B)</b><br><span class="lbl">The lowest rung of the first benchmarks. Switched off; kept for experiments.</span></div>
+  <div class="rung" style="opacity:.7"><div class="eyebrow">Optional, off</div><b>The Castle (Modal H200 120B)</b><br><span class="lbl">One pair of runs: cost about 20x the 763B and was slower (bench/results_modal.md).</span></div>
+  <div class="card lbl" style="margin-top:12px">Tokens saved = tokens that never reached the big model. Alpha = share of draft tokens a big model accepted (speculative path only; off in the product).</div>
+</section>
+<section id="evals" hidden>
+  <div class="sec-head"><div class="eyebrow acc" data-h>Every run, one log</div><h2 class="serif">The <em>evals</em></h2></div>
+  <p class="lbl" id="evnote">loading /api/evals…</p>
+  <div class="card"><div class="eyebrow">Leaderboard</div>
+    <p class="lbl">One row per benchmark and mode. Top tokens are tokens on the tier the baseline answers with. Red = worse than that benchmark's baseline. Single runs, no repeats.</p>
+    <div class="wrap"><table id="evlb"></table></div></div>
+</section>
+
+<section id="chat" hidden>
+  <div class="sec-head"><div class="eyebrow acc" data-h>The Count's room</div><h2 class="serif">Ask, and watch it <em>climb</em></h2></div>
+  <div class="chatgrid">
+    <div class="card chatcard"><div id="chatmount"></div></div>
+    <div class="card"><div class="eyebrow">Cache hit rate</div><div class="big" id="ch-hit">–</div><div class="lbl" id="ch-hitlbl">reading /api/stats</div>
+      <div class="eyebrow" style="margin-top:18px">Tokens used today</div><div class="big" id="ch-today">0</div><div class="lbl" id="ch-todaylbl">questions from this browser · all users: <span class="pend">pending API</span></div>
+      <div class="eyebrow" style="margin-top:18px">Tokens per task</div><div id="ch-tasks" class="lbl">nothing asked from this browser yet</div>
+      <div class="lbl" style="margin-top:8px">Task type is guessed from the question (code, lookup, chat). Server-side grouping: <span class="pend">pending API</span></div></div>
+  </div>
+</section>
+</main>
+<footer>CHIMERA dashboard · loopback only · <span id="themenote">Halloween theme</span></footer>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const TIERS={cache:{c:'--cache',n:'Supabase cache',h:'The Crypt'},gpu:{c:'--gpu',n:'Akash 30B',h:'The Manor'},cloud:{c:'--cloud',n:'Crusoe 763B',h:'The Tower'},local:{c:'--local',n:'Mac 3B (off)',h:'The Lantern'}};
+const group=t=>/cache/.test(t)?'cache':t==='local'?'local':/gpu|manor/.test(t)?'gpu':'cloud';
+const root=document.documentElement;
+
+// theme toggle (default Halloween, saved in localStorage)
+function setTheme(t,save){
+  root.dataset.theme=t;const hw=t==='halloween';
+  $('theme').textContent=hw?'Halloween':'Standard';$('theme').setAttribute('aria-pressed',hw);
+  $('themenote').textContent=hw?'Halloween theme':'Standard theme';
+  if(save)try{localStorage.setItem('chimera-theme',t)}catch(_){}
+}
+$('theme').onclick=()=>setTheme(root.dataset.theme==='halloween'?'standard':'halloween',true);
+setTheme(root.dataset.theme,false);
+
+// tabs
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  for(const s of ['live','bench','how','evals','chat'])$(s).hidden=s!==b.dataset.t;
+  if(b.dataset.t==='bench')loadBench();if(b.dataset.t==='evals')loadEvals();if(b.dataset.t==='chat')loadChat();
+});
+
+// live
+const S={tok:0,usd:0,calls:0,asum:0,acount:0,low:0,tiers:{cache:0,local:0,gpu:0,cloud:0}};
+const D={tok:0,usd:0}; // displayed values, eased toward S
+function donut(){
+  const total=S.calls||1;let off=25,out='<circle cx="21" cy="21" r="15.9" fill="none" style="stroke:var(--line)" stroke-width="5"/>';
+  for(const k in TIERS){const p=S.tiers[k]/total*100;if(p>0){out+=`<circle cx="21" cy="21" r="15.9" fill="none" style="stroke:var(${TIERS[k].c})" stroke-width="5" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="${off}"/>`;off-=p}}
+  $('donut').innerHTML=out;
+  $('legend').replaceChildren(...Object.keys(TIERS).map(k=>{const d=document.createElement('div');
+    d.innerHTML='<span class="dot"></span>';d.firstChild.style.background=`var(${TIERS[k].c})`;
+    d.append(`${TIERS[k].n}: ${S.tiers[k]} (${Math.round(S.tiers[k]/total*100)}%)`);
+    const s=document.createElement('small');s.textContent=TIERS[k].h;d.append(s);return d}));
+}
+let SRC=null; // set by a _meta line (demo.py) or by the first real event
+function addEvent(e){
+  if(e._meta){SRC=e._meta.source;const s=$('src');s.textContent=/demo/.test(SRC)?'demo (simulated backends)':SRC;s.className='badge'+(/demo/.test(SRC)?' demo':'');return}
+  if(!SRC){SRC='live';const s=$('src');s.textContent='live · this machine';s.className='badge'}
+  SER.push((SER.length?SER[SER.length-1]:0)+(e.tokens_saved||0));if(SER.length>600)SER.shift();
+  const g=group(e.tier_used);S.calls++;S.tiers[g]++;if(g!=='cloud')S.low++;S.tok+=e.tokens_saved||0;S.usd+=e.dollars_saved||0;
+  if(e.acceptance_rate_alpha!=null){S.asum+=e.acceptance_rate_alpha;S.acount++}
+  const row=document.createElement('div');row.className='call';
+  const a=document.createElement('span'),b=document.createElement('span'),c=document.createElement('span');
+  a.innerHTML='<span class="dot"></span>';a.firstChild.style.background=`var(${TIERS[g].c})`;a.append(e.tier_used);
+  b.textContent=`saved ${e.tokens_saved} tok · $${(e.dollars_saved||0).toFixed(5)}`+(e.acceptance_rate_alpha!=null?` · α ${e.acceptance_rate_alpha.toFixed(2)}`:'');
+  c.textContent=Math.round(e.latency_ms)+' ms';row.append(a,b,c);
+  $('feed').prepend(row);while($('feed').children.length>60)$('feed').lastChild.remove();
+}
+const pad=n=>String(n).padStart(2,'0');
+function show(){
+  $('tok').textContent=Math.round(D.tok).toLocaleString();$('usd').textContent='$'+D.usd.toFixed(4)}
+let raf=0;
+function ease(){
+  D.tok+=(S.tok-D.tok)*.15;D.usd+=(S.usd-D.usd)*.15;
+  if(Math.abs(S.tok-D.tok)<.5&&Math.abs(S.usd-D.usd)<5e-5){D.tok=S.tok;D.usd=S.usd;raf=0}else raf=requestAnimationFrame(ease);
+  show()}
+function paint(){
+  if(!raf)raf=requestAnimationFrame(ease);
+  $('calls').textContent=G?G.calls:S.calls;$('alpha').textContent=S.acount?(S.asum/S.acount).toFixed(2):'–';
+  const low=G?G.calls-(G.by_tier.top||0):S.low,all=G?G.calls:S.calls;
+  $('progtxt').textContent=`${pad(low)} / ${pad(all)}`;
+  const pct=all?Math.round(low/all*100):0;$('progfill').style.width=pct+'%';$('progbar').setAttribute('aria-valuenow',pct);
+  donut()}
+donut();
+const SER=[];let G=null;
+const es=new EventSource('/events');
+es.onmessage=m=>{try{addEvent(JSON.parse(m.data));paint();spark()}catch(_){}};
+
+/* totals from /api/stats (all calls on this machine); the stream above fills the feed and the donut */
+async function stats(){
+  try{const r=await fetch('/api/stats',{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();G=j.global&&j.global.calls?j.global:j.session;
+    if(!SRC&&G.calls){SRC='live';$('src').textContent='live · this machine';$('src').className='badge'}
+    S.tok=G.tokens_kept_off_big||0;S.usd=G.dollars_saved||0;$('spent').textContent='$'+(G.dollars_spent||0).toFixed(4);
+    $('gpuav').textContent=G.gpu_calls_avoided??0;$('hit').textContent=Math.round((G.hit_rate||0)*100)+'%';
+    const bt=G.by_tier||{},ex=bt.exact_cache||0,se=bt.semantic_cache||0,sh=(G.cache_hits&&G.cache_hits.shared)||0,tot=ex+se||1;
+    $('split').innerHTML=`<div style="width:${ex/tot*100}%;background:var(--cache)"></div><div style="width:${se/tot*100}%;background:var(--gpu)"></div>`;
+    $('splitlbl').textContent=`${ex} exact (hash) · ${se} cosine ≥ 0.97 · ${sh} counted as Supabase hits · ${G.false_hits||0} false hits`;
+    paint()}catch(_){}
+  try{const r=await fetch('/api/health',{cache:'no-store'});const h=await r.json();$('dbnote').textContent=h.supabase?`Supabase is ${h.supabase.up?'up':'down'}${h.supabase.lookup_ms!=null?', lookup '+Math.round(h.supabase.lookup_ms)+' ms':''}.`:''}catch(_){}
+}
+stats();setInterval(stats,5000);
+function spark(){
+  if(SER.length<2)return;const W=600,H=110,mx=SER[SER.length-1]||1;
+  $('spark').innerHTML=`<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${SER.map((v,i)=>`${(i/(SER.length-1)*W).toFixed(1)},${(H-4-v/mx*(H-12)).toFixed(1)}`).join(' ')}"/>`;
+  const l=$('sparklbl');l.textContent=`${mx.toLocaleString()} tokens saved over the last ${SER.length} calls in the telemetry log. Per-day series: `;
+  const p=document.createElement('span');p.className='pend';p.textContent='pending API';l.append(p);
+}
+function traces(){
+  let rs=[];try{rs=JSON.parse(localStorage.getItem('chimera-traces')||'[]')}catch(_){}
+  const el=$('traces');
+  if(!rs.length){el.innerHTML='<div class="lbl" style="margin-top:8px">No question asked from this browser yet. Ask the guide in the Great Hall or open the Chat door.</div>';return}
+  el.replaceChildren(...rs.slice(0,8).map(r=>{const d=document.createElement('div');d.className='trace';
+    const q=document.createElement('b');q.textContent=r.q;const st=document.createElement('div');st.className='steps';
+    (r.steps||[]).forEach(x=>{const s=document.createElement('span');s.textContent=x;st.append(s)});
+    const t=document.createElement('div');t.className='tag';
+    t.textContent=`${r.cache?'cache HIT':r.tier}${r.cos!=null?' · cos '+(+r.cos).toFixed(3):''} · ${r.model||(r.cache?'no model':'')} · ${r.tokens_in}→${r.tokens_out} tok · ${r.ms!=null?Math.round(r.ms)+' ms':''} · $${(r.dollars||0).toFixed(5)}`;
+    d.append(q,st,t);return d}))}
+traces();addEventListener('storage',traces);setInterval(traces,4000);
+
+/* ---------- Evals tab: /api/evals leaderboard ---------- */
+let evDone=false;
+async function loadEvals(){
+  if(evDone)return;let d;
+  try{d=await (await fetch('/api/evals',{cache:'no-store'})).json()}catch(_){$('evnote').textContent='Could not load /api/evals.';return}
+  evDone=true;const lb=d.leaderboard||[];
+  $('evnote').textContent=`${d.n||0} rows from the bench result files. A blank cell means the file has no such value.`;
+  const pct=v=>v==null?'–':(v*100).toFixed(1)+'%';
+  const head='<tr><th>Benchmark</th><th>Mode</th><th>Top tokens</th><th>% saved</th><th>$</th><th>Median ms</th><th>p90 ms</th><th>Pass rate</th><th>N</th></tr>';
+  $('evlb').innerHTML=head+lb.map(r=>{const bad=k=>(r.bad||[]).includes(k)?' class="lose"':'';
+    return `<tr><td>${r.dataset}</td><td>${r.mode}${r.baseline?' <span class="lbl">baseline</span>':''}</td><td>${f(r.top_tokens)}</td><td${bad('saved_pct')}>${r.saved_pct==null?'–':(r.bad||[]).includes('saved_pct')?'▼ '+r.saved_pct.toFixed(1)+'%':r.saved_pct.toFixed(1)+'%'}</td>`+
+      `<td${bad('dollars')}>${r.dollars==null?'–':'$'+r.dollars.toFixed(5)}</td><td${bad('p50_ms')}>${f(r.p50_ms)}</td><td${bad('p90_ms')}>${f(r.p90_ms)}</td><td${bad('pass_rate')}>${r.graded?pct(r.pass_rate)+' of '+r.graded:'–'}</td><td>${r.n}</td></tr>`}).join('');
+}
+
+/* ---------- Chat tab: the real ladder through world/chat.js, side stats in this style ---------- */
+let chatOn=false;
+function loadChat(){
+  if(chatOn||!window.CastleChat)return;chatOn=true;
+  window.CastleChat.mount($('chatmount'),{endpoint:'/api/chat',health:'/api/health',placeholder:'Ask the Count',
+    greeting:'I am Count Cuspid. Ask, and watch every step the router takes: the Supabase cache, the Akash 30B, then the Crusoe 763B.',onFinal:()=>setTimeout(chatSide,50)});
+  chatSide();setInterval(chatSide,5000);
+}
+function chatSide(){
+  if(G){$('ch-hit').textContent=Math.round((G.hit_rate||0)*100)+'%';$('ch-hitlbl').textContent=`of ${G.calls} calls on this machine`}
+  const rs=window.CastleChat?window.CastleChat.history():[],today=new Date().toDateString(),t=rs.filter(r=>new Date(r.ts).toDateString()===today);
+  const tok=a=>a.reduce((s,r)=>s+(r.tokens_in||0)+(r.tokens_out||0),0);
+  $('ch-today').textContent=tok(t).toLocaleString();
+  const by={};rs.forEach(r=>{const x=by[r.type]=by[r.type]||{n:0,tok:0,hit:0};x.n++;x.tok+=(r.tokens_in||0)+(r.tokens_out||0);if(r.cache)x.hit++});
+  if(Object.keys(by).length)$('ch-tasks').innerHTML='<table><tr><th>Task</th><th>Asked</th><th>Tokens</th><th>Hits</th></tr>'+Object.entries(by).map(([k,v])=>`<tr><td>${k}</td><td>${v.n}</td><td>${v.tok.toLocaleString()}</td><td>${v.hit}</td></tr>`).join('')+'</table>';
+}
+
+/* ---------- ?view=<tab> picks a tab; ?embed=1 hides the tab bar (castle doors) ---------- */
+(function(){
+  const q=new URLSearchParams(location.search),v=q.get('view');
+  if(q.get('embed'))document.documentElement.classList.add('embed');
+  if(v){const b=document.querySelector(`nav button[data-t="${v}"]`);if(b)b.click()}
+})();
+if(location.hash==='#bench'||location.hash==='#how'){const b=document.querySelector(`nav button[data-t="${location.hash.slice(1)}"]`);if(b)b.click()}
+
+/* ---------- bats that beat their wings ---------- */
+(function(){
+  const box=$('bats');
+  const BAT='<svg viewBox="0 0 60 26" fill="currentColor"><path class="wing l" d="M30 9C26 2 17 0 8 3c3 2 3 5 2 8-3-1-7 0-10 3 5 0 8 1 10 4 2-2 6-3 9-2 1 3 4 5 8 5z"/><path class="wing r" d="M30 9c4-7 13-9 22-6-3 2-3 5-2 8 3-1 7 0 10 3-5 0-8 1-10 4-2-2-6-3-9-2-1 3-4 5-8 5z"/><ellipse cx="30" cy="14" rx="3.6" ry="6"/><path d="M27 8l1-4 2 3 2-3 1 4z"/></svg>';
+  const bats=[[8,38,58,2.4,.12,.9,'-10deg',-3],[14,26,74,3.1,.1,.75,'8deg',-40],[22,20,90,2.7,.14,.6,'-6deg',-15],[6,18,96,3.4,.09,.55,'10deg',-70],[30,46,46,2.1,.11,.95,'-12deg',-22],[18,30,66,3.8,.13,.7,'6deg',-5],[11,16,110,2.9,.1,.5,'-8deg',-88],[26,34,52,2.2,.12,.85,'12deg',-30]];
+  bats.forEach(([y,w,d,b,f,o,rot,s],i)=>{const e=document.createElement('div');e.className='batfly'+(i%3===1?' rev':'');
+    e.style.cssText=`--y:${y}vh;--w:${w}px;--d:${d}s;--s:${s}s;--o:${o}`;
+    e.innerHTML=`<div class="batbob" style="--b:${b}s;--a:${(i%2?-1:1)*(3+i%3*2)}vh">${BAT}</div>`;
+    e.querySelectorAll('.wing').forEach(x=>{x.style.setProperty('--f',f+'s');x.style.setProperty('--rot',rot)});box.append(e)});
+})();
+
+/* ---------- the village: one canvas, people moving, always on ---------- */
+(function(){
+  const c=$('village'),g=c.getContext('2d');let W=0,H=0,last=performance.now(),T=0;
+  const rnd=(()=>{let s=11;return()=>((s=s*16807%2147483647)/2147483647)})();
+  let houses=[],lamps=[];
+  function layout(){
+    const r=c.getBoundingClientRect();W=c.width=Math.max(1,Math.round(r.width));H=c.height=Math.max(1,Math.round(r.height));
+    houses=[];lamps=[];let x=-20;
+    while(x<W+40){const w=60+rnd()*70,h=46+rnd()*50,church=houses.length===4;houses.push({x,w:church?70:w,h:church?96:h,roof:18+rnd()*22,church,chim:rnd()>.4,win:[rnd()>.3,rnd()>.4,rnd()>.5]});
+      x+=(church?70:w)+18+rnd()*30;if(rnd()>.45)lamps.push(x-10)}
+  }
+  addEventListener('resize',layout);layout();
+  const kids=[{x:.15,c:'#e8955a',h:16,stop:0},{x:.165,c:'#c3a4e6',h:13,stop:0},{x:.18,c:'#8fd3a8',h:12,stop:0}];
+  const cart={x:-.1};const smoke=[];const INK='#050a08';
+  function person(x,y,h,col,step){ // tiny silhouette with swinging legs, and a pumpkin bucket when col is set
+    g.fillStyle=INK;g.beginPath();g.arc(x,y-h,h*.2,0,7);g.fill();
+    g.fillRect(x-h*.16,y-h*.82,h*.32,h*.5);
+    const s=Math.sin(step)*h*.18;g.strokeStyle=INK;g.lineWidth=Math.max(1.5,h*.12);
+    g.beginPath();g.moveTo(x,y-h*.34);g.lineTo(x+s,y);g.moveTo(x,y-h*.34);g.lineTo(x-s,y);g.stroke();
+    if(col){g.fillStyle=col;g.globalAlpha=.85;g.beginPath();g.arc(x+h*.28,y-h*.42,h*.14,0,7);g.fill();g.globalAlpha=1}
+  }
+  function frame(now){
+    const dt=Math.min(.05,(now-last)/1000);last=now;T+=dt;
+    g.clearRect(0,0,W,H);const gy=H-26;
+    g.fillStyle='#07100c';g.fillRect(0,gy,W,H-gy);
+    houses.forEach((hs,i)=>{const top=gy-hs.h;g.fillStyle=INK;g.fillRect(hs.x,top,hs.w,hs.h);
+      g.beginPath();g.moveTo(hs.x-6,top);g.lineTo(hs.x+hs.w/2,top-hs.roof);g.lineTo(hs.x+hs.w+6,top);g.fill();
+      if(hs.church){const m=hs.x+hs.w/2;g.fillRect(m-9,top-hs.roof-40,18,40);g.beginPath();g.moveTo(m-12,top-hs.roof-40);g.lineTo(m,top-hs.roof-92);g.lineTo(m+12,top-hs.roof-40);g.fill();
+        g.strokeStyle=INK;g.lineWidth=2;g.beginPath();g.moveTo(m,top-hs.roof-92);g.lineTo(m,top-hs.roof-104);g.moveTo(m-5,top-hs.roof-99);g.lineTo(m+5,top-hs.roof-99);g.stroke();
+        g.fillStyle=`rgba(232,149,90,${.5+.3*Math.sin(T*1.3)})`;g.beginPath();g.arc(m,top-hs.roof-24,4,0,7);g.fill()}
+      if(hs.chim){g.fillStyle=INK;g.fillRect(hs.x+hs.w*.72,top-hs.roof*.8,9,hs.roof*.6);if(rnd()<dt*1.5)smoke.push({x:hs.x+hs.w*.72+4,y:top-hs.roof*.8,a:.35,r:3})}
+      hs.win.forEach((on,k)=>{if(!on)return;const fl=.6+.3*Math.sin(T*2+i*1.7+k);g.fillStyle=`rgba(232,149,90,${fl})`;g.fillRect(hs.x+10+k*(hs.w-26)/2,top+12,9,12)});
+      g.fillStyle='rgba(232,149,90,.22)';g.fillRect(hs.x+hs.w/2-6,gy-18,12,18);
+    });
+    const fx=W*.62;g.fillStyle=INK;for(let k=0;k<12;k++)g.fillRect(fx+k*9,gy-16,3,16);g.fillRect(fx,gy-13,108,2);
+    const cx=fx+40+Math.sin(T*.3)*12,tail=Math.sin(T*2.2)*5;g.beginPath();g.ellipse(cx,gy-20,7,4,0,0,7);g.fill();g.beginPath();g.arc(cx+7,gy-24,3.4,0,7);g.fill();
+    g.beginPath();g.moveTo(cx+5,gy-27);g.lineTo(cx+6,gy-31);g.lineTo(cx+8,gy-27);g.moveTo(cx+8,gy-27);g.lineTo(cx+10,gy-31);g.lineTo(cx+10,gy-26);g.fill();
+    g.strokeStyle=INK;g.lineWidth=2;g.beginPath();g.moveTo(cx-7,gy-20);g.quadraticCurveTo(cx-14,gy-26+tail,cx-12,gy-34+tail);g.stroke();
+    g.fillStyle='rgba(143,211,168,.9)';g.fillRect(cx+8,gy-25,1.4,1.4);
+    lamps.forEach((lx,i)=>{g.fillStyle=INK;g.fillRect(lx,gy-40,3,40);g.fillRect(lx-4,gy-44,11,6);const fl=.55+.25*Math.sin(T*7+i)+.1*Math.sin(T*19+i);
+      const r=g.createRadialGradient(lx+1.5,gy-40,0,lx+1.5,gy-40,30);r.addColorStop(0,`rgba(232,149,90,${fl*.6})`);r.addColorStop(1,'rgba(232,149,90,0)');g.fillStyle=r;g.fillRect(lx-30,gy-70,62,60)});
+    for(let k=smoke.length-1;k>=0;k--){const p=smoke[k];p.y-=dt*12;p.x+=dt*6;p.r+=dt*3;p.a-=dt*.09;if(p.a<=0){smoke.splice(k,1);continue}g.fillStyle=`rgba(200,200,190,${p.a*.4})`;g.beginPath();g.arc(p.x,p.y,p.r,0,7);g.fill()}
+    cart.x+=dt*.018;if(cart.x>1.1)cart.x=-.1;const kx=cart.x*W;
+    person(kx-14,gy,18,null,T*6);g.fillStyle=INK;g.fillRect(kx-4,gy-14,26,9);g.strokeStyle=INK;g.lineWidth=2;g.beginPath();g.moveTo(kx-8,gy-12);g.lineTo(kx-2,gy-11);g.stroke();
+    g.beginPath();g.arc(kx+2,gy-3,3,0,7);g.arc(kx+18,gy-3,3,0,7);g.fill();g.fillStyle='rgba(232,149,90,.8)';g.beginPath();g.arc(kx+10,gy-16,4,0,7);g.fill();
+    const doors=houses.map(h=>(h.x+h.w/2)/W);
+    kids.forEach((k,i)=>{if(k.stop>0){k.stop-=dt}else{k.x+=dt*.012;const d=doors.find(d=>Math.abs(d-k.x)<.002);if(d!=null&&!k.wait){k.stop=2.4;k.wait=1}else if(d==null)k.wait=0}
+      if(k.x>1.05)k.x=-.05;person(k.x*W,gy,k.h,k.c,k.stop>0?0:T*7+i)});
+    const hd=houses[2];if(hd){const dx=hd.x+hd.w/2;person(dx+9,gy,18,null,0);const arm=Math.sin(T*1.6)>.6;g.strokeStyle=INK;g.lineWidth=2;g.beginPath();g.moveTo(dx+9,gy-13);g.lineTo(dx+(arm?-2:3),gy-(arm?12:9));g.stroke();
+      if(arm){g.fillStyle='#e8955a';g.fillRect(dx-4,gy-14,3,3)}}
+    requestAnimationFrame(frame)}
+  requestAnimationFrame(frame);
+})();
+
+
+// benchmarks
+const f=(v,d=0)=>v==null?'–':Number(v).toLocaleString(undefined,{maximumFractionDigits:d});
+function h(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e}
+async function loadBench(){
+  const root=$('benchbody');let data;
+  try{data=await (await fetch('/api/bench')).json()}catch(e){root.textContent='Could not load /api/bench';return}
+  root.replaceChildren();
+  if(!data.runs.length){root.textContent='No bench CSVs found.';return}
+  for(const run of data.runs){
+    const card=h('div',null,'card');card.append(h('h2',run.run+(run.error?' (unreadable: '+run.error+')':''),'serif'));
+    const modes=Object.keys(run.modes),base=run.baseline,maxLat=Math.max(...modes.map(m=>run.modes[m].latency_mean_ms||0),1);
+    const wrap=h('div',null,'wrap'),t=h('table');
+    t.innerHTML='<tr><th>mode</th><th>n</th><th>mean ms</th><th></th><th>quality</th><th>$</th><th>remote tok</th><th>local tok</th><th>tiers</th></tr>';
+    for(const m of modes){const s=run.modes[m],tr=h('tr');
+      const worseL=m!==base&&s.latency_mean_ms>run.modes[base].latency_mean_ms,worseQ=m!==base&&s.quality_mean!=null&&s.quality_mean<run.modes[base].quality_mean;
+      tr.append(h('td',m+(m===base?' (baseline)':'')),h('td',s.n),h('td',f(s.latency_mean_ms),worseL?'lose':''));
+      const bt=h('td'),bar=h('div',null,'bar');bar.style.width=Math.max(2,(s.latency_mean_ms||0)/maxLat*60)+'px';bt.append(bar);tr.append(bt);
+      tr.append(h('td',f(s.quality_mean,2),worseQ?'lose':''),h('td',s.usd?s.usd.toFixed(4):'–'),h('td',f(s.remote_tokens)),h('td',f(s.local_tokens)),
+        h('td',Object.entries(s.tiers).map(([k,v])=>k+':'+v).join(' ')));
+      t.append(tr)}
+    wrap.append(t);card.append(wrap);
+    const losses=[];
+    for(const [cat,ms] of Object.entries(run.categories))for(const m of Object.keys(ms)){
+      if(m===base||!ms[base])continue;const a=ms[m],b=ms[base];
+      if(a.latency_mean_ms>b.latency_mean_ms)losses.push(`${m} slower on ${cat}: ${f(a.latency_mean_ms)} vs ${f(b.latency_mean_ms)} ms`);
+      if(a.quality_mean!=null&&a.quality_mean<b.quality_mean)losses.push(`${m} lower quality on ${cat}: ${f(a.quality_mean,2)} vs ${f(b.quality_mean,2)}`)}
+    card.append(h('h2','Where the baseline beat the others','serif'));
+    if(losses.length){const ul=h('ul');losses.forEach(l=>ul.append(h('li',l,'lose')));card.append(ul)}else card.append(h('div','None in this run.','win'));
+    root.append(card)}
+}
+</script>
+</body>
+</html>
