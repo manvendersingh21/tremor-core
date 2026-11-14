@@ -1,0 +1,329 @@
+{
+ "version": 1,
+ "tile": 40,
+ "floors": [
+  {
+   "id": 0,
+   "name": "Ground floor: Courtyard and Great Hall",
+   "bg": "art/gate-1024.webp",
+   "rows": [
+    "                                        ",
+    "                                        ",
+    "                                        ",
+    "                                        ",
+    "                                        ",
+    "##########t###################t#########",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,,,,~~,,,,,,,,,,,,,,,,,,,,,,,,~~,,,,,#",
+    "#,,,,,~~,,,,,,,,,,,,,,,,,,,,,,,,~~,,,,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "########t###t######,,,######t###t#######",
+    "t.............f...====....f............t",
+    "#.................====.................#",
+    "#......f..........====..........f......#",
+    "D.................====.................D",
+    "#.................====.................#",
+    "#.................====.................#",
+    "t.................====.................t",
+    "#.................====.................#",
+    "D.................====.................D",
+    "#......f..........====..........f......#",
+    "#.................====.................#",
+    "#..................UUU.................#",
+    "##########t###################t#########"
+   ],
+   "arrive": {
+    "fromAbove": [
+     20,
+     23
+    ],
+    "spawn": [
+     20,
+     10
+    ]
+   },
+   "outdoor": [
+    6,
+    11
+   ],
+   "light": 0.42
+  },
+  {
+   "id": 1,
+   "name": "First floor: Observatory, Ledger, Familiar",
+   "bg": "art/hall-1024.webp",
+   "rows": [
+    "####################################",
+    "####################################",
+    "####################################",
+    "####################################",
+    "####################################",
+    "####################################",
+    "#######D####t####D####t####D####t###",
+    "#...f.......f.........f........f...#",
+    "#..................................#",
+    "#dd==============================UU#",
+    "#dd..............................UU#",
+    "#...........f.........f............#",
+    "######t###w####t####w###t#####wt####",
+    "####################################",
+    "####################################",
+    "####################################"
+   ],
+   "arrive": {
+    "fromBelow": [
+     4,
+     9
+    ],
+    "fromAbove": [
+     31,
+     9
+    ]
+   },
+   "light": 0.45
+  },
+  {
+   "id": 2,
+   "name": "Tower floor: the Count's study, the Manor and the Tower",
+   "bg": "art/room-tower-1024.webp",
+   "rows": [
+    "####################################",
+    "#..bbbbb...bbbbbb..#################",
+    "#.c..............c.#################",
+    "#..................#################",
+    "#..................#################",
+    "#..................#################",
+    "#..................##t##D##t###D##t#",
+    "#........ff........#...............#",
+    "#.....................f.........f..#",
+    "#.....===..........................#",
+    "#.....===........................dd#",
+    "#..................#.............dd#",
+    "#..................#...............#",
+    "#b............ff...####w####w####w##",
+    "#b.................#################",
+    "#bc..............c.#################",
+    "#b.................#################",
+    "####################################"
+   ],
+   "arrive": {
+    "fromBelow": [
+     31,
+     10
+    ]
+   },
+   "light": 0.4
+  }
+ ],
+ "doors": [
+  {
+   "floor": 0,
+   "x": 0,
+   "y": 16,
+   "room": "crypt",
+   "stand": [
+    1,
+    16
+   ]
+  },
+  {
+   "floor": 0,
+   "x": 0,
+   "y": 21,
+   "room": "ladder",
+   "stand": [
+    1,
+    21
+   ]
+  },
+  {
+   "floor": 0,
+   "x": 39,
+   "y": 16,
+   "room": "guild",
+   "stand": [
+    38,
+    16
+   ]
+  },
+  {
+   "floor": 0,
+   "x": 39,
+   "y": 21,
+   "room": "gate",
+   "stand": [
+    38,
+    21
+   ]
+  },
+  {
+   "floor": 1,
+   "x": 7,
+   "y": 6,
+   "room": "observatory",
+   "stand": [
+    7,
+    7
+   ],
+   "banner": true
+  },
+  {
+   "floor": 1,
+   "x": 17,
+   "y": 6,
+   "room": "ledger",
+   "stand": [
+    17,
+    7
+   ],
+   "banner": true
+  },
+  {
+   "floor": 1,
+   "x": 27,
+   "y": 6,
+   "room": "familiar",
+   "stand": [
+    27,
+    7
+   ],
+   "banner": true
+  },
+  {
+   "floor": 2,
+   "x": 24,
+   "y": 6,
+   "room": "gpus",
+   "stand": [
+    24,
+    7
+   ],
+   "banner": true
+  },
+  {
+   "floor": 2,
+   "x": 31,
+   "y": 6,
+   "room": "tower",
+   "stand": [
+    31,
+    7
+   ],
+   "banner": true
+  }
+ ],
+ "npcs": [
+  {
+   "id": "count-hall",
+   "floor": 0,
+   "x": 25,
+   "y": 17,
+   "kind": "count",
+   "name": "Count Cuspid",
+   "lines": [
+    "Good evening. Walk where you like. The doors on the walls are rooms.",
+    "Take the grand stairs at the south end to climb. At the top, a bat answers questions.",
+    "The Crypt is west. The Guild is east. Nothing is for sale, only measured."
+   ]
+  },
+  {
+   "id": "count-study",
+   "floor": 2,
+   "x": 4,
+   "y": 10,
+   "kind": "count",
+   "name": "Count Cuspid",
+   "lines": [
+    "This is my study. The bat on the desk is the only one who answers.",
+    "Press E near the bat. Ask it anything. You will see each step it takes.",
+    "East of here are the Manor, the Castle and the Tower."
+   ]
+  },
+  {
+   "id": "bat",
+   "floor": 2,
+   "x": 9,
+   "y": 8,
+   "kind": "bat",
+   "name": "The Familiar (agent)",
+   "room": "agent"
+  }
+ ],
+ "rooms": {
+  "crypt": {
+   "title": "The Crypt",
+   "kind": "posters",
+   "floor": 0,
+   "art": "room-crypt"
+  },
+  "ladder": {
+   "title": "The Ladder",
+   "kind": "posters",
+   "floor": 0,
+   "art": "room-ladder"
+  },
+  "guild": {
+   "title": "The Guild",
+   "kind": "posters",
+   "floor": 0,
+   "art": "room-guild"
+  },
+  "gate": {
+   "title": "The Gate",
+   "kind": "posters",
+   "floor": 0,
+   "art": "room-guild"
+  },
+  "observatory": {
+   "title": "The Observatory",
+   "kind": "dashboard",
+   "floor": 1,
+   "art": "room-tower",
+   "blurb": "The live dashboard. Every call the router makes shows here."
+  },
+  "ledger": {
+   "title": "The Ledger",
+   "kind": "posters",
+   "floor": 1,
+   "art": "room-ledger",
+   "ref": "ledger"
+  },
+  "familiar": {
+   "title": "The Familiar's Study",
+   "kind": "posters",
+   "floor": 1,
+   "art": "room-familiar",
+   "ref": "familiar"
+  },
+  "gpus": {
+   "title": "The Manor and The Castle",
+   "kind": "posters",
+   "floor": 2,
+   "art": "room-manor",
+   "ref": "gpus"
+  },
+  "tower": {
+   "title": "The Tower",
+   "kind": "posters",
+   "floor": 2,
+   "art": "room-tower",
+   "ref": "tower"
+  },
+  "agent": {
+   "title": "Ask the Bat",
+   "kind": "chat",
+   "floor": 2,
+   "art": "room-castle",
+   "stand": [
+    9,
+    9
+   ]
+  }
+ },
+ "dashboard": {
+  "url": "/hud/",
+  "note": "window.mountDashboard(el) is used when the one-page merge provides it; else this URL is shown in a frame"
+ }
+}
