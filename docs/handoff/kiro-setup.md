@@ -70,7 +70,7 @@ All are in `powers/chimera/workspace-mcp.json` (copy to `.kiro/settings/mcp.json
 | `playwright` | `npx -y @playwright/mcp@0.0.85 --isolated --allowed-origins http://127.0.0.1:8765` | on | none | `frontend-owner`, `reviewer` (also embedded in their agent files) |
 | `context7` | `npx -y @upstash/context7-mcp@4.7.0` | on | none (an optional Context7 API key raises rate limits; not set) | all four agents |
 | `huggingface` | `https://huggingface.co/mcp` | on | none: anonymous access to public search. A `HF_TOKEN` is needed only for private repos or Jobs; not configured | `bench-runner` |
-| `github-readonly` | remote `https://api.githubcopilot.com/mcp/`, headers `X-MCP-Readonly: true`, `X-MCP-Toolsets: repos,issues,pull_requests,actions` | **disabled** | `GITHUB_PERSONAL_ACCESS_TOKEN` (fine-grained, read scopes only) | nobody yet |
+| `github-readonly` | remote `https://api.githubcopilot.com/mcp/`, headers `X-MCP-Readonly: true`, `X-MCP-Toolsets: repos,pull_requests,actions` | **on** (in `workspace-mcp.json`) | `GITHUB_PERSONAL_ACCESS_TOKEN` in `.env`, by `${}` reference | nobody yet |
 | `supabase-readonly` | remote `https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true&features=database,docs` | **disabled** | `SUPABASE_ACCESS_TOKEN` (personal access token) and `SUPABASE_PROJECT_REF` | nobody yet |
 | `neo4j-aura-readonly` | `uvx neo4j-mcp-server`, `NEO4J_MCP_READ_ONLY=true` | **disabled** | the `CHIMERA_GRAPH_*` variables, ideally a read-only Aura role | `backend-owner` (embedded, still needs the variables) |
 
@@ -80,3 +80,6 @@ Notes and limits:
 - GitHub: read-only is enforced by the server header, not by the token. Use a token with read scopes only.
 - Hugging Face anonymous mode was taken from the public endpoint description; I did not run a call.
 - None of the new servers was started in a live Kiro session.
+
+### GitHub MCP: token access (action for the user)
+The token in `.env` is valid for user `manvendersingh21`, but a repository lookup for `manvendersingh21/tremor-core` returns 404, so the token cannot see the repo yet. Grant it access: GitHub, Settings, Developer settings, Personal access tokens. For a fine-grained token, set Repository access to include `tremor-core`, with read-only Contents, Pull requests and Actions. For a classic token, add the `repo` scope (that scope also allows writes; read-only then rests on the server header alone, so a fine-grained token is safer). Read-only mode uses the remote server's `X-MCP-Readonly` header, the remote equivalent of `GITHUB_READ_ONLY` / `--read-only` on the local server. Not tested against the repo until access is granted.
