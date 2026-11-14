@@ -13,7 +13,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .cache.exact_cache import ExactCache
-from .cache.semantic_cache import Embedder, OnnxMiniLMEmbedder, SemanticCache
+from .cache.semantic_cache import CachedEmbedder, Embedder, OnnxMiniLMEmbedder, SemanticCache
 from .inference.cloud_verifier import CrusoeBackend, OllamaBackend
 from .inference.local_draft import LlamaCppBackend
 from .inference.telemetry import TelemetryTracker
@@ -44,7 +44,7 @@ class CrusoeCfg(BaseModel):
 
 class Thresholds(BaseModel):
     semantic: float = 0.97
-    confidence: float = 0.85
+    confidence: float = 0.95     # local mean token probability to answer locally; 0.85 -> 0.95 lifted accuracy 70% -> 82.8% (bench/results_backend.md)
     heavy: float = 0.6
     learned_router: str = ""  # path to router_weights.json; "" keeps keyword complexity_score + confidence gate
 
@@ -63,7 +63,7 @@ class CacheCfg(BaseModel):
     ttl_s: int | None = None       # row lifetime in seconds; None = forever
     top_k: int = 5
     budget_ms: int = 300           # DB time allowed per lookup before the local cache answers
-    guard: bool = False  # MeanCache-style false-hit guard on semantic hits (cache/guard.py); off until measured
+    guard: bool = True  # MeanCache-style false-hit guard on semantic hits (cache/guard.py); wrong hits 4 -> 2 of 34
 
 
 class GatewayCfg(BaseModel):
@@ -155,19 +155,24 @@ class _NoKey:
 
 
 def make_semantic(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float):
-    """SQLite semantic cache, or the shared pgvector cache (with SQLite as fallback) when backend = postgres."""
-    local = SemanticCache(embedder or _LazyEmbedder(), threshold, str(cfg.cache_path), guard=_guard(cfg))
+    """(local SQLite semantic cache, shared pgvector cache or None, the shared embedder).
+
+    The router looks both up in parallel; the local cache is the fallback when the shared one is slow or down.
+    """
+    emb = CachedEmbedder(embedder or _LazyEmbedder())  # one embedding per prompt for the router and both caches
+    local = SemanticCache(emb, threshold, str(cfg.cache_path), guard=_guard(cfg))
     cc = cfg.cache
     dsn = os.environ.get(cc.dsn_env, "")
     if cc.backend != "postgres" or not dsn:
         if cc.backend == "postgres":
             logging.getLogger("chimera").warning("cache.backend=postgres but %s is not set; using sqlite", cc.dsn_env)
-        return local
+        return local, None, emb
     from .cache.pgvector_cache import PgStore, PgVectorCache
 
-    return PgVectorCache(local._embedder, lambda: PgStore(dsn), threshold=threshold, tenant=cc.tenant,
-                         fallback=local, store_text=cc.store_text, ttl_s=cc.ttl_s, top_k=cc.top_k,
-                         budget_s=cc.budget_ms / 1000)
+    shared = PgVectorCache(emb, lambda: PgStore(dsn), threshold=threshold, tenant=cc.tenant,
+                           fallback=None, store_text=cc.store_text, ttl_s=cc.ttl_s, top_k=cc.top_k,
+                           budget_s=cc.budget_ms / 1000, guard=_guard(cfg))
+    return local, shared, emb
 
 
 def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder: Embedder | None = None,
@@ -188,10 +193,10 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
     cfg.cache_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.telemetry_path.parent.mkdir(parents=True, exist_ok=True)
     t = cfg.thresholds
+    sem, shared, emb = make_semantic(cfg, embedder, t.semantic) if cfg.cache.semantic else (None, None, None)
     if cfg.use_pool and cfg.tiers:
         return SpeculativeCascadeRouter(
-            local, exact=ExactCache(path=str(cfg.cache_path)),
-            semantic=(make_semantic(cfg, embedder, t.semantic) if cfg.cache.semantic else None),
+            local, exact=ExactCache(path=str(cfg.cache_path)), semantic=sem, shared=shared, embedder=emb,
             tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
             config=RouterConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),
             pool=TierPool(cfg.tiers, min_confidence=t.confidence),
@@ -199,7 +204,6 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
     return LadderRouter(
         local, mid, top,
         LadderConfig(min_confidence=t.confidence, heavy_threshold=t.heavy, learned_router=t.learned_router),
-        exact=ExactCache(path=str(cfg.cache_path)),
-        semantic=(make_semantic(cfg, embedder, t.semantic) if cfg.cache.semantic else None),
+        exact=ExactCache(path=str(cfg.cache_path)), semantic=sem, shared=shared, embedder=emb,
         tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
     )

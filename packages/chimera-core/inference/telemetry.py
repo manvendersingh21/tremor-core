@@ -41,6 +41,9 @@ class Telemetry(BaseModel):
     gpu_calls_avoided: int | None = None  # defaults to 1 when a cache answered, else None
     false_hit: bool | None = None         # set by a caller that reports a served cache answer as wrong
     cache_lookup_ms: float | None = None
+    cache_source: str | None = None       # "exact" | "local" | "shared" when a cache answered
+    events: list[dict] | None = None      # step events of this call (router.generate on_event), in order
+    dollars_spent: float | None = None    # list price of every tier this call touched
 
     @model_validator(mode="after")
     def _cache_avoids_gpu(self) -> "Telemetry":
@@ -52,14 +55,17 @@ class Telemetry(BaseModel):
 class TelemetryTracker:
     """Collects events, keeps totals, and forwards each event to optional sinks (e.g. HUD WebSocket)."""
 
-    def __init__(self, sinks: list[Callable[[Telemetry], None]] | None = None) -> None:
+    def __init__(self, sinks: list[Callable[[Telemetry], None]] | None = None, keep: int | None = None) -> None:
         self.events: list[Telemetry] = []
         self._sinks = sinks or []
+        self._keep = keep  # None: keep every event; N: only the last N (a long-running server uses 0)
         self._lock = threading.Lock()
 
     def emit(self, event: Telemetry) -> None:
         with self._lock:
             self.events.append(event)
+            if self._keep is not None:
+                del self.events[: max(len(self.events) - self._keep, 0)]
         for sink in self._sinks:
             sink(event)
 

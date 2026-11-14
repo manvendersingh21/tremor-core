@@ -67,7 +67,7 @@ def test_failed_check_climbs_even_when_3b_is_confident():
 
 
 def test_unsure_3b_answer_is_not_cached_and_mid_timeout_climbs_to_top():
-    r, mid, top = make(conf=0.9)  # answers (>= 0.85) but is below the 0.95 cache bar
+    r, mid, top = make(conf=0.9, min_confidence=0.85)  # answers (>= 0.85) but is below the 0.95 cache bar
     assert r.generate("q1").telemetry.tier_used == "local"
     assert r.generate("q1").telemetry.tier_used == "local"
 

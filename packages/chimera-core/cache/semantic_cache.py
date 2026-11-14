@@ -9,6 +9,8 @@ import array
 import math
 import sqlite3
 import threading
+import time
+from dataclasses import dataclass
 from typing import Callable, Protocol
 
 
@@ -64,19 +66,57 @@ class SemanticCache:
 
     def get(self, prompt: str, namespace: str = "") -> tuple[str, float] | None:
         """Return (response, similarity) for the best match at or above the threshold."""
+        return self.lookup(prompt, namespace).hit
+
+    def lookup(self, prompt: str, namespace: str = "") -> "Lookup":
+        """Like get(), plus the best cosine seen (even below the threshold) and the guard verdict."""
+        t0 = time.perf_counter()
         query = _norm(self._embedder.embed(prompt))
         with self._lock:
             rows = self._db.execute(
                 "SELECT response, emb, prompt FROM entries WHERE namespace = ?", (namespace,)
             ).fetchall()
         best: tuple[str, float] | None = None
+        best_sim, verdict = None, "off" if self.guard is None else None
         for response, blob, cached in rows:
             vec = array.array("f")
             vec.frombytes(blob)
             sim = sum(a * b for a, b in zip(query, vec))
+            best_sim = sim if best_sim is None else max(best_sim, sim)
             if sim >= self.threshold and (best is None or sim > best[1]):
                 if self.guard is not None and not self.guard(prompt, cached, sim):
                     self.guarded_out += 1
+                    verdict = "rejected"
                     continue
                 best = (response, sim)
-        return best
+                verdict = verdict if self.guard is None else "pass"
+        return Lookup(best, best_sim, verdict, (time.perf_counter() - t0) * 1000)
+
+
+@dataclass
+class Lookup:
+    """One cache lookup, for step events. `hit` is (response, similarity) or None."""
+    hit: tuple[str, float] | None
+    best_sim: float | None
+    guard: str | None  # "pass" | "rejected" | "off" | None (no candidate reached the threshold)
+    ms: float
+    status: str = "ok"  # shared cache only: "ok" | "timeout" | "down"
+
+
+class CachedEmbedder:
+    """Remembers the last few embeddings so the router, the local and the shared cache embed a prompt once."""
+
+    def __init__(self, inner: Embedder, size: int = 64) -> None:
+        self._inner, self._size, self._memo = inner, size, {}  # type: ignore[var-annotated]
+        self._lock = threading.Lock()
+
+    def embed(self, text: str) -> list[float]:
+        with self._lock:
+            v = self._memo.get(text)
+        if v is None:
+            v = self._inner.embed(text)
+            with self._lock:
+                if len(self._memo) >= self._size:
+                    self._memo.pop(next(iter(self._memo)))
+                self._memo[text] = v
+        return v

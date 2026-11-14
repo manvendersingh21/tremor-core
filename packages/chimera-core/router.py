@@ -5,9 +5,11 @@ confident? return : escalate (verify if same-family tokenizer, else handoff).
 """
 from __future__ import annotations
 
+import concurrent.futures as cf
+import logging
 import re
 import time
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
@@ -20,6 +22,25 @@ from .inference.telemetry import Telemetry, TelemetryTracker
 
 if TYPE_CHECKING:
     from .tiers import TierPool
+
+log = logging.getLogger("chimera.router")
+OnEvent = Callable[[str, dict], None]
+
+
+class Events:
+    """Collects the step events of one call and forwards each to the caller's on_event(step, data)."""
+
+    def __init__(self, cb: OnEvent | None = None) -> None:
+        self.cb, self.log = cb, []
+
+    def __call__(self, step: str, data: dict) -> None:
+        self.log.append({"step": step, **data})
+        if self.cb is not None:
+            try:
+                self.cb(step, data)
+            except Exception as e:  # noqa: BLE001  a broken listener must never break the call
+                log.warning("on_event failed: %s", type(e).__name__)
+
 
 HEAVY_HINTS = re.compile(
     r"\b(refactor|architecture|migrate|redesign|implement|debug|optimi[sz]e|concurrency|"
@@ -44,7 +65,8 @@ class Tokenizer(Protocol):
 class RouterConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    min_confidence: float = 0.85
+    min_confidence: float = 0.95
+    min_cache_confidence: float = 0.95  # answers below this are served but not cached
     heavy_threshold: float = 0.6
     max_local_tokens: int = 512
     max_cloud_tokens: int = 2048
@@ -68,6 +90,8 @@ class SpeculativeCascadeRouter:
         config: RouterConfig | None = None,
         tokenizer: Tokenizer | None = None,
         pool: "TierPool | None" = None,
+        shared=None,
+        embedder=None,
     ) -> None:
         self.local, self.cloud = local, cloud
         self.exact = exact or ExactCache()
@@ -75,61 +99,119 @@ class SpeculativeCascadeRouter:
         self.tracker = tracker or TelemetryTracker()
         self.cfg = config or RouterConfig()
         self.tokenizer = tokenizer
+        self.shared = shared      # shared PgVectorCache; looked up in parallel with the local caches
+        self.embedder = embedder  # same object the caches use; lets generate() time the embed step
+        self._lookups = cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="router-cache")
         self.pool = pool  # config flag `use_pool`: route through the tier pool instead of local/cloud
 
     # ---- public API -------------------------------------------------------
-    def generate(self, prompt: str, context: str = "") -> GenerateResult:
+    def generate(self, prompt: str, context: str = "", on_event: OnEvent | None = None) -> GenerateResult:
+        """on_event(step, data) is optional. Steps: embed, cache_local, cache_shared, decide, call, draft, final."""
         t0 = time.perf_counter()
-        est_tokens = max(len(prompt) // 4, 1)
-        ns = self.cfg.namespace
+        ev = Events(on_event)
 
-        hit = self.exact.get(prompt, ns)
+        hit = self._lookup(prompt, ev)
         if hit is not None:
-            return self._done(hit, "exact_cache", t0, tokens_saved=est_tokens + len(hit) // 4)
-
-        if self.semantic is not None:
-            sem = self.semantic.get(prompt, ns)
-            if sem is not None:
-                return self._done(sem[0], "semantic_cache", t0, tokens_saved=est_tokens + len(sem[0]) // 4)
+            text, tier, source = hit
+            return self._done(text, tier, t0, tokens_saved=max(len(prompt) // 4, 1) + len(text) // 4, ev=ev,
+                              cache_source=source)  # dollars_saved: priced at the big tier from tokens_saved
 
         if self.pool is not None:
-            return self._pooled(prompt, t0)
+            return self._pooled(prompt, t0, ev)
 
         heavy = complexity_score(prompt) >= self.cfg.heavy_threshold
         if heavy and self.cloud is not None:
-            return self._handoff(prompt, context, t0, draft=None)
+            return self._handoff(prompt, context, t0, draft=None, ev=ev)
 
         draft = self.local.complete(prompt, self.cfg.max_local_tokens)
+        ev("draft", {"tier": "local", "model": getattr(self.local, "model", "local"),
+                     "confidence": round(draft.mean_confidence, 4), "gate": self.cfg.min_confidence})
         if not should_escalate(draft, self.cfg.min_confidence) or self.cloud is None:
-            return self._store_local(prompt, draft, t0)
+            return self._store_local(prompt, draft, t0, ev)
 
         if self.tokenizer is not None and draft.token_ids and all(i is not None for i in draft.token_ids):
-            return self._verify(prompt, draft, t0)
-        return self._handoff(prompt, context, t0, draft=draft)
+            return self._verify(prompt, draft, t0, ev)
+        return self._handoff(prompt, context, t0, draft=draft, ev=ev)
+
+    # ---- cache stack: exact, then local semantic, with the shared cache looked up in parallel -------
+    def _lookup(self, prompt: str, ev: Events) -> tuple[str, str, str] | None:
+        """(text, tier, source) from the first cache that answers, else None. Emits embed, cache_local, cache_shared."""
+        ns = self.cfg.namespace
+        if self.embedder is not None:
+            t = time.perf_counter()
+            vec = self.embedder.embed(prompt)
+            ev("embed", {"ms": round((time.perf_counter() - t) * 1000, 2), "dim": len(vec)})
+        fut = self._lookups.submit(self.shared.lookup, prompt, ns) if self.shared is not None else None
+
+        t = time.perf_counter()
+        local: tuple[str, str, str] | None = None
+        info: dict = {"kind": None, "score": None, "guard": None}
+        exact = self.exact.get(prompt, ns)
+        if exact is not None:
+            local, info = (exact, "exact_cache", "exact"), {"kind": "exact", "score": 1.0, "guard": None}
+        elif self.semantic is not None:
+            lk = self.semantic.lookup(prompt, ns)
+            if lk.hit is not None:
+                local = (lk.hit[0], "semantic_cache", "local")
+            info = {"kind": "semantic" if lk.hit else None, "guard": lk.guard,
+                    "score": None if lk.best_sim is None else round(lk.best_sim, 4)}
+        ev("cache_local", {"hit": local is not None, **info, "threshold": getattr(self.semantic, "threshold", None),
+                           "ms": round((time.perf_counter() - t) * 1000, 2)})
+        if self.shared is None:
+            return local
+        if local is not None:  # the answer is in hand; do not wait for the network
+            ev("cache_shared", {"hit": False, "status": "skipped", "threshold": self.shared.threshold})
+            return local
+        try:
+            lk = fut.result(timeout=self.shared.budget_s + 0.2)
+        except Exception as e:  # noqa: BLE001  the cache must never block or fail a call
+            ev("cache_shared", {"hit": False, "status": "timeout", "threshold": self.shared.threshold,
+                                "error": type(e).__name__})
+            return None
+        ev("cache_shared", {"hit": lk.hit is not None, "status": lk.status, "threshold": self.shared.threshold,
+                            "score": None if lk.best_sim is None else round(lk.best_sim, 4),
+                            "guard": lk.guard, "ms": round(lk.ms, 2)})
+        if lk.hit is None:
+            return None
+        self._remember(prompt, lk.hit[0], shared=False)  # warm this machine: the next lookup is local
+        return lk.hit[0], "semantic_cache", "shared"
 
     # ---- paths --------------------------------------------------------------
-    def _pooled(self, prompt: str, t0: float) -> GenerateResult:
-        r = self.pool.generate(prompt)
-        self._remember(prompt, r.text)
+    def _price_saved(self, tin: int, tout: int) -> float:
+        top = self.pool.top if self.pool is not None else None
+        if top is None:
+            return (tin + tout) / 1000 * self.cfg.cloud_dollars_per_1k_tokens
+        return tin / 1000 * top.cost_per_1k_in + tout / 1000 * top.cost_per_1k_out
+
+    def _pooled(self, prompt: str, t0: float, ev: Events) -> GenerateResult:
+        r = self.pool.generate(prompt, on_event=ev)
+        cache_ok = not r.low_confidence and (r.confidence is None or r.confidence >= self.cfg.min_cache_confidence)
+        if cache_ok and r.text.strip():
+            self._remember(prompt, r.text, meta={"model": r.model, "tier": r.tier})
         per = self.pool.telemetry_per_tier(r)
-        owned = r.device != "cloud"
+        top = self.pool.top
         tin = sum(u.tokens_in for u in r.per_tier.values())
         tout = sum(u.tokens_out for u in r.per_tier.values())
+        kept = r.tier != (top.name if top else "")  # answered below the big model: its tokens stayed off it
+        a = r.per_tier[r.tier]
         return self._done(
             r.text, {"phone": "local", "laptop": "local", "gpu": "gpu", "cloud": "top"}[r.device], t0,
-            tokens_saved=(tin + tout) if owned else 0,
+            tokens_saved=(a.tokens_in + a.tokens_out) if kept else 0,
+            dollars_saved=self._price_saved(a.tokens_in, a.tokens_out) if kept else 0.0,
             local_tokens=sum(u.output_tokens for u in per.values() if u.device in ("Phone", "Mac")),
             cloud_tokens=sum(u.output_tokens for u in per.values() if u.device == "Crusoe"),
-            per_tier=per, tier_name=r.tier,
+            per_tier=per, tier_name=r.tier, ev=ev, model=r.model, tokens_in=tin, tokens_out=tout,
+            cached_tokens=sum(u.cached_tokens for u in r.per_tier.values()),
+            dollars_spent=sum(u.dollars for u in r.per_tier.values()),
         )
 
-    def _store_local(self, prompt: str, draft: DraftResult, t0: float) -> GenerateResult:
+    def _store_local(self, prompt: str, draft: DraftResult, t0: float, ev: Events) -> GenerateResult:
         self._remember(prompt, draft.text)
         return self._done(
-            draft.text, "local", t0, tokens_saved=draft.n_tokens, local_tokens=draft.n_tokens
+            draft.text, "local", t0, tokens_saved=draft.n_tokens, local_tokens=draft.n_tokens, ev=ev
         )
 
-    def _verify(self, prompt: str, draft: DraftResult, t0: float) -> GenerateResult:
+    def _verify(self, prompt: str, draft: DraftResult, t0: float, ev: Events) -> GenerateResult:
         assert self.cloud and self.tokenizer
         # The draft saw the ChatML-wrapped prompt, so the target must score the same ids.
         prompt_ids = self.tokenizer.encode(chatml(prompt) if getattr(self.local, "chatml", False) else prompt)
@@ -140,33 +222,47 @@ class SpeculativeCascadeRouter:
         self._remember(prompt, text)
         return self._done(
             text, "cloud_verified", t0, tokens_saved=res.n_accepted, alpha=res.alpha,
-            local_tokens=len(draft_ids), cloud_tokens=len(draft_ids) - res.n_accepted + 1,
+            local_tokens=len(draft_ids), cloud_tokens=len(draft_ids) - res.n_accepted + 1, ev=ev,
         )
 
-    def _handoff(self, prompt: str, context: str, t0: float, draft: DraftResult | None) -> GenerateResult:
+    def _handoff(self, prompt: str, context: str, t0: float, draft: DraftResult | None, ev: Events) -> GenerateResult:
         assert self.cloud
         brief = build_brief(self.local, prompt, context)
         full = cloud_prompt(prompt, brief, draft.text if draft else "")
         text = self.cloud.handoff(full, self.cfg.max_cloud_tokens)
         self._remember(prompt, text)
         return self._done(text, "cloud_handoff", t0, cloud_tokens=len(text) // 4,
-                          local_tokens=len(brief) // 4)
+                          local_tokens=len(brief) // 4, ev=ev)
 
     # ---- helpers ------------------------------------------------------------
-    def _remember(self, prompt: str, text: str) -> None:
+    def _remember(self, prompt: str, text: str, *, shared: bool = True, meta: dict | None = None) -> None:
+        """Write a checked answer to the exact and local semantic caches, and (shared=True) to the shared cache."""
         self.exact.put(prompt, text, self.cfg.namespace)
         if self.semantic is not None:
             self.semantic.put(prompt, text, self.cfg.namespace)
+        if shared and self.shared is not None:
+            self.shared.put(prompt, text, self.cfg.namespace, verified=True, **(meta or {}))
 
     def _done(
         self, text: str, tier: str, t0: float, tokens_saved: int = 0, alpha: float | None = None,
         local_tokens: int = 0, cloud_tokens: int = 0, per_tier: dict | None = None, tier_name: str | None = None,
+        ev: Events | None = None, cache_source: str | None = None, dollars_saved: float | None = None,
+        model: str = "", tokens_in: int = 0, tokens_out: int = 0, cached_tokens: int = 0,
+        dollars_spent: float = 0.0,
     ) -> GenerateResult:
+        ms = (time.perf_counter() - t0) * 1000
+        if dollars_saved is None:
+            dollars_saved = self._price_saved(tokens_saved // 2, tokens_saved - tokens_saved // 2)
+        ev = ev or Events()
+        ev("final", {"tier": tier_name or tier, "model": model or (cache_source and "cache") or "", "tokens_in": tokens_in,
+                     "tokens_out": tokens_out, "cached_tokens": cached_tokens, "dollars": round(dollars_spent, 6),
+                     "dollars_saved": round(dollars_saved, 6), "ms": round(ms, 1), "tokens_kept_off_big": tokens_saved,
+                     "cache": cache_source})
         tel = Telemetry(
-            tier_used=tier, tokens_saved=tokens_saved, acceptance_rate_alpha=alpha,
-            latency_ms=(time.perf_counter() - t0) * 1000,
-            dollars_saved=tokens_saved / 1000 * self.cfg.cloud_dollars_per_1k_tokens,
-            local_tokens=local_tokens, cloud_tokens=cloud_tokens, per_tier=per_tier, tier_name=tier_name,
+            tier_used=tier, tokens_saved=tokens_saved, acceptance_rate_alpha=alpha, latency_ms=ms,
+            dollars_saved=dollars_saved, local_tokens=local_tokens, cloud_tokens=cloud_tokens,
+            per_tier=per_tier, tier_name=tier_name, cache_source=cache_source, events=ev.log,
+            dollars_spent=dollars_spent,
         )
         self.tracker.emit(tel)
         return GenerateResult(text=text, telemetry=tel)
