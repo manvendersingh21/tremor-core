@@ -1,0 +1,20 @@
+/* ---- Evals tab (own block) ---- */
+#evals .ev-ctl{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:end;margin:0 0 10px}
+#evals label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
+#evals select,#evals input{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 8px;font:13px Inter,system-ui,sans-serif;min-height:40px;max-width:100%}
+#evals select option{background:var(--bg);color:var(--fg)}
+#evals .ev-btn{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:99px;padding:7px 14px;min-height:40px;font:500 13px Inter,system-ui,sans-serif;cursor:pointer}
+#evals .ev-btn:disabled{opacity:.5;cursor:default}
+#evals th button{all:unset;cursor:pointer;color:var(--mut);font-weight:500;padding:6px 2px;min-height:24px}
+#evals th button:hover,#evals th button:focus-visible{color:var(--fg);text-decoration:underline}
+#evals th[aria-sort]{color:var(--fg)}
+#evals td.num,#evals th.num{text-align:right;font-variant-numeric:tabular-nums}
+#evals .ev-base{color:var(--mut);font-size:11px;margin-left:6px}
+#evals .ev-svg{width:100%;max-width:560px;height:auto;display:block}
+#evals .ev-svg text{fill:var(--fg);font:11px Inter,system-ui,sans-serif}
+#evals .ev-svg .ax{stroke:var(--line)}
+#evals .ev-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+#evals .ev-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;margin:6px 0 0}
+#evals .ev-pg{display:flex;gap:10px;align-items:center;margin-top:8px;font-size:13px}
+#evals .ev-sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+@media (max-width:520px){#evals select,#evals input{width:100%}#evals label{flex:1 1 100%}}
