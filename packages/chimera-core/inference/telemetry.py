@@ -5,7 +5,7 @@ import json
 import threading
 from typing import Callable, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 Tier = Literal["exact_cache", "semantic_cache", "local", "cloud_verified", "cloud_handoff", "gpu", "top"]
 
@@ -35,6 +35,16 @@ class Telemetry(BaseModel):
     gpu_tokens: int = 0
     # Optional per-model split of this call. Old events lack it; readers fall back to local_tokens/cloud_tokens.
     per_tier: dict[TierKey, TierUsage] | None = None
+    # Shared-cache metrics. All optional: old events and old readers ignore them.
+    gpu_calls_avoided: int | None = None  # defaults to 1 when a cache answered, else None
+    false_hit: bool | None = None         # set by a caller that reports a served cache answer as wrong
+    cache_lookup_ms: float | None = None
+
+    @model_validator(mode="after")
+    def _cache_avoids_gpu(self) -> "Telemetry":
+        if self.gpu_calls_avoided is None and self.tier_used in ("exact_cache", "semantic_cache"):
+            self.gpu_calls_avoided = 1
+        return self
 
 
 class TelemetryTracker:
@@ -54,6 +64,8 @@ class TelemetryTracker:
     def totals(self) -> dict[str, float]:
         with self._lock:
             events = list(self.events)
+        hits = sum(e.tier_used in ("exact_cache", "semantic_cache") for e in events)
+        false_hits = sum(bool(e.false_hit) for e in events)
         alphas = [e.acceptance_rate_alpha for e in events if e.acceptance_rate_alpha is not None]
         return {
             "calls": len(events),
@@ -62,6 +74,11 @@ class TelemetryTracker:
             "cloud_tokens": sum(e.cloud_tokens for e in events),
             "local_tokens": sum(e.local_tokens for e in events),
             "mean_alpha": sum(alphas) / len(alphas) if alphas else 0.0,
+            "gpu_calls_avoided": sum(e.gpu_calls_avoided or 0 for e in events),
+            "cache_hits": hits,
+            "hit_rate": hits / len(events) if events else 0.0,
+            "false_hits": false_hits,
+            "false_hit_rate": false_hits / hits if hits else 0.0,
         }
 
     @staticmethod

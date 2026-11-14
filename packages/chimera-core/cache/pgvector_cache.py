@@ -1,0 +1,250 @@
+"""Shared semantic cache in Postgres + pgvector (plain Postgres or Supabase).
+
+Same interface as SemanticCache (`get`, `put`, `purge`). Lookup order: exact hash, then nearest
+neighbour by cosine distance. Only `verified` rows are served. The DB is never allowed to block a call:
+every DB step runs under a short budget, and on error or timeout the local SQLite cache answers instead.
+Run deploy/sql/*.sql first. The DSN comes from the environment only.
+"""
+from __future__ import annotations
+
+import concurrent.futures as cf
+import logging
+import threading
+import time
+from dataclasses import dataclass
+from typing import Any, Callable, Protocol
+
+from .exact_cache import prompt_hash
+from .semantic_cache import Embedder, SemanticCache, _norm
+
+log = logging.getLogger("chimera.pgvector")
+
+
+@dataclass
+class Hit:
+    id: int | None
+    response: str
+    similarity: float
+    source: str  # "exact" | "vector" | "sqlite"
+
+
+class Store(Protocol):
+    def find_exact(self, tenant: str, ns: str, h: str) -> tuple[int, str] | None: ...
+    def find_nearest(self, tenant: str, ns: str, emb: list[float], k: int) -> list[tuple[int, str, float, bool]]: ...
+    def insert(self, tenant: str, ns: str, h: str, text: str | None, emb: list[float], answer: str,
+               meta: dict[str, Any]) -> int: ...
+    def touch(self, tenant: str, prompt_id: int) -> None: ...
+    def event(self, tenant: str, kind: str, prompt_id: int | None, similarity: float | None,
+              lookup_ms: float | None) -> None: ...
+    def signal(self, tenant: str, prompt_id: int, sig: dict[str, Any]) -> None: ...
+    def set_verified(self, tenant: str, prompt_id: int, verified: bool) -> None: ...
+    def purge(self, tenant: str, ns: str | None) -> int: ...
+
+
+def _vec(emb: list[float]) -> str:
+    return "[" + ",".join(f"{x:.7g}" for x in emb) + "]"
+
+
+class PgStore:
+    """psycopg v3 + a small pool. Each operation is one transaction that first sets `app.tenant` for RLS."""
+
+    def __init__(self, dsn: str, min_size: int = 1, max_size: int = 4) -> None:
+        from psycopg_pool import ConnectionPool  # lazy: optional `postgres` extra
+
+        self._pool = ConnectionPool(dsn, min_size=min_size, max_size=max_size, open=False,
+                                    timeout=0.5, kwargs={"connect_timeout": 2})
+        self._pool.open(wait=False)
+
+    def _tx(self, tenant: str, sql: str, params: tuple = (), fetch: str = "") -> Any:
+        with self._pool.connection() as conn:  # commits on exit
+            conn.execute("select set_config('app.tenant', %s, true)", (tenant,))
+            cur = conn.execute(sql, params)
+            return cur.fetchone() if fetch == "one" else cur.fetchall() if fetch == "all" else cur.rowcount
+
+    def find_exact(self, tenant, ns, h):
+        r = self._tx(tenant, "select id, answer from prompts where tenant=%s and namespace=%s and prompt_hash=%s "
+                     "and verified and (ttl_s is null or created_at + ttl_s * interval '1 second' > now())",
+                     (tenant, ns, h), "one")
+        return (r[0], r[1]) if r else None
+
+    def find_nearest(self, tenant, ns, emb, k):
+        v = _vec(emb)
+        rows = self._tx(tenant, "select id, answer, 1 - (embedding <=> %s::vector) as sim, verified from prompts "
+                        "where tenant=%s and namespace=%s "
+                        "and (ttl_s is null or created_at + ttl_s * interval '1 second' > now()) "
+                        "order by embedding <=> %s::vector limit %s", (v, tenant, ns, v, k), "all")
+        return [(r[0], r[1], float(r[2]), bool(r[3])) for r in rows]
+
+    def insert(self, tenant, ns, h, text, emb, answer, meta):
+        r = self._tx(
+            tenant,
+            "insert into prompts (tenant, namespace, prompt_hash, prompt_text, embedding, answer, model, tier, "
+            "tokens_in, tokens_out, verified, ttl_s) values (%s,%s,%s,%s,%s::vector,%s,%s,%s,%s,%s,%s,%s) "
+            "on conflict (tenant, namespace, prompt_hash) do update set answer=excluded.answer, "
+            "embedding=excluded.embedding, prompt_text=excluded.prompt_text, model=excluded.model, "
+            "tier=excluded.tier, tokens_in=excluded.tokens_in, tokens_out=excluded.tokens_out, "
+            "verified=excluded.verified, ttl_s=excluded.ttl_s, created_at=now() returning id",
+            (tenant, ns, h, text, _vec(emb), answer, meta.get("model", ""), meta.get("tier", ""),
+             meta.get("tokens_in", 0), meta.get("tokens_out", 0), meta.get("verified", True), meta.get("ttl_s")),
+            "one")
+        return r[0]
+
+    def touch(self, tenant, prompt_id):
+        self._tx(tenant, "update prompts set hits=hits+1, last_hit_at=now() where id=%s", (prompt_id,))
+
+    def event(self, tenant, kind, prompt_id, similarity, lookup_ms):
+        self._tx(tenant, "insert into cache_events (tenant, kind, prompt_id, similarity, lookup_ms) "
+                 "values (%s,%s,%s,%s,%s)", (tenant, kind, prompt_id, similarity, lookup_ms))
+
+    def signal(self, tenant, prompt_id, sig):
+        self._tx(tenant, "insert into routing_signals (prompt_id, tenant, tier_tried, confidence, escalated, "
+                 "passed_checks, latency_ms, cost) values (%s,%s,%s,%s,%s,%s,%s,%s)",
+                 (prompt_id, tenant, sig["tier_tried"], sig.get("confidence"), sig.get("escalated", False),
+                  sig.get("passed_checks"), sig.get("latency_ms"), sig.get("cost")))
+
+    def set_verified(self, tenant, prompt_id, verified):
+        self._tx(tenant, "update prompts set verified=%s where id=%s", (verified, prompt_id))
+
+    def purge(self, tenant, ns):
+        if ns is None:
+            return self._tx(tenant, "delete from prompts where tenant=%s", (tenant,))
+        return self._tx(tenant, "delete from prompts where tenant=%s and namespace=%s", (tenant, ns))
+
+
+class PgVectorCache:
+    def __init__(
+        self, embedder: Embedder, store: Store | Callable[[], Store], *, threshold: float = 0.97,
+        tenant: str = "default", fallback: SemanticCache | None = None, store_text: bool = False,
+        ttl_s: int | None = None, top_k: int = 5, budget_s: float = 0.15, cooldown_s: float = 30.0,
+    ) -> None:
+        self._embedder, self.threshold, self.tenant = embedder, threshold, tenant
+        self._store_arg = store  # a callable is built lazily on first use, so a dead DB cannot block startup
+        self._store: Store | None = None if callable(store) else store
+        self.fallback, self.store_text, self.ttl_s, self.top_k = fallback, store_text, ttl_s, top_k
+        self.budget_s, self.cooldown_s = budget_s, cooldown_s
+        self._down_until = 0.0
+        self._lock = threading.Lock()
+        self._pool = cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="pgcache")
+        self._wpool = cf.ThreadPoolExecutor(max_workers=2, thread_name_prefix="pgcache-w")  # writes never queue lookups
+        self.stats = {"hits": 0, "misses": 0, "false_hits": 0, "fallbacks": 0, "lookup_ms": []}
+
+    # ---- DB access under a budget ------------------------------------------------
+    def _call(self, fn: Callable[[Store], Any]) -> Any:
+        """Run fn(store) with the time budget. Raises on timeout or error and opens the circuit breaker."""
+        if time.monotonic() < self._down_until:
+            raise TimeoutError("db circuit open")
+
+        def run() -> Any:
+            with self._lock:
+                if self._store is None:
+                    self._store = self._store_arg()  # type: ignore[operator]
+            return fn(self._store)
+
+        try:
+            return self._pool.submit(run).result(timeout=self.budget_s)
+        except Exception as e:  # noqa: BLE001  (timeout or any driver error; never log the DSN)
+            self._down_until = time.monotonic() + self.cooldown_s
+            log.warning("pgvector cache unavailable, using local cache: %s", type(e).__name__)
+            raise
+
+    def _bg(self, fn: Callable[[Store], Any]) -> None:
+        """Fire and forget: writes never delay the caller."""
+        if time.monotonic() < self._down_until:
+            return
+
+        def run() -> None:
+            try:
+                with self._lock:
+                    if self._store is None:
+                        self._store = self._store_arg()  # type: ignore[operator]
+                fn(self._store)
+            except Exception as e:  # noqa: BLE001
+                self._down_until = time.monotonic() + self.cooldown_s
+                log.warning("pgvector write failed: %s", type(e).__name__)
+
+        self._wpool.submit(run)
+
+    # ---- SemanticCache interface -------------------------------------------------
+    def get_hit(self, prompt: str, namespace: str = "") -> Hit | None:
+        t0 = time.perf_counter()
+        h = prompt_hash(prompt, namespace)
+        emb = _norm(self._embedder.embed(prompt))
+
+        def lookup(s: Store) -> Hit | None:
+            ex = s.find_exact(self.tenant, namespace, h)
+            if ex:
+                return Hit(ex[0], ex[1], 1.0, "exact")
+            for pid, answer, sim, verified in s.find_nearest(self.tenant, namespace, emb, self.top_k):
+                if sim >= self.threshold and verified:  # rows are sorted best first
+                    return Hit(pid, answer, sim, "vector")
+            return None
+
+        try:
+            hit = self._call(lookup)
+        except Exception:  # noqa: BLE001
+            self.stats["fallbacks"] += 1
+            fb = self.fallback.get(prompt, namespace) if self.fallback else None
+            return Hit(None, fb[0], fb[1], "sqlite") if fb else None
+        ms = (time.perf_counter() - t0) * 1000
+        self.stats["lookup_ms"].append(ms)
+        if hit:
+            self.stats["hits"] += 1
+            self._bg(lambda s: (s.touch(self.tenant, hit.id), s.event(self.tenant, "hit", hit.id, hit.similarity, ms)))
+        else:
+            self.stats["misses"] += 1
+            self._bg(lambda s: s.event(self.tenant, "miss", None, None, ms))
+        return hit
+
+    def get(self, prompt: str, namespace: str = "") -> tuple[str, float] | None:
+        hit = self.get_hit(prompt, namespace)
+        return (hit.response, hit.similarity) if hit else None
+
+    def put(self, prompt: str, response: str, namespace: str = "", *, verified: bool = True, model: str = "",
+            tier: str = "", tokens_in: int = 0, tokens_out: int = 0) -> None:
+        """Store an answer. Pass verified=False for answers no check has passed yet; they are never auto-served."""
+        if self.fallback:
+            self.fallback.put(prompt, response, namespace)
+        h = prompt_hash(prompt, namespace)
+        emb = _norm(self._embedder.embed(prompt))
+        meta = {"model": model, "tier": tier, "tokens_in": tokens_in, "tokens_out": tokens_out,
+                "verified": verified, "ttl_s": self.ttl_s}
+        self._bg(lambda s: s.insert(self.tenant, namespace, h, prompt if self.store_text else None, emb,
+                                    response, meta))
+
+    def purge(self, namespace: str | None = None) -> int:
+        """Delete this tenant's rows (one namespace, or all when None). Waits for the DB; raises if it is down."""
+        if self.fallback and namespace is not None:
+            self.fallback.purge(namespace)
+        return self._pool.submit(lambda: self._store_ready().purge(self.tenant, namespace)).result(timeout=10)
+
+    def _store_ready(self) -> Store:
+        with self._lock:
+            if self._store is None:
+                self._store = self._store_arg()  # type: ignore[operator]
+            return self._store
+
+    # ---- feedback ------------------------------------------------------------------
+    def report_false_hit(self, hit: Hit) -> None:
+        """A served answer was wrong: stop serving that row and count it."""
+        self.stats["false_hits"] += 1
+        if hit.id is not None:
+            self._bg(lambda s: (s.set_verified(self.tenant, hit.id, False),
+                                s.event(self.tenant, "false_hit", hit.id, hit.similarity, None)))
+
+    def mark_verified(self, prompt_id: int, verified: bool = True) -> None:
+        self._bg(lambda s: s.set_verified(self.tenant, prompt_id, verified))
+
+    def record_signal(self, prompt_id: int, tier_tried: str, *, confidence: float | None = None,
+                      escalated: bool = False, passed_checks: bool | None = None,
+                      latency_ms: float | None = None, cost: float | None = None) -> None:
+        sig = {"tier_tried": tier_tried, "confidence": confidence, "escalated": escalated,
+               "passed_checks": passed_checks, "latency_ms": latency_ms, "cost": cost}
+        self._bg(lambda s: s.signal(self.tenant, prompt_id, sig))
+
+    def summary(self) -> dict[str, float]:
+        ms = sorted(self.stats["lookup_ms"])
+        n = self.stats["hits"] + self.stats["misses"]
+        pick = lambda q: ms[min(int(q * len(ms)), len(ms) - 1)] if ms else 0.0  # noqa: E731
+        return {"lookups": n, "hit_rate": self.stats["hits"] / n if n else 0.0,
+                "false_hit_rate": self.stats["false_hits"] / self.stats["hits"] if self.stats["hits"] else 0.0,
+                "fallbacks": self.stats["fallbacks"], "p50_ms": pick(0.5), "p90_ms": pick(0.9)}

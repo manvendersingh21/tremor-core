@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import threading
 
+CACHE_TIERS = ("exact_cache", "semantic_cache")
 BUCKETS = (50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 90000)
 
 
@@ -41,6 +42,11 @@ class Metrics:
             calls = {k: list(v) for k, v in self._calls.items()}
             events = dict(self._events)
         out: list[str] = []
+        by_tenant: dict[str, list[float]] = {}  # tenant -> [calls, cache hits]
+        for (t, tier), row in calls.items():
+            agg = by_tenant.setdefault(t, [0.0, 0.0])
+            agg[0] += row[0]
+            agg[1] += row[0] if tier in CACHE_TIERS else 0
 
         def block(name: str, kind: str, help_: str, idx: int) -> None:
             out.append(f"# HELP {name} {help_}\n# TYPE {name} {kind}")
@@ -58,6 +64,18 @@ class Metrics:
             out.append(f"{n}_bucket{_labels(tenant=t, tier=tier, le='+Inf')} {row[-1]:g}")
             out.append(f"{n}_sum{_labels(tenant=t, tier=tier)} {row[3]:g}")
             out.append(f"{n}_count{_labels(tenant=t, tier=tier)} {row[0]:g}")
+        for name, help_ in (("gpu_calls_avoided", "Calls a cache answered that would have used a GPU or cloud tier."),
+                            ("cache_false_hits", "Served cache answers reported wrong.")):
+            out.append(f"# HELP chimera_{name}_total {help_}\n# TYPE chimera_{name}_total counter")
+            for (e, t, _x), c in sorted(events.items()):
+                if e == name:
+                    out.append(f"chimera_{name}_total{_labels(tenant=t)} {c}")
+        out.append("# HELP chimera_cache_hit_rate Cache hits divided by calls.\n# TYPE chimera_cache_hit_rate gauge")
+        out.append("# HELP chimera_cache_false_hit_rate False hits divided by cache hits.\n# TYPE chimera_cache_false_hit_rate gauge")
+        for t, (n, h) in sorted(by_tenant.items()):
+            out.append(f"chimera_cache_hit_rate{_labels(tenant=t)} {h / n if n else 0:g}")
+            fh = events.get(("cache_false_hits", t, ""), 0)
+            out.append(f"chimera_cache_false_hit_rate{_labels(tenant=t)} {fh / h if h else 0:g}")
         for name, label, help_ in (("rate_limited", "", "Calls rejected with 429."),
                                    ("errors", "code", "Failed calls by error code."),
                                    ("fallbacks", "path", "Calls answered one tier down after a backend failure.")):
