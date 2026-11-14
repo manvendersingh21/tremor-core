@@ -19,7 +19,8 @@ BENCH = pathlib.Path(__file__).resolve().parent
 ROOT = BENCH.parent
 DB_PATH = pathlib.Path(os.environ.get("CHIMERA_EVALS_DB", "~/.chimera/evals.db")).expanduser()
 TENANT = "bench"
-SUITE_LOGS = [BENCH / ".scratch" / "eval_log.jsonl"]  # written by bench/run_suite.py
+SUITE_LOGS = [BENCH / ".scratch" / "eval_log.jsonl",  # written by bench/run_suite.py
+              BENCH / ".scratch" / "distill" / "eval_log.jsonl"]  # written by bench/distill/grade_gen.py
 BASELINES = ("A", "G", "T", "TOP", "big model alone", "ollama")  # first one present in a dataset is its baseline
 COLS = ["run_id", "ts", "source_file", "dataset", "item_id", "mode", "tier", "model", "tokens_in", "tokens_out",
         "cached_tokens", "dollars", "latency_ms", "passed", "grader", "notes"]
@@ -202,6 +203,7 @@ def sources() -> list[tuple[pathlib.Path, callable]]:
         s += [(p, import_jsonl) for p in logs]
     else:
         s += [(p, import_suite) for p in sorted((BENCH / ".scratch").glob("suite_*.jsonl"))]
+    s.append((BENCH / ".scratch" / "replay_eval_log.jsonl", import_jsonl))  # chimera replay --live (apps/replay/live.py)
     return [(p, f) for p, f in s if p.is_file()]
 
 
