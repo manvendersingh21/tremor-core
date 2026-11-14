@@ -59,3 +59,7 @@ The pool picks the cheapest enabled, healthy tier whose `max_complexity` covers 
 Small GPU versus large GPU: a small inference GPU (the 30B model on a V100) answers the light and medium work for the price of electricity. A large GPU, added later as `gpu-large`, takes the heavy work that would otherwise go to the cloud. Cloud tiers stay as the last step and the failover. Owned tiers cost 0 per token, so they sort by capability, small first. A cheap cloud model can sort ahead of a pricier one: `cloud-top` is cheaper per token than `cloud-mid`, so `cloud-mid` is only reached when `cloud-top` fails.
 
 Set `use_pool = true` to have `SpeculativeCascadeRouter` route through the pool. Each result fills `Telemetry.per_tier` for the five fixed HUD keys; other tier names are left out of it. `bench/run_loop.py` (`make loop`) runs the prompt mix through the pool and prints tokens per tier. The Android phone tier is in `docs/android.md`.
+
+## Spec+ (cross-device speculative decoding)
+
+`packages/chimera-core/inference/specplus.py` cuts the network cost of draft-here, verify-there decoding. Each feature is a toggle: adaptive K (from alpha and RTT), token-tree drafts, pipelined next-block drafting, free drafts (prompt n-gram copy, cache neighbour), compact binary wire (varint ids, int8 logprobs), and an optional lossy mode (off). Lossless by default: rejection sampling with `min(1, p_t/p_d)` and residual resampling. Results and caveats: `bench/results_specplus.md`. Run: `.venv/bin/python bench/run_specplus.py`.
