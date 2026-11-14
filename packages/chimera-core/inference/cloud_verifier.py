@@ -104,6 +104,39 @@ class VllmBackend:
         return int(str(tok).split(":")[-1])
 
 
+class SpecVerifierBackend:
+    """Client for bench/verify_server.py (llama.cpp target on the GPU box, reached via ssh tunnel).
+
+    One POST per round trip: only token ids go up and logprobs/token ids come back. The reply
+    also holds a target sample for every position, so `sample_next` is served from it with no
+    second request. `last` is that reply; `bytes_up`/`bytes_down` count the last request.
+    """
+
+    def __init__(self, base_url: str = "http://127.0.0.1:18101", temperature: float = 1.0,
+                 timeout: float = 120) -> None:
+        self.base_url, self.temperature, self.timeout = base_url.rstrip("/"), temperature, timeout
+        self.last: dict = {}
+        self._n_prompt = 0
+        self.bytes_up = self.bytes_down = 0
+
+    def complete(self, prompt: str, max_tokens: int) -> str:
+        raise NotImplementedError("verify-only backend")
+
+    def score_tokens(self, prompt_ids: list[int], draft_ids: list[int]) -> list[float]:
+        body = json.dumps({"prompt_ids": prompt_ids, "draft_ids": draft_ids,
+                           "temperature": self.temperature}).encode()
+        req = urllib.request.Request(f"{self.base_url}/verify", data=body,
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
+            raw = resp.read()
+        self.bytes_up, self.bytes_down = len(body), len(raw)
+        self.last, self._n_prompt = json.loads(raw), len(prompt_ids)
+        return [float(x) for x in self.last["logprobs"]]
+
+    def sample_next(self, context_ids: list[int]) -> int:
+        return int(self.last["next_ids"][len(context_ids) - self._n_prompt])
+
+
 class CrusoeBackend(VllmBackend):
     """Crusoe serverless (OpenAI-compatible). Key comes from the CRUSOE_API_KEY env var only.
 
