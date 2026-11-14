@@ -96,3 +96,13 @@ def test_router_uses_pool_behind_flag(tmp_path):
     out = r.generate("hello")
     assert out.text == "gpu-small-answer" and out.telemetry.tier_used == "gpu"
     assert out.telemetry.per_tier["gpu_small"].output_tokens == 5
+
+
+def test_per_tier_has_real_model_and_latency_for_each_tier_touched():
+    a = TierCfg(name="phone-3b", device="phone", backend="llamacpp", url="http://x", family="qwen",
+                model="Qwen2.5-3B-Instruct-q4_k_m", max_complexity=0.5)
+    b = cfg("gpu-small", 1.0, 1)
+    p, _ = pool([a, b], {"phone-3b": Fake("phone-3b", fail=True)})
+    per = p.telemetry_per_tier(p.generate("x", 0.1))
+    assert set(per) == {"phone_3b", "gpu_small"}
+    assert per["phone_3b"].model == "Qwen2.5-3B-Instruct-q4_k_m" and per["phone_3b"].device == "Phone"
