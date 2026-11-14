@@ -14,7 +14,9 @@ class Page:
 
     @classmethod
     async def open(cls, url, w=1280, h=720, port=9333, extra=()):
-        tmp = tempfile.mkdtemp(prefix="cdp-", dir=os.environ.get("KIROCREW_SCRATCH"))
+        scratch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "bench", ".scratch", "ui")  # survives restarts
+        os.makedirs(scratch, exist_ok=True)
+        tmp = tempfile.mkdtemp(prefix="cdp-", dir=scratch)
         proc = subprocess.Popen([CHROME, *([] if "headless-shell" in CHROME else ["--headless=new"]), f"--remote-debugging-port={port}", f"--user-data-dir={tmp}",
                                  f"--window-size={w},{h}", "--hide-scrollbars", "--remote-allow-origins=*", "--mute-audio", "--no-sandbox", "--disable-gpu-sandbox", "--no-first-run", *extra,
                                  "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -88,3 +90,4 @@ class Page:
             await self.sess.close()
         finally:
             self.proc.terminate()
+            __import__('shutil').rmtree(self.tmp, ignore_errors=True)  # the browser profile is throwaway
