@@ -1,15 +1,27 @@
-# Product Overview: CHIMERA-OS (Speculative Edge-to-Cloud Router & DND Phone Agent)
+# Product Overview: CHIMERA (Speculative Edge-to-Cloud Router)
 
-## Vision & Purpose
-CHIMERA-OS is a dual-surface AI inference and autonomous execution platform that eliminates 60–80% of data-center LLM token costs and latency. It stitches together a 3-Tier Edge-to-Cloud Cascade—combining a sub-5ms Semantic Answer Cache, an on-device small language model (Gemma 3 1B/4B on mobile or Qwen 3B on laptop) with persistent Prefix KV Caching, and Confidence-Gated Speculative Decoding that escalates only high-entropy tokens or complex reasoning to a remote 27B/30B verifier model (Gemma 3 27B / Qwen 30B).
+## Vision
+Answer each LLM call at the cheapest tier that can do it. Order: cache, small model on the user's machine, 30B model on a GPU box, large cloud model. Log tier, tokens, latency and dollars for every call. Score risky actions (pay, delete, merge) from 0 to 100 and hold them for approval at 70 or more.
 
-## Target Tracks & Dual-Surface Architecture
-Built as a universal foundational skeleton with two distinct production applications:
-1. **Surface A — Desktop / Kiro Coding Engine (`apps/kiro-trimmer`):** Intercepts IDE file-save hooks, spec compliance checks, and GitHub Issue auto-patching locally. Deterministic queries (e.g., "What is the capital of France?" or standard syntax checks) resolve in <5ms from the Semantic Cache or locally via the 3B/4B model with zero cloud spend.
-2. **Surface B — Mobile / Autonomous DND Phone Agent (`apps/phantom-phone`):** Runs while the user's phone is on Do Not Disturb. Uses on-device Gemma + PhoneUse MCP + ElevenLabs + Tavily to answer unknown callers, execute 2FA/intercom unlocks, haggle on Facebook Marketplace, compare Uber/Lyft prices, and trigger ChatGPT/GitHub mobile hotfixes—protected by a real-time Quarantine Risk Firewall.
+## Measured results (single runs, 30 prompts, no repeats)
+The earlier "60-80% token savings" target is **not met**. Real numbers:
 
-## Core Product Pillars
-- **Zero-Waste Token Economics:** Never send deterministic or repeated queries to data-center GPUs.
-- **Lossless Speculative Verification:** Stream draft token IDs and log-probabilities from the local 1B–4B model to the 27B/30B verifier for single-pass parallel rejection sampling.
-- **Cross-Device Autonomous Execution:** Everything is controllable and verifiable from a mobile phone HUD or Kiro CLI/IDE.
-- **Deterministic Safety Gate:** Intercept high-risk GUI taps (`Pay`, `Delete`, `Merge PR`, `Send Wire`) with a 0–100 blast-radius score requiring voice/SMS confirmation.
+| Comparison | Result | File |
+|---|---|---|
+| Mac 3B + cache + Crusoe 27B vs cloud only | 8 of 30 calls reached the cloud. Cost 29% lower at list price. Wall time 145 s vs 31.8 s. Small coding 5/6 vs 6/6. | `bench/results.md` |
+| Mac 3B + cache + GPU 30B vs GPU only | GPU calls 30 -> 9. GPU tokens **+37%** (9,334 vs 6,809). Median latency 4.9 s -> 1.9 s. Passed 20/24 vs 24/24. | `bench/results_gpu.md` |
+| Speculative verify (3B drafts, 30B verifies) | Not measured yet. | `bench/spec_results.md` (not created) |
+
+What worked: cache hits cost $0 and answer in under 130 ms. 14 of 30 prompts were answered locally.
+What failed: long briefs raised input tokens on heavy tasks. Cache threshold 0.94 served wrong answers. Handoff latency tail is unexplained.
+Fixes in code: semantic threshold 0.97, heavy tasks skip the 3B, brief at most 200 tokens or none. These are not yet measured.
+
+## Surfaces
+1. **Kiro (built):** CLI, MCP server and hook interceptor in `apps/kiro-trimmer/`.
+2. **HUD (built):** live telemetry page in `apps/phantom-phone/hud-web/`.
+3. **Phone agent (planned):** DND call handling, Marketplace, ride prices, mobile hotfix. Not built.
+
+## Pillars
+- **Honest token economics:** report tokens and dollars per tier, including the cases where the cascade costs more.
+- **Same-family speculative verification:** only `[token_id, logprob]` arrays cross the network. Needs a llama.cpp verifier.
+- **Deterministic safety gate:** rule-based score 0-100; one-time token at 70 or more. It is a rule list and can miss unusual phrasing.

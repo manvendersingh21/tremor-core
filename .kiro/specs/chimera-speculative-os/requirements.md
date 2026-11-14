@@ -5,11 +5,11 @@
 
 ### Acceptance Criteria
 1. WHEN a prompt or UI state query arrives at the router THE SYSTEM SHALL compute an exact normalized hash and a local vector embedding within 10 milliseconds.
-2. IF the cosine similarity against an existing cached entry is greater than or equal to 0.94 THEN THE SYSTEM SHALL return the cached response immediately with `tier_used="SEMANTIC_CACHE"` and `cloud_tokens=0`.
+2. IF the cosine similarity against an existing cached entry is greater than or equal to 0.97 (0.94 returned wrong answers in `bench/results_gpu.md`) THEN THE SYSTEM SHALL return the cached response immediately with `tier_used="SEMANTIC_CACHE"` and `cloud_tokens=0`.
 3. WHEN a new deterministic factual query or code check is verified by Tier 2 or Tier 3 THE SYSTEM SHALL persist the prompt embedding, response, and TTL metadata into the local vector store.
 
 ## Requirement 2: Tier 2 On-Device Gemma/Qwen KV Cache & Confidence Gate
-**User Story:** As an operator running Gemma locally on a phone or Qwen 3B on a laptop, I want the local model to maintain a warm prefix KV cache and answer routine requests locally, escalating to the 27B/30B model only when token uncertainty spikes.
+**User Story:** As an operator running Gemma locally on a phone or Qwen 3B on a laptop, I want the local model to maintain a warm prefix KV cache and answer routine requests locally, escalating to the GPU 30B tier, then the Crusoe tier, only when token uncertainty spikes.
 
 ### Acceptance Criteria
 1. WHILE a coding session or DND phone session is active THE SYSTEM SHALL pin system instructions, `.kiro/steering/` context, and recent UI accessibility trees inside the local draft model's Prefix KV Cache.
@@ -20,7 +20,7 @@
 **User Story:** As an engineer handling complex code architecture or multi-turn negotiations, I want low-confidence local draft tokens verified in parallel by a 27B/30B model so I get frontier-grade accuracy at a fraction of standard autoregressive latency and cost.
 
 ### Acceptance Criteria
-1. IF local draft token confidence drops below 0.85 during generation THEN THE SYSTEM SHALL stream the block of K=5 to 8 draft token IDs and their draft probabilities `p_d(x)` to the remote 27B/30B verifier endpoint.
+1. IF local draft token confidence drops below 0.85 during generation THEN THE SYSTEM SHALL stream the block of K=5 to 8 draft token IDs and their draft probabilities `p_d(x)` to the remote verifier endpoint. The verifier must be a llama.cpp server of the same model family; Ollama and Crusoe cannot score draft tokens.
 2. WHEN the remote 27B/30B verifier receives K draft tokens THE SYSTEM SHALL evaluate all K tokens in a single parallel forward pass against its own warm prefix KV cache and apply lossless rejection sampling `min(1, p_t(x) / p_d(x))`.
 3. IF any draft token is rejected at index `j` THEN THE SYSTEM SHALL resample token `j` from the adjusted residual distribution `norm(max(0, p_t(x) - p_d(x)))` and return the corrected token plus updated prefix offset to the edge node.
 
