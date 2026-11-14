@@ -5,7 +5,7 @@
 
 Needs: the GPU port forward on $GPU_PORT (default 11444, Ollama qwen3:30b-instruct), CRUSOE_API_KEY, MiniLM.
 The `real` stage also needs CHIMERA_GRAPH_URL (Neo4j) and CHIMERA_DB_URL (Supabase). Rows are cached under
-$KIROCREW_SCRATCH/memory/ so a rerun skips finished work. Temperature 0 and a fixed seed on the 30B. Keys are never written.
+bench/.scratch/memory/ so a rerun skips finished work. Temperature 0 and a fixed seed on the 30B. Keys are never written.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ from chimera_core.ladder import TopBackend  # noqa: E402
 from chimera_core.memory import InMemoryStore, Memory, llm_extractor  # noqa: E402
 from chimera_core.memory.extract import PROMPT as EXTRACT_PROMPT  # noqa: E402,F401
 
-STORE = pathlib.Path(os.environ.get("KIROCREW_SCRATCH") or ROOT / "bench/.scratch") / "memory"
+STORE = ROOT / "bench/.scratch/memory"  # inside the repo (git-ignored): survives a gateway restart
 STORE.mkdir(parents=True, exist_ok=True)
 OUT_MD, OUT_CSV = ROOT / "bench/results_memory.md", ROOT / "bench/results_memory.csv"
 GPU = f"http://127.0.0.1:{os.environ.get('GPU_PORT', '11444')}"
