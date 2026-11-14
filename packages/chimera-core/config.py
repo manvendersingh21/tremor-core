@@ -15,6 +15,8 @@ from .cache.semantic_cache import Embedder, OnnxMiniLMEmbedder, SemanticCache
 from .inference.cloud_verifier import CrusoeBackend, OllamaBackend
 from .inference.local_draft import LlamaCppBackend
 from .inference.telemetry import TelemetryTracker
+from .router import RouterConfig, SpeculativeCascadeRouter
+from .tiers import TierCfg, TierPool
 from .ladder import LadderConfig, LadderRouter, TopBackend
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -72,6 +74,8 @@ class ChimeraConfig(BaseModel):
     cache: CacheCfg = CacheCfg()
     telemetry: PathCfg = PathCfg(path="~/.chimera/telemetry.jsonl")
     gateway: GatewayCfg = GatewayCfg()
+    use_pool: bool = False  # true: route through [[tiers]] (needs at least one)
+    tiers: list[TierCfg] = Field(default_factory=list)  # empty: the fixed 4-tier ladder is used
 
     @property
     def cache_path(self) -> pathlib.Path:
@@ -152,6 +156,15 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
     cfg.cache_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.telemetry_path.parent.mkdir(parents=True, exist_ok=True)
     t = cfg.thresholds
+    if cfg.use_pool and cfg.tiers:
+        return SpeculativeCascadeRouter(
+            local, exact=ExactCache(path=str(cfg.cache_path)),
+            semantic=(SemanticCache(embedder or _LazyEmbedder(), t.semantic, str(cfg.cache_path))
+                      if cfg.cache.semantic else None),
+            tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
+            config=RouterConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),
+            pool=TierPool(cfg.tiers, min_confidence=t.confidence),
+        )
     return LadderRouter(
         local, mid, top,
         LadderConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),

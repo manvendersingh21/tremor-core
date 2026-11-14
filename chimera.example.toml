@@ -1,5 +1,7 @@
 # Copy to chimera.toml. No secrets here: CRUSOE_API_KEY comes from the environment or .env only.
 
+use_pool = false              # true: SpeculativeCascadeRouter routes through [[tiers]] below
+
 [local]                      # tier 1: llama.cpp llama-server on this machine
 url = "http://127.0.0.1:8080"
 chatml = true
@@ -35,3 +37,77 @@ max_body_bytes = 1000000
 timeout_s = 90               # per backend call
 log_prompts = false          # true puts prompt text in request logs
 actions = false              # true enables POST /v1/actions/score
+
+# ---- Tier pool (packages/chimera-core/tiers.py). Add hardware by adding a [[tiers]] block. ----
+# Routing: cheapest enabled, healthy tier with max_complexity >= task complexity; climbs on low
+# confidence, timeout or error. Owned hardware costs 0, so it sorts by max_complexity (small first).
+# Speculative verify only between tiers with the same `family`. Prices: dollars per 1k tokens.
+# The Crusoe credential comes from the environment or .env only.
+
+[[tiers]]
+name = "phone-3b"            # Android, Termux llama-server over `adb forward` (docs/android.md)
+device = "phone"
+backend = "llamacpp"
+url = "http://127.0.0.1:8081"
+model = "Qwen2.5-3B-Instruct-q4_k_m"
+family = "qwen"
+max_complexity = 0.25
+timeout_s = 60
+enabled = false              # until the phone is set up
+
+[[tiers]]
+name = "mac-3b"
+device = "laptop"
+backend = "llamacpp"
+url = "http://127.0.0.1:8080"
+model = "Qwen2.5-3B-Instruct-q4_k_m"
+family = "qwen"
+max_complexity = 0.4
+timeout_s = 60
+
+[[tiers]]
+name = "gpu-small"           # V100 box, Ollama via ssh tunnel (-L 11435:127.0.0.1:11434)
+device = "gpu"
+backend = "ollama"
+url = "http://127.0.0.1:11435"
+model = "qwen3:30b-instruct"
+family = "qwen"
+max_complexity = 0.6
+timeout_s = 180
+
+[[tiers]]
+name = "gpu-large"           # placeholder for the future big GPU
+device = "gpu"
+backend = "ollama"
+url = "http://127.0.0.1:11438"
+model = "CHANGE-ME"
+family = "qwen"
+max_complexity = 0.85
+timeout_s = 300
+enabled = false
+
+[[tiers]]
+name = "cloud-mid"
+device = "cloud"
+backend = "openai"
+url = "https://api.inference.crusoecloud.com"
+model = "Qwen/Qwen3.8-27B"
+family = "qwen"
+max_complexity = 0.85
+cost_per_1k_in = 0.00025
+cost_per_1k_out = 0.002
+timeout_s = 120
+template_kwargs = { enable_thinking = false }
+
+[[tiers]]
+name = "cloud-top"           # largest model on the account (checked with /v1/models)
+device = "cloud"
+backend = "openai"
+url = "https://api.inference.crusoecloud.com"
+model = "openai/gpt-oss-120b"
+family = "gpt-oss"
+max_complexity = 1.0
+cost_per_1k_in = 0.00005
+cost_per_1k_out = 0.00025
+timeout_s = 180
+template_kwargs = { reasoning_effort = "low" }
