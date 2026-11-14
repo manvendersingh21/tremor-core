@@ -59,7 +59,7 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
 - [x] 20. Shared Supabase cache (`cache/pgvector_cache.py`, `deploy/sql/`). Evidence: `tests/test_pgvector_cache.py`, `docs/vector-store.md` (hit rate 0.80, 48 of 60 GPU calls avoided, 0 false hits, lookup 121 ms vs 8.9 ms local; one run, 6 near-miss prompts).
 - [x] 21. Spec+ (`inference/specplus.py`). Evidence: `tests/test_specplus.py`, `bench/results_specplus.md` (1.14x to 1.22x over best plain spec, against a stand-in target only).
   - [ ] 21a. Measure Spec+ against a real Qwen-family verifier with a short round trip.
-- [ ] 22. Modal H200 tier (`deploy/modal/vllm_server.py`). Not ticked: `bench/results_modal.md` says it never served a request. Retry pending.
+- [x] 22. Modal H200 tier (`deploy/modal/vllm_server.py`). Evidence: `bench/results_modal.md` (gpt-oss-120b served; pair runs A and D; the H200 lost on cost and speed, so it is off by default. Qwen3.5-122B never served).
 - [ ] 23. Android phone tier (`docs/android.md`, `scripts/`). Setup written. No phone run yet, so no evidence.
 - [ ] 24. Real-data suite (`bench/run_suite.py`, `bench/results_suite.md`). `bench/results_suite.md` does not exist yet.
 

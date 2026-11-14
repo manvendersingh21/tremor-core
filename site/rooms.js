@@ -100,7 +100,7 @@ window.ROOMS = [
     "title": "The Ladder",
     "door": "How routing works: climb only when you must.",
     "say": [
-      "This is the Ladder. Every call starts on the lowest rung.",
+      "This is the Ladder. Every call starts on the lowest rung: the shared cache, then our own GPU 30B.",
       "When a draft is not good enough, it climbs one rung. Never more.",
       "Big and small models of one family can also check each other. I will tell you what is proven, and what is not. Mostly it lost."
     ],
@@ -108,17 +108,15 @@ window.ROOMS = [
       {
         "at": 0,
         "bats": 3,
-        "title": "Six rungs",
+        "title": "Four rungs",
         "steps": [
-          "crypt cache",
-          "phone",
-          "laptop",
-          "small GPU",
-          "big GPU",
-          "cloud tower"
+          "shared cache (Supabase)",
+          "GPU 30B, self-hosted",
+          "H200 120B (optional)",
+          "Crusoe 763B"
         ],
         "lines": [
-          "The phone rung is written but not tested on a phone.",
+          "The smallest product tier is a 30B model. The Mac 3B is kept only as an experiment, switched off.",
           "Thinking is off on every tier."
         ],
         "src": [
@@ -130,14 +128,14 @@ window.ROOMS = [
         "at": 1,
         "bats": 2,
         "title": "Confidence gate",
-        "big": "0.85",
+        "big": "0.95",
         "lines": [
-          "The laptop 3B answers alone when mean token probability is 0.85 or more.",
-          "Heavy tasks skip the 3B."
+          "The GPU 30B answers alone when its mean token probability is 0.95 or more. Without logprobs, its own self-check decides.",
+          "The first benchmarks used a 0.85 gate on a Mac 3B. That 3B is no longer in the product."
         ],
         "src": [
-          "bench/results.md",
-          "bench/results.md"
+          "chimera.example.toml",
+          "chimera.example.toml"
         ]
       },
       {
@@ -214,11 +212,11 @@ window.ROOMS = [
       {
         "at": 1,
         "bats": 2,
-        "title": "What runs today",
+        "title": "The old laptop rung",
         "big": "3B",
         "lines": [
-          "Qwen2.5-3B (q4_k_m) on llama.cpp, on a MacBook.",
-          "It answered 14 of 30 prompts alone. 13 of those 14 were right."
+          "In the first benchmark a Qwen2.5-3B on a MacBook answered 14 of 30 prompts alone. 13 of those 14 were right.",
+          "It is now an experiment tier, switched off. The product starts at the GPU 30B."
         ],
         "src": [
           "bench/results.md",
@@ -312,10 +310,10 @@ window.ROOMS = [
         "at": 2,
         "bats": 3,
         "title": "The Castle's H200",
-        "big": "0 requests",
+        "big": "20x",
         "lines": [
-          "The Modal H200 never served a request in two cold starts.",
-          "No speed or savings numbers exist. A retry is pending."
+          "gpt-oss-120b on a Modal H200 took every call off the 763B (25 to 0), with 24/24 asserts in both runs. Its first cold start took 376 s.",
+          "But 90 s of H200 time cost about $0.11, about 20x the $0.0058 the 763B charged. Median 1,352 ms against 728 ms. Optional, off by default."
         ],
         "src": [
           "bench/results_modal.md",
@@ -548,7 +546,7 @@ window.ROOMS = [
         "title": "Still unmeasured",
         "big": "GAPS",
         "lines": [
-          "Modal H200: never served a request. Android phone: not tested.",
+          "Modal H200: one pair of runs only (it lost on cost and speed). Android phone: not tested.",
           "Real Qwen-family Spec+, the short brief, and the GPU tail latency are not measured."
         ],
         "src": [

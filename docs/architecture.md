@@ -4,12 +4,18 @@
 
 | Tier | What | Answers when |
 |---|---|---|
-| 0 | Exact cache (hash of the prompt) and semantic cache (embedding, cosine >= 0.97; 0.94 served wrong answers in [results_gpu.md](../bench/results_gpu.md)) | the prompt or a near copy was seen before |
-| 1 | Small local model: Qwen2.5-3B on a Mac; a Qwen phone tier is written but not tested | the task is not heavy and mean token logprob confidence is >= 0.85 |
-| 2 | GPU box: Qwen3-30B | tier 1 is unsure, a check fails, or the task is heavy |
-| 3 | Crusoe model: `gpt-oss-120b`, or the largest on the key (DeepSeek-V4.1-Flash, 763B) | the task is heavy, or tier 2 says ESCALATE, times out (90 s) or fails a check |
+Product ladder (tier pool, `use_pool = true` in `chimera.example.toml`):
 
-Tier choice goes in this order: rules first (`complexity_score`, heavy threshold 0.6), then local logprob confidence, then a failed check that moves up one tier. The code is in `packages/chimera-core/router.py` and `ladder.py`.
+| Tier | What | Answers when |
+|---|---|---|
+| 0 | Shared Supabase cache (Postgres + pgvector): exact hash, then cosine >= 0.97 (0.94 served wrong answers in [results_gpu.md](../bench/results_gpu.md)) | the prompt or a near copy was answered and verified before |
+| 1 | GPU 30B, self-hosted: Ollama `qwen3:30b-instruct` on a V100 through an ssh tunnel | mean token probability >= 0.95 (Ollama logprobs), or its own self-check says OK when there are no logprobs |
+| 2 | Optional Modal H200: `gpt-oss-120b` (off by default) | tier 1 is unsure, times out or fails |
+| 3 | Crusoe DeepSeek-V4.1-Flash (763B, the largest on the key) | the task is heavy, or every tier below failed or was unsure |
+
+Before the 30B call, N+1 memory retrieves solved examples as few-shot context. After a checked answer from a big tier (763B or 120B), the answer is stored as teacher data ([memory.md](memory.md)).
+
+Experiment tiers, off: the Mac Qwen2.5-3B (it was tier 1 in the first benchmarks below and in the speculative-decoding benches) and a Qwen phone tier (written, not tested). The older `LadderRouter` (`ladder.py`: cache, Mac 3B, GPU 30B, Crusoe top) is what the ladder benchmark measured.
 
 ## Why KV caches stay local
 
@@ -80,7 +86,7 @@ Measured against a stand-in target (the 3B with a sharpened distribution), not a
 
 ## Modal tier (`gpu-large`)
 
-`deploy/modal/vllm_server.py` runs vLLM on a Modal H200 that scales to zero. It never served a request in two cold starts, so no ladder, spec or cache numbers exist for it. Retry pending ([results_modal.md](../bench/results_modal.md)).
+`deploy/modal/vllm_server.py` runs vLLM on a Modal H200 that scales to zero. Qwen3.5-122B never served a request. `gpt-oss-120b` served after a 376 s cold start: in one pair of runs it took all 25 calls off the 763B with the same 24/24 asserts, but cost about $0.11 of H200 time against $0.0058 of 763B tokens, and the median rose from 728 ms to 1,352 ms ([results_modal.md](../bench/results_modal.md)). It is off by default.
 
 ## Android tier
 

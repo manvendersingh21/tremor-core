@@ -3,18 +3,21 @@
 Describes what is built and measured. Planned items are marked **(planned)**.
 
 ## Inference ladder
-Cheapest tier first. Code: `packages/chimera-core/ladder.py`, `router.py`, `config.py`. Settings: `chimera.toml` (copy of `chimera.example.toml`).
+Cheapest tier first. Product path: the tier pool (`use_pool = true`). Code: `packages/chimera-core/tiers.py`, `router.py`, `config.py`, `memory/`. Settings: `chimera.toml` (copy of `chimera.example.toml`).
 
 | Tier | What | Notes |
 |---|---|---|
-| 0 | Exact + semantic cache | SQLite by default, or the shared Supabase cache (below). Semantic threshold **0.97**. 0.94 served wrong answers (`r2`, `p4` in `bench/results_gpu.md`); at 0.97 the ladder run served none (`bench/results_ladder.md`). |
-| 1 | Mac draft: `Qwen2.5-3B-Instruct` q4_k_m on `llama.cpp` (`llama-server`) | Prompt cache on. Per-token logprobs. Answers locally when mean token probability >= 0.85. |
-| 2 | GPU: Ollama `qwen3:30b-instruct` on a V100 | Reached over an SSH tunnel to your GPU box. Optional (`gpu.enabled`); Crusoe mid model replaces it when off. |
-| 3 | Crusoe serverless: `openai/gpt-oss-120b`, and `deepseek-ai/DeepSeek-V4.1-Flash` (763B, the largest on the key) as the top. `Qwen/Qwen3.8-27B` was the first benchmark's cloud model and the grader | OpenAI-style API. `CRUSOE_API_KEY` from env or `.env` only. Ladder vs top only: gpt-oss-120b tokens -45.1%, 763B tokens -65.6%, median latency higher (`bench/results_ladder.md`). |
-| Modal | `gpu-large`: vLLM on an H200 (`deploy/modal/vllm_server.py`), scales to zero | Never served a request in two cold starts. Retry pending (`bench/results_modal.md`). No numbers. |
+| 0 | Shared Supabase cache (Postgres + pgvector, `cache/pgvector_cache.py`) | Exact hash, then cosine **0.97**. 0.94 served wrong answers (`r2`, `p4` in `bench/results_gpu.md`); at 0.97 the ladder run served none (`bench/results_ladder.md`). Only verified answers are served. |
+| 1 | GPU 30B, self-hosted: Ollama `qwen3:30b-instruct` on a V100 | The smallest product tier. Reached over an SSH tunnel to your GPU box. Answers when mean token probability >= 0.95 (Ollama logprobs), else its own self-check decides. |
+| 2 | Modal `gpu-large`: vLLM `gpt-oss-120b` on an H200 (`deploy/modal/vllm_server.py`), optional, off | One pair of runs: took all calls off the 763B, same 24/24 asserts, but about $0.11 of H200 time vs $0.0058 of 763B tokens, median 1,352 ms vs 728 ms (`bench/results_modal.md`). |
+| 3 | Crusoe `deepseek-ai/DeepSeek-V4.1-Flash` (763B, the largest on the key) | OpenAI-style API. `CRUSOE_API_KEY` from env or `.env` only. Ladder vs top only: 763B tokens -65.6% (`bench/results_ladder.md`). |
+| N+1 memory | `memory/` | Before the 30B call: retrieve solved examples as few-shot context. After a checked answer from the 763B or 120B: store prompt, answer, tests passed, tier and model as teacher data (`docs/memory.md`). Not measured yet. |
+| Experiment, off | Mac `Qwen2.5-3B-Instruct` q4_k_m on `llama.cpp` | Lowest tier of the first benchmarks (gate 0.85) and the draft model of the speculative benches. Not in the product ladder. |
+
+`LadderRouter` (`ladder.py`: cache, Mac 3B, GPU 30B, Crusoe top) is the path the ladder benchmark measured. `Qwen/Qwen3.8-27B` was the first benchmark's cloud model and the grader.
 
 - **Thinking stays OFF** on every tier (`think=false`; no reasoning mode on the Qwen models). The top tier uses low reasoning effort only where its template needs it.
-- Heavy tasks skip the 3B. A failed check escalates one tier.
+- Heavy tasks go straight to the top. A failed check escalates one tier.
 - **Heavy-task handoff:** no brief by default (`use_brief=False`); a brief is at most 200 tokens. A long brief plus draft raised GPU tokens by 37% (`bench/results_gpu.md`). A 30B brief cost the same dollars and was 4.4x slower (`bench/results_ladder.md`). Every GPU call has a 90 s timeout, then the prompt climbs.
 - **Tier pool:** hardware is listed as `[[tiers]]` in `chimera.toml` (`packages/chimera-core/tiers.py`, `use_pool`). Picks the cheapest healthy tier that covers the task.
 
@@ -35,7 +38,7 @@ Cheapest tier first. Code: `packages/chimera-core/ladder.py`, `router.py`, `conf
 
 ## Surfaces
 - **Kiro (built):** `apps/kiro-trimmer/` with `cli.py` (`bin/chimera ask|stats|doctor`), `mcp_server.py` (tools `chimera_generate`, `chimera_stats`, `chimera_risk_score`), `hook_interceptor.py` (reads a diff on STDIN).
-- **HUD (built):** static HTML plus a small Python server with Server-Sent Events (`apps/phantom-phone/hud-web/`). Not Next.js, because of limited Mac disk space.
+- **Web page (built):** one page on one port (`make web`, 127.0.0.1:8765): the walkable castle (`site/world/`), the dashboard inside it (`site/dashboard.js`), and the chat with the bat agent over `/api/chat` (`docs/api.md`). Served by `apps/phantom-phone/hud-web/server.py` (stdlib). Not Next.js, because of limited Mac disk space.
 - **Gateway (built):** `apps/gateway/`, OpenAI-compatible, keys per tenant, `/metrics` (`deploy/README.md`).
 - **Android tier (written, not tested on a phone):** Qwen2.5 3B or 1.5B through Termux over USB (`docs/android.md`).
 - **Phone agent (planned):** LangGraph supervisor, `PhoneUse` over WebDriverAgent, ElevenLabs + Twilio voice, Tavily lookups, Gemma 3 1B/4B on the phone. None of this is built.
