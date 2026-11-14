@@ -25,6 +25,13 @@ heavy = 0.6                  # complexity score that skips the small models
 [cache]
 path = "~/.chimera/cache.db" # exact + semantic caches, persistent
 semantic = true              # false skips the embedding model (exact cache only)
+backend = "sqlite"           # "postgres": shared pgvector cache (docs/vector-store.md); sqlite stays as the fallback
+dsn_env = "CHIMERA_DB_URL"   # NAME of the env var that holds the DSN. The DSN itself lives in .env only.
+tenant = "default"           # rows are isolated per tenant
+store_text = false           # true keeps prompt text in the shared DB (opt-in)
+# ttl_s = 2592000            # row lifetime in seconds; unset = forever
+top_k = 5
+budget_ms = 150              # DB time per lookup before the local cache answers
 
 [telemetry]
 path = "~/.chimera/telemetry.jsonl"   # CHIMERA_TELEMETRY overrides

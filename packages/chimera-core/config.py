@@ -4,9 +4,11 @@ Secrets are never read from the toml. CRUSOE_API_KEY comes from the environment 
 """
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 import tomllib
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -53,6 +55,13 @@ class PathCfg(BaseModel):
 class CacheCfg(BaseModel):
     path: str = "~/.chimera/cache.db"
     semantic: bool = True
+    backend: Literal["sqlite", "postgres"] = "sqlite"  # postgres: shared pgvector cache, sqlite is the fallback
+    dsn_env: str = "CHIMERA_DB_URL"                    # NAME of the env var holding the DSN. The DSN is never in toml.
+    tenant: str = "default"
+    store_text: bool = False       # opt-in: keep prompt text in the shared DB
+    ttl_s: int | None = None       # row lifetime in seconds; None = forever
+    top_k: int = 5
+    budget_ms: int = 150           # DB time allowed per lookup before the local cache answers
 
 
 class GatewayCfg(BaseModel):
@@ -138,6 +147,22 @@ class _NoKey:
         raise RuntimeError("CRUSOE_API_KEY is not set (put it in .env or the environment)")
 
 
+def make_semantic(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float):
+    """SQLite semantic cache, or the shared pgvector cache (with SQLite as fallback) when backend = postgres."""
+    local = SemanticCache(embedder or _LazyEmbedder(), threshold, str(cfg.cache_path))
+    cc = cfg.cache
+    dsn = os.environ.get(cc.dsn_env, "")
+    if cc.backend != "postgres" or not dsn:
+        if cc.backend == "postgres":
+            logging.getLogger("chimera").warning("cache.backend=postgres but %s is not set; using sqlite", cc.dsn_env)
+        return local
+    from .cache.pgvector_cache import PgStore, PgVectorCache
+
+    return PgVectorCache(local._embedder, lambda: PgStore(dsn), threshold=threshold, tenant=cc.tenant,
+                         fallback=local, store_text=cc.store_text, ttl_s=cc.ttl_s, top_k=cc.top_k,
+                         budget_s=cc.budget_ms / 1000)
+
+
 def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder: Embedder | None = None,
                  tracker: TelemetryTracker | None = None) -> LadderRouter:
     """Backend/embedder/tracker arguments are test seams; production passes none of them."""
@@ -159,8 +184,7 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
     if cfg.use_pool and cfg.tiers:
         return SpeculativeCascadeRouter(
             local, exact=ExactCache(path=str(cfg.cache_path)),
-            semantic=(SemanticCache(embedder or _LazyEmbedder(), t.semantic, str(cfg.cache_path))
-                      if cfg.cache.semantic else None),
+            semantic=(make_semantic(cfg, embedder, t.semantic) if cfg.cache.semantic else None),
             tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
             config=RouterConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),
             pool=TierPool(cfg.tiers, min_confidence=t.confidence),
@@ -169,7 +193,6 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
         local, mid, top,
         LadderConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),
         exact=ExactCache(path=str(cfg.cache_path)),
-        semantic=(SemanticCache(embedder or _LazyEmbedder(), t.semantic, str(cfg.cache_path))
-                  if cfg.cache.semantic else None),
+        semantic=(make_semantic(cfg, embedder, t.semantic) if cfg.cache.semantic else None),
         tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
     )

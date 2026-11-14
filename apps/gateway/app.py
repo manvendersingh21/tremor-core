@@ -212,6 +212,10 @@ def create_app(cfg: ChimeraConfig, router, keys: KeyStore, audit: AuditLog, *,
             metrics.event("fallbacks", tenant, f"{fb[-1][0]}->{fb[-1][1]}")
         request.state.tier = tel.tier_used
         metrics.observe(tenant, tel.tier_used, tel.tokens_saved, tel.dollars_saved, tel.latency_ms)
+        for _ in range(tel.gpu_calls_avoided or 0):
+            metrics.event("gpu_calls_avoided", tenant)
+        if tel.false_hit:
+            metrics.event("cache_false_hits", tenant)
         audit.record(rid, tenant, tel)
         usage = {"prompt_tokens": max(len(prompt) // 4, 1), "completion_tokens": len(res.text) // 4}
         usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]  # estimates, len/4
