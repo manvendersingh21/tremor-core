@@ -12,6 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = pathlib.Path(__file__).resolve().parent
 BENCH = HERE.parent.parent.parent / "bench"
 TELEMETRY = pathlib.Path(os.environ.get("HUD_TELEMETRY", HERE / "telemetry.jsonl"))
+# CSV column prefix -> ledger tier. shortcut: a CSV has no per-model split, so GPU = gpu_small and cloud/top = crusoe.
+CSV_TIER = {"cloud": "crusoe", "top": "crusoe", "crusoe": "crusoe", "gpu": "gpu_small", "mid": "gpu_small"}
 BENCH_FILES = ["results.csv", "results_gpu.csv", "results_ladder.csv", "spec_results.csv"]
 
 
@@ -35,8 +37,16 @@ def summarize_csv(path: pathlib.Path) -> dict:
             tiers[r.get("tier", "?")] = tiers.get(r.get("tier", "?"), 0) + 1
         tok = lambda suffix: sum(  # noqa: E731
             _num(v) or 0 for r in rs for k, v in r.items() if k.endswith(suffix) and k != "cloud_cached_tokens")
+        per_tier: dict[str, dict] = {}  # only tiers whose columns exist in this CSV
+        for k in rs[0] if rs else []:
+            if k.endswith("_prompt_tokens") and CSV_TIER.get(k[:-14]):
+                t = per_tier.setdefault(CSV_TIER[k[:-14]], {"input_tokens": 0, "output_tokens": 0})
+                t["input_tokens"] += int(sum(_num(r.get(k)) or 0 for r in rs))
+                t["output_tokens"] += int(sum(_num(r.get(k[:-14] + "_completion_tokens")) or 0 for r in rs))
+        if rs and "local_tokens" in rs[0]:  # local tokens are one number, not split in/out
+            per_tier["mac_3b"] = {"input_tokens": None, "output_tokens": int(sum(_num(r.get("local_tokens")) or 0 for r in rs))}
         return {
-            "n": len(rs), "tiers": tiers,
+            "n": len(rs), "tiers": tiers, "per_tier": per_tier,
             "latency_mean_ms": round(statistics.fmean(lat), 1) if lat else None,
             "latency_p50_ms": round(statistics.median(lat), 1) if lat else None,
             "quality_mean": round(statistics.fmean(qual), 3) if qual else None,
@@ -132,7 +142,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     port = int(os.environ.get("HUD_PORT", "8765"))
-    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    srv = ThreadingHTTPServer((os.environ.get("HUD_HOST", "127.0.0.1"), port), Handler)  # HUD_HOST=0.0.0.0 only in a container
     srv.daemon_threads = True
     print(f"HUD on http://127.0.0.1:{port}  (telemetry: {TELEMETRY})")
     srv.serve_forever()

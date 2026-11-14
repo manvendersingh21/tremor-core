@@ -10,6 +10,20 @@ from pydantic import BaseModel, Field
 Tier = Literal["exact_cache", "semantic_cache", "local", "cloud_verified", "cloud_handoff", "gpu", "top"]
 
 
+# Keys of Telemetry.per_tier. The HUD ledger reads these names.
+TierKey = Literal["phone_3b", "mac_3b", "gpu_small", "gpu_large", "crusoe"]
+
+
+class TierUsage(BaseModel):
+    """What one tier spent on one call. `model` is the exact model name (a Crusoe call names its model)."""
+    model: str
+    device: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: float = 0.0
+    dollars: float = 0.0  # cloud list price only; local tiers stay 0
+
+
 class Telemetry(BaseModel):
     tier_used: Tier
     tokens_saved: int = 0
@@ -19,6 +33,8 @@ class Telemetry(BaseModel):
     cloud_tokens: int = 0
     local_tokens: int = 0
     gpu_tokens: int = 0
+    # Optional per-model split of this call. Old events lack it; readers fall back to local_tokens/cloud_tokens.
+    per_tier: dict[TierKey, TierUsage] | None = None
 
 
 class TelemetryTracker:
