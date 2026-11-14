@@ -13,11 +13,12 @@
 
   /* The walk, in order. lock: what must be opened (E) before you can walk this stretch. */
   const SEGS = [
-    { id: 'a-approach', where: 'Before the iron gates', key: 'art/gate.webp', say: 'Good evening. Hold W to walk up to the gates.' },
-    { id: 'b-gates', where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', lock: 'gates', say: 'The gates know me. Keep walking.' },
-    { id: 'c-drive', where: 'The lantern drive', key: 'game/clips/a-approach-last.jpg', say: 'Follow the lanterns. The door is at the top.' },
-    { id: 'd-door', where: 'The great door', key: 'art/hall.webp', lock: 'door', say: 'Welcome inside. Hold W to walk the hall.' },
-    { id: 'e-hall', where: 'The Great Hall', key: 'art/hall.webp', say: 'Every door is a room. Pick one with A and D, then press E.' },
+    // fb: the painted dolly used while a clip is not made yet: [zoom, focus x, focus y] at the start and the end
+    { id: 'a-approach', where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
+    { id: 'b-gates', where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
+    { id: 'c-drive', where: 'The lantern drive', key: 'art/gate.webp', fb: [[1.5, 0.43, 0.5], [3.4, 0.43, 0.52]], say: 'Follow the lanterns. The door is at the top.' },
+    { id: 'd-door', where: 'The great door', key: 'art/door.webp', fb: [[1, 0.5, 0.55], [2.6, 0.5, 0.6]], lock: 'door', door: true, say: 'The door is open. Step inside.' },
+    { id: 'e-hall', where: 'The Great Hall', key: 'art/hall.webp', fb: [[1, 0.5, 0.6], [1.45, 0.5, 0.62]], say: 'Every door is a room. Pick one with A and D, then press E.' },
   ];
   const LOCK_AT = { gates: 'Open the iron gates', door: 'Open the great door' };
 
@@ -88,7 +89,7 @@
         const nx = SEGS[i + 1];
         if (!nx) { setTime(i, d); vidFor(i).pause(); enterHall(); return; }
         if (nx.lock && !S.open[nx.lock]) { setTime(i, d - 0.04); vidFor(i).pause(); return; } // stop at the gate or door
-        S.seg = i + 1; S.t = 0; setTime(S.seg, 0); show(S.seg); return;
+        S.seg = i + 1; S.t = 0; fade(); setTime(S.seg, 0); show(S.seg); return;
       }
       if (t <= 0 && dir < 0) {
         if (i === 0) { setTime(0, 0); return; }
@@ -111,7 +112,7 @@
       if (S.hall) { openRoom(doors[S.door]); return; }
       const l = pendingLock(); if (!l) return;
       S.open[l] = true; creak();
-      if (S.seg < SEGS.length - 1 && SEGS[S.seg + 1].lock === l) { S.seg++; S.t = 0; setTime(S.seg, 0); show(S.seg); }
+      if (S.seg < SEGS.length - 1 && SEGS[S.seg + 1].lock === l) { S.seg++; S.t = 0; fade(); setTime(S.seg, 0); show(S.seg); }
       say(l === 'gates' ? 'The gates swing open. Hold W to walk through.' : 'The door opens. Hold W to step inside.');
     }
 
@@ -266,6 +267,14 @@
       const vg = g.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,2,12,.45)'); g.fillStyle = vg; g.fillRect(0, 0, W, H);
     }
 
+    /* ---------- dolly effects: the gate leaves part, the great door pours out gold light ---------- */
+    const veil = document.createElement('div'); veil.className = 'm-veil'; stage.after(veil);
+    function dollyFx(sg, e) {
+      if (sg && sg.gate) { veil.style.background = `linear-gradient(90deg, rgba(8,3,12,${(0.9 * (1 - e)).toFixed(3)}) ${(50 - e * 50).toFixed(1)}%, transparent ${(50 - e * 50).toFixed(1)}%, transparent ${(50 + e * 50).toFixed(1)}%, rgba(8,3,12,${(0.9 * (1 - e)).toFixed(3)}) ${(50 + e * 50).toFixed(1)}%)`; veil.style.opacity = 1; }
+      else if (sg && sg.door) { veil.style.background = `radial-gradient(ellipse at 50% 58%, rgba(255,214,140,${(e * 0.95).toFixed(3)}) ${(e * 40).toFixed(1)}%, rgba(255,160,70,${(e * 0.5).toFixed(3)}) ${(e * 70).toFixed(1)}%, transparent 100%)`; veil.style.opacity = 1; }
+      else veil.style.opacity = 0;
+    }
+
     /* ---------- minimap: the way in as a path, you as a dot ---------- */
     function drawMini() {
       const m = mini, w = 180, h = 130;
@@ -296,8 +305,13 @@
       // turning your head: the frame is 12% wider than the screen
       const bob = S.walking ? Math.sin(S.time * (k.has('shift') ? 14 : 9)) * 0.004 : 0;
       stage.style.transform = `translate(${(-S.yaw * 5.2).toFixed(2)}%, ${(-S.pitch * 3 + bob * 100).toFixed(2)}%) scale(1.12)`;
-      if (!have[SEGS[S.seg].id] && !S.room) { const p = clamp(S.t / dur(S.seg), 0, 1); still.style.transform = `scale(${1 + (S.seg * 0.25 + p * 0.25)})`; }
-      else still.style.transform = '';
+      const sg = SEGS[S.seg];
+      if (!have[sg.id] && !S.room && sg.fb) {      // the painted dolly: ease the zoom toward the focus point
+        const p = clamp(S.t / dur(S.seg), 0, 1), e = p * p * (3 - 2 * p), [a, b] = sg.fb;
+        const z = a[0] + (b[0] - a[0]) * e, u = a[1] + (b[1] - a[1]) * e, v = a[2] + (b[2] - a[2]) * e;
+        still.style.transformOrigin = `${(u * 100).toFixed(1)}% ${(v * 100).toFixed(1)}%`; still.style.transform = `scale(${z.toFixed(4)})`;
+        dollyFx(sg, e);
+      } else { still.style.transform = ''; dollyFx(null, 0); }
       drawFx(dt); drawMini();
       const pr = $('m-prompt'), l = !S.panel && !S.map && !S.hall && pendingLock();
       if (l) { pr.innerHTML = `<kbd>E</kbd> ${LOCK_AT[l]}`; pr.classList.add('on'); }

@@ -1,48 +1,82 @@
-# One URL, a 3D castle: proof
+# One URL: the walk-in castle
 
-Everything is one page at http://127.0.0.1:8765, started by `make web`. Captured 2026-11-14 with `scripts/capture_castle.py` (headless Chromium driven over the DevTools protocol, real key events, the Mac GPU through ANGLE Metal, 1280x720).
+Everything is one page at http://127.0.0.1:8765, started by `make web`. You are the camera. You walk from the painted landing through the iron gates, up the lantern drive, in at the great door, and along the Great Hall. Each gold-plated door opens a room.
 
-![Walk-through: outside, Enter opens the gate, the hall, the stairs, the Chat door answers, Dashboard, Evals](castle3d.gif)
+Captured 2026-11-14 by `scripts/capture_game.py walk`: headless Chromium driven over the DevTools protocol with real key presses, the Mac GPU through ANGLE Metal, 1280x720.
 
-`castle3d.gif`: 193 frames, 29.6 s, 6.85 MB. Waits for the model are sped up.
+**Play-through video: [game_walk.mp4](game_walk.mp4)** (49.8 s, 6.9 MB). It runs from W at the landing to the Observatory, then a room, a question to the Count, and the map.
+
+## What is real video and what is a painted dolly
+
+| Stretch | Now | Source |
+|---|---|---|
+| a. The landing, walking up to the iron gates | **video**, Seedance 2.0, 8 s at 1080p | `site/game/clips/a-approach.mp4` |
+| b. The gates open, walk through | painted dolly | `clips/a-approach-last.jpg`, with the gate leaves parting |
+| c. The lantern drive, the castle grows | painted dolly | `art/gate.webp`, zooming into the castle |
+| d. The great door opens | painted dolly | `art/door.webp`, with gold light pouring out |
+| e. Along the Great Hall | painted dolly | `art/hall.webp` |
+| Rooms (9) | fade into the room's painting | `art/room-*.webp` |
+
+GMI refused the next video call with HTTP 402 (out of credits) after $3.27 of spend; see `site/art/README.md`. When credits return, run `.venv/bin/python scripts/gen_video.py run`. The page checks for each clip file and plays it instead of the dolly, with no code change.
 
 ## Frame rate
 
 | Measured | Value |
 |---|---|
-| fps over the whole walk (1 s samples) | min 58, mean 60 |
-| Renderer | WebGL 2, pixel ratio capped at 1.25, one 1024 shadow map, 13 point lights |
+| fps during the play-through (1 s samples) | min 57, mean 59.8 |
 | Where | headless Chromium on this Mac (ANGLE Metal). A visible browser window was not measured. |
 
-Open `/?dev` to see the fps counter in the top bar.
+## Controls
+
+| Key | Does |
+|---|---|
+| W (hold) | walk forward: the clip plays under your feet |
+| S (hold) | walk back |
+| Shift | run (double speed) |
+| A, D, mouse | look around (the frame is wider than the screen); in the hall, pick a door |
+| E, Enter | open the gates, the great door, the chosen door |
+| T | talk to Count Cuspid (the real `/api/chat` ladder) |
+| M | the map: jump to any stretch or door |
+| Esc | leave a room, a panel or the map |
+| Phone | joystick and an E button |
 
 ## The walk
 
 | Step | Screenshot |
 |---|---|
-| Outside the gate | ![outside](castle_1_outside.png) |
-| Enter opens the gate | ![gate opening](castle_2_gate_opening.png) |
-| The guide's desk in the Great Hall | ![guide desk](castle_3_guide_desk.png) |
-| The savings board (live `/api/stats`) | ![savings board](castle_4_savings_board.png) |
-| The grand staircase | ![stairs](castle_5_stairs.png) |
-| The three doors on the upper gallery | ![three doors](castle_6_three_doors.png) |
-| Map (M): both floors, doors, stairs, you | ![map](castle_10_map.png) |
+| The landing | ![landing](game_1_landing.png) |
+| At the iron gates (E opens them) | ![gates](game_2_gates.png) |
+| Through the gates | ![through the gates](game_3_through_gates.png) |
+| The lantern drive, the castle grows | ![drive](game_4_drive.png) |
+| Before the great door (E opens it) | ![great door](game_5_great_door.png) |
+| The door opens | ![door opening](game_6_door_opening.png) |
+| The Great Hall: gold-plated doors, signs in real text | ![hall](game_7_hall_doors.png) |
+| The map (M) | ![map](game_11_map.png) |
 
-## The guide answers through the real ladder
+The corner map shows the path (gates, drive, door, hall, the doors) and a green dot for you. It is in every screenshot.
 
-Close to the desk, E opens the guide's chat ([castle_guide_near.png](castle_guide_near.png)). The question "What is the capital of Kenya?" missed the Supabase cache (best cosine 0.582 against 0.97). The self-hosted GPU 30B answered it: "The capital of Kenya is Nairobi." The tag reads `gpu-small · qwen3:30b-instruct · 15→8 tok · $0 · 83505 ms`. The GPU box is shared, so the call was slow.
+## Rooms with live data
 
-![guide chat](castle_guide_chat.png)
-
-## The three doors
-
-| Door | What it shows | Screenshot |
+| Room | What it shows | Screenshot |
 |---|---|---|
-| Chat (the Count's room) | Chat over `/api/chat` with the live trace. "What is the capital of Poland?" was a Supabase exact HIT (cos 1.000) in 110 ms with "GPU call avoided". Side panel: cache hit rate, tokens used today, tokens per task. | ![chat](castle_8_chat.png) |
-| Dashboard | `/api/stats` totals, tokens saved over time (`/events`), database size, "how it answered" traces for recent questions, then the live ledger | ![dashboard](castle_7_dashboard.png) |
-| Evals | Benchmarks and the eval log (`/api/bench`, `/api/evals`) | ![evals](castle_9_evals.png) |
+| The Observatory | the Halloween dashboard, live from `/api/stats` and `/events`: 22,490 tokens kept off the big model, $0.0141 saved | ![observatory](game_8_observatory.png) |
+| The Familiar (any room) | its posters, every number linked to its `bench/*.md` source | ![room](game_9_room.png) |
+| The Ledger | the posters plus the dashboard's Evals tab (`/api/evals` leaderboard) | |
+| The Ladder | the posters plus "How it works" with today's ladder | |
 
-Fields marked "pending API" are not served by the backend yet. They are requested in `docs/api.md` ("Requested by the frontend"): Supabase rows and size, teacher_pairs rows, Neo4j node and edge counts, recent traces from the server, tokens used today for all users, and tokens per task. Until they arrive, the page shows only what it can measure itself. Hit rate and totals come from `/api/stats`. Traces, tokens today and tokens per task come from this browser's own questions, and are labelled that way.
+## The Count answers through the real ladder
+
+T opens the chat. "What is the capital of Poland?" was a Supabase cache HIT (exact, cosine 1.000 against 0.97) in about 300 ms. The trace says "GPU call avoided". The answer: "The capital of Poland is Warsaw."
+
+![count chat](game_10_count_chat.png)
+
+## The dashboard (also on its own at `/dashboard/halloween.html`)
+
+Restored from commit 91205b4. Halloween is the default; the toggle switches to Standard for company demos. It shows real data, and the "demo" badge appears only when the feed is demo data. Bats flap across the sky and a small village moves along the bottom. New sections: savings over time, cache hits exact vs cosine, database size, and how it answered. Fields the backend does not serve yet carry a "pending API" chip.
+
+| Halloween | Standard |
+|---|---|
+| ![halloween](dash_halloween.png) | ![standard](dash_standard.png) |
 
 ## No second UI
 
@@ -57,10 +91,10 @@ $ curl -s -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/
 200
 ```
 
-Exit 7 means nothing is listening. `git grep` finds no reference to ports 9000 or 9001 in the repo, so those were ad-hoc servers that are gone now. The old dashboard file `apps/phantom-phone/hud-web/index.html` only redirects to `/#walk/observatory`, which opens the Dashboard door.
+Exit 7 means nothing is listening.
 
 ## Not checked
 
-- Only Chromium was tried, headless. No phone, no visible window, no Safari or Firefox.
-- The touch joystick and drag-to-look were not tested on a touch screen.
-- The plain fallback (no WebGL) was checked only by the test that the static sections stay in `index.html`.
+- Only Chromium was tried, headless. No phone, no Safari or Firefox, no visible window.
+- Four of the five walk stretches and all nine rooms use the painted dolly, not video, until GMI credits return.
+- The touch joystick was not tried on a touch screen.

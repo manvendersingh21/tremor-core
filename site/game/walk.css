@@ -18,16 +18,17 @@
 .m-say small { display: block; margin-top: .3rem; font: 500 .75rem Inter, sans-serif; color: #5a3a60; }
 #m-mini { position: absolute; right: .9rem; bottom: .9rem; width: 180px; height: 130px; border: 1px solid #8f5aa8; border-radius: 8px; }
 .m-help { position: absolute; left: .9rem; bottom: .9rem; font: 500 .8rem Inter, sans-serif; background: #0b0510c0; padding: .35rem .7rem; border-radius: 6px; }
+.m-veil { position: absolute; inset: 0; pointer-events: none; opacity: 0; mix-blend-mode: normal; }
 .m-fade { position: absolute; inset: 0; background: #05020a; opacity: 0; pointer-events: none; transition: opacity .3s; }
-.m-fade.on { opacity: 1; }
+.m-fade.on { opacity: .85; }
 /* the gold-plated doors of the Great Hall, signs as real text (same look as the painted site) */
 .m-doors { position: absolute; left: 50%; bottom: 17%; transform: translateX(-50%); display: flex; gap: 1vw; align-items: flex-end; }
 .m-doors[hidden] { display: none; }
 .m-door { position: relative; width: min(9.2vw, 130px); aspect-ratio: 3 / 4.6; border: 0; padding: 0; cursor: pointer; border-radius: 50% 50% 4px 4px / 32% 32% 4px 4px;
   background: url(../art/door.webp) center / cover no-repeat; box-shadow: 0 0 0 3px #b8862e, 0 0 0 5px #3a220c, 0 10px 30px #000c; transition: transform .2s, box-shadow .2s; }
 .m-door.sel, .m-door:hover, .m-door:focus-visible { transform: translateY(-8px) scale(1.06); box-shadow: 0 0 0 3px #ffd27a, 0 0 0 5px #6a420c, 0 0 36px 8px #ffb44a99; outline: none; }
-.m-plaque { position: absolute; left: 50%; bottom: 106%; transform: translateX(-50%); width: max-content; max-width: 13vw; background: linear-gradient(#e9c46a, #b8862e); color: #2a1206; border-radius: 6px; padding: .25rem .5rem; box-shadow: 0 4px 12px #000a; text-align: center; }
-.m-plaque strong { display: block; font: 700 .78rem Cinzel, serif; letter-spacing: .04em; }
+.m-plaque { position: absolute; left: 50%; bottom: 106%; transform: translateX(-50%); width: max-content; max-width: 9.6vw; white-space: normal; background: linear-gradient(#e9c46a, #b8862e); color: #2a1206; border-radius: 6px; padding: .25rem .5rem; box-shadow: 0 4px 12px #000a; text-align: center; }
+.m-plaque strong { display: block; font: 700 .7rem/1.15 Cinzel, serif; letter-spacing: .04em; }
 .m-plaque span { display: none; font: 500 .7rem Inter, sans-serif; }
 .m-door.sel .m-plaque span { display: block; max-width: 12vw; white-space: normal; }
 /* panels */

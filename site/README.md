@@ -1,12 +1,10 @@
-# CHIMERA site: the 3D castle
+# CHIMERA site: the walk-in castle
 
-One page, one port: http://127.0.0.1:8765. You start outside a castle. Press Enter at the gate and it opens. Inside the Great Hall, a guide sits at a desk: walk up and press E to talk. He answers through the real router. A savings board on the wall shows the totals. Climb the grand staircase. On the upper gallery three doors open the **Dashboard**, the **Chat** (the Count's room) and the **Evals**.
+One page, one port: http://127.0.0.1:8765. You are the camera. Hold W and you walk from the painted landing (moon, bats, the castle on its cliff) to the iron gates. E opens them. You walk up the lantern drive to the great door, and E opens it. Then you walk along the Great Hall. Its gold-plated doors open the rooms, each with its painting and its data. The Observatory holds the live Halloween dashboard. T talks to Count Cuspid through the real router.
 
-No framework, no npm. three.js is vendored in `vendor/` (MIT, licence in `vendor/three.LICENSE.txt`). Every model in the scene is built in `castle/castle.js` from three.js primitives and canvas textures. No downloaded 3D models or textures are used, so the scene has no asset licences. The painted images in `art/` were generated for this project (Seedream via GMI) and are used by the no-WebGL fallback. Google Fonts is the only external request, with system fallbacks.
+The walk is a chain of painted video clips (`game/clips/`, made by `scripts/gen_video.py` with Seedance 2.0 on GMI). Each clip starts on the last frame of the clip before. A stretch whose clip is not made yet plays as a slow painted dolly over its keyframe. Costs: [art/README.md](art/README.md). Proof, screenshots and fps: [docs/one_url_gates.md](docs/one_url_gates.md).
 
-![Walk-through](docs/castle3d.gif)
-
-Proof, screenshots and fps: [docs/one_url_gates.md](docs/one_url_gates.md).
+No framework, no npm. Google Fonts is the only external request, with system fallbacks.
 
 ## Run
 
@@ -21,52 +19,41 @@ make demo      # the same page fed by invented demo telemetry, labelled demo
 
 | Key | Does |
 |---|---|
-| Click | look with the mouse (pointer lock). Esc releases it. |
-| W A S D, arrows | walk |
+| W (hold), S (hold) | walk forward, walk back |
 | Shift | run |
-| E, Enter | open the gate, talk to the guide, read the board, open a door |
-| Esc | leave a panel |
-| M, "Map and rooms" | map of both floors, plus a list of places to go to (keyboard and screen-reader path) |
+| A, D, mouse | look around; in the hall, choose a door |
+| E, Enter | open the gates, the great door, the chosen door |
+| T | talk to Count Cuspid (`/api/chat`, with the live trace) |
+| M | map: jump to any stretch or door |
+| Esc | leave a room, a panel or the map |
 
-Phones get a joystick, an E button, and drag-to-look. The corner minimap follows you and shows the floor you are on, the doors, the stairs and your facing.
+Phones get a joystick and an E button. The corner map shows the path and where you are.
 
-## What each place shows
+## Rooms
 
-| Place | Data |
-|---|---|
-| Savings board (hall) | `/api/stats`: tokens kept off the big model, dollars saved, GPU calls avoided, cache hit rate |
-| Guide (hall) | chat over `/api/chat`, with the live trace, plus a short guide to the castle |
-| Dashboard door | `/api/stats` totals, tokens saved over time (`/events`), database size, "how it answered" for recent questions, the live ledger |
-| Chat door | chat with the live trace. Side panel: cache hit rate, tokens used today, tokens per task |
-| Evals door | benchmarks and the eval log (`/api/bench`, `/api/evals`) |
+The doors come from `rooms.js` (one per room, with its posters; every number links to its `bench/*.md` source). The Observatory, the Ledger and the Ladder also show the Halloween dashboard (`dashboard/halloween.html?view=live|evals|how&embed=1`, live `/api/stats`, `/events`, `/api/evals`). When a room has a clip `game/clips/room-<id>.mp4`, its door opens on video; otherwise the room fades in.
 
-The trace shows each step `/api/chat` sends: embedding, the Supabase cache (exact, then cosine against 0.97, the guard, ms), N+1 memory, each tier tried, the GPU 30B's confidence against the gate, and the final tier, model, tokens, $, ms and tokens kept off the big model.
+## Add a clip
 
-Fields the backend does not serve yet are marked **pending API** (requested in `docs/api.md`). Until they arrive, the page shows only what it measures itself. Traces, tokens today and tokens per task come from this browser's own questions (localStorage) and say so.
+Add it to `game/clips.json` (`first` keyframe or `from` another clip, optional `last` frame, prompt, seconds, resolution). Then run `.venv/bin/python scripts/gen_video.py run`. It skips clips already made, collects a request that was already paid for, and logs each call to `bench/.scratch/video/calls.jsonl`. The page plays the new file with no code change.
 
 ## Files
 
-- `index.html`: the page, the dashboard blocks (`#dash-store`), the generated plain fallback.
-- `castle/`: `castle.js` (scene, controls, minimap), `physics.js` (walking rules, also tested in node), `panels.js` (the HTML panels), `layout.json` (walls, zones, stairs, doors, places), `castle.css`.
-- `vendor/three.module.min.js` (r170).
-- `world/chat.js`, `world/world.css`: the chat, trace and panel styles, shared with the 2D castle.
-- `world/`: the earlier 2D castle. It is off the main path and kept for its tests.
-- `dashboard.js`, `dashboard.css`, `rooms.js`, `build.py`, `styles.css`, `tour.js`, `art/`.
+- `index.html`: the page, the dashboard blocks, the generated plain fallback.
+- `game/`: `walk.js` (the walk, controls, bats, map), `panels.js` (rooms, Count chat), `walk.css`, `clips.json`, `clips/`, and `game.js` + `layers/` (the earlier layered scene).
+- `dashboard/halloween.html`: the Halloween dashboard (from commit 91205b4, live data, Evals and Chat tabs).
+- `world/chat.js`: the chat and trace, shared. `world/` and `castle/`: earlier 2D and 3D castles, off the main path.
+- `rooms.js`, `build.py`, `styles.css`, `art/`.
 
-## Add a door or a place
+## Without JavaScript
 
-Edit `castle/layout.json`: a door needs `id`, `label`, `x`, `z`, `use`, and a panel in `castle/panels.js` with the same id. `tests/test_castle.py` checks the layout and walks gate → hall → stairs → gallery with the real `physics.js`. Posters for the plain fallback live in `rooms.js`. Run `python3 site/build.py` after editing it; `--check` fails if `index.html` is out of date.
-
-## Without WebGL
-
-The page drops the 3D root and shows the plain HTML version: every room as a section with its posters. No 2D game runs in that case.
+The plain HTML version shows every room as a section with its posters.
 
 ## Motion
 
-One `requestAnimationFrame` loop that never pauses: torches flicker, flags and banners wave, clouds drift, bats circle the towers, the chandelier sways, and the guide breathes and turns his head toward you.
+One `requestAnimationFrame` loop that never pauses: a flock of 120 bats in three depths, fog, fireflies, candle glow, and the head bob while you walk.
 
 ## Limits
 
-- Only Chromium was checked, headless, with the Mac GPU (58 to 60 fps). Touch was not tried on a phone.
-- The figures are simple low-poly shapes.
-- The fallback page has no chat.
+- Only Chromium was checked, headless (57 to 60 fps). No phone was tested.
+- Until GMI credits return, four walk stretches and all rooms use the painted dolly, not video.
