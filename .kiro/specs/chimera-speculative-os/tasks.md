@@ -65,3 +65,20 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
 
 ## Next
 - [ ] 14. Repeat the benchmarks, retry the Modal tier, and keep `.kiro/steering/product.md` in line with `bench/*.md`.
+
+## Property-based tests (Kiro correctness; `design.md` section 5)
+- [x] 25. PBT: caches and guard (P1-P6). `tests/test_props_cache.py`.
+  - _Requirements: 1.1, 1.2, 1.5, 1.6_
+  - [ ] 25a. PBT fix: `cache/exact_cache.py` `prompt_hash` NUL collision (xfail test). Owner: cache.
+  - [ ] 25b. PBT fix: `cache/guard.py` `consistent(a, a)` false for apostrophe entities (xfail test). Owner: cache.
+- [x] 26. PBT: router, ladder, pool (P7-P9). `tests/test_props_router.py`.
+  - _Requirements: 6.1, 6.2, 6.3, 6.4_
+  - [ ] 26a. PBT fix: `ladder.py` caches a top answer that failed `check` (xfail test). Owner: router.
+- [x] 27. PBT: speculative accept rule incl. chi-square on a 4-token vocab (P10, P11). `tests/test_props_spec.py`.
+  - _Requirements: 3.2, 3.3_
+- [x] 28. PBT: scrub, risk scorer, memory, stats shape, chat firewall (P12-P17). `tests/test_props_safety.py`.
+  - _Requirements: 7.1, 7.2, 7.3, 8.1, 8.2, 8.3, 9.1, 9.2_
+  - [ ] 28a. PBT fix: `memory/safety.py` card glued to `_` or a letter is not scrubbed (xfail test). Owner: memory.
+- [x] 29. PBT: `/api/chat` event shapes (P18). `tests/test_props_api.py`.
+  - _Requirements: 9.3_
+- [ ] 30. PBT: bank lookup never serves without passing tests (P19). Write when the bank exists.
