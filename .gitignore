@@ -13,3 +13,10 @@ models/
 *.pem
 id_rsa*
 .DS_Store
+*.egg-info/
+hf/
+bench/datasets/raw/
+bench/datasets/suite.jsonl
+bench/.scratch/
+bench/datasets/cache_eval.jsonl
+bench/results_cache_eval.json
