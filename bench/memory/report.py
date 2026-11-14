@@ -138,7 +138,7 @@ def write(test, train, ok):
     L += ["## Rerun", "", "```",
           "# port forward to the 30B (11444) and Neo4j (17687) first; CRUSOE_API_KEY, CHIMERA_DB_URL, CHIMERA_GRAPH_* in .env",
           ".venv/bin/python bench/memory/run_memory.py all", "N_TEST=80 W30=4 .venv/bin/python bench/memory/run_memory.py report", "```", "",
-          "Rows are cached under `$KIROCREW_SCRATCH/memory/`; delete a file there to redo that condition. "
+          "Rows are cached under `bench/.scratch/memory/`; delete a file there to redo that condition. "
           "Setup: `docs/memory.md`. Caveats: one run, temperature 0, %d problems; the 30B box is shared, so latency numbers are noisy." % n]
     R.OUT_MD.write_text("\n".join(L) + "\n")
     print(R.OUT_MD)
