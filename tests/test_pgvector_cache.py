@@ -29,6 +29,9 @@ class FakeStore:
             raise ConnectionError("db down")
         time.sleep(self.delay)
 
+    def lookup(self, tenant, ns, h, emb, k):
+        return self.find_exact(tenant, ns, h), self.find_nearest(tenant, ns, emb, k)
+
     def find_exact(self, tenant, ns, h):
         self._chk()
         for r in self.rows:
@@ -127,7 +130,7 @@ def test_prompt_text_only_stored_when_opted_in():
 
 
 def test_db_down_or_slow_falls_back_to_sqlite_within_budget():
-    c, s = make(budget_s=0.05, cooldown_s=60)
+    c, s = make(budget_s=0.05, cooldown_s=60, max_strikes=1)
     c.put("sort a list in python", "use sorted()")
     settle(c)
     s.delay = 0.5
@@ -193,3 +196,16 @@ def test_live_roundtrip():
         assert c.get("python sort a list")[0] == "use sorted()"
     finally:
         c.purge()
+
+
+def test_breaker_needs_three_strikes():
+    c, s = make(budget_s=0.05, cooldown_s=60)
+    c.put("sort a list in python", "use sorted()")
+    settle(c)
+    s.delay = 0.2
+    for _ in range(3):
+        c.get("sort a list in python")
+    s.delay = 0.0
+    t0 = time.perf_counter()
+    c.get("sort a list in python")  # 4th call: breaker is open now, DB is skipped
+    assert c.stats["fallbacks"] == 4 and time.perf_counter() - t0 < 0.02

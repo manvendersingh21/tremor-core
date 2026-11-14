@@ -61,7 +61,7 @@ class CacheCfg(BaseModel):
     store_text: bool = False       # opt-in: keep prompt text in the shared DB
     ttl_s: int | None = None       # row lifetime in seconds; None = forever
     top_k: int = 5
-    budget_ms: int = 150           # DB time allowed per lookup before the local cache answers
+    budget_ms: int = 300           # DB time allowed per lookup before the local cache answers
 
 
 class GatewayCfg(BaseModel):
