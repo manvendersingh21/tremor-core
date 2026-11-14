@@ -9,7 +9,7 @@ const median=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.le
 // tiers: themed label (Gothic and Hollowkeep) and the real name, always shown together
 const ORDER=['cache','phone_3b','mac_3b','gpu_small','gpu_large','crusoe'];
 const T={
-  cache:{th:'The Crypt',real:'Cache',c:'--cache',model:'exact + semantic'},
+  cache:{th:'The Crypt',real:'Supabase cache',c:'--cache',model:'exact, then cosine ≥ 0.97'},
   phone_3b:{th:'The Familiar',real:'Phone 3B',c:'--phone',model:'Gemma 3 (no calls yet)'},
   mac_3b:{th:'The Lantern',real:'Mac 3B (experiment, off)',c:'--mac',model:'Qwen2.5-3B (no calls yet)'},
   gpu_small:{th:'The Manor',real:'GPU 30B (self-hosted)',c:'--gpus',model:'qwen3:30b-instruct (no calls yet)'},

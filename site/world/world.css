@@ -80,7 +80,7 @@
 .t-row:first-of-type { border-top: 0; }
 .t-k { width: 6.4rem; flex: none; color: #cdb8d8; font-weight: 600; }
 .t-v { flex: 1; color: #f1e6da; }
-.t-lanes { display: grid; grid-template-columns: repeat(2, 1fr); gap: .4rem; margin: .3rem 0; }
+.t-lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; margin: .3rem 0; }
 .t-lane { border: 1px solid #3a1c46; border-radius: 8px; padding: .4rem .5rem; min-height: 4.2rem; }
 .t-lane h5 { margin: 0 0 .2rem; font: 700 .68rem Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #cdb8d8; }
 .t-lane.run { border-color: #e9c46a; animation: t-pulse 1s ease-in-out infinite; }

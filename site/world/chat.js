@@ -1,5 +1,5 @@
 /* The bat's room: chat + live routing trace + local monitor strip. UI only.
-   Talks to POST /api/chat (SSE, docs/api.md: embed, cache_local, cache_shared, decide, call, draft, final, answer, error, done)
+   Talks to POST /api/chat (SSE, docs/api.md: embed, cache_shared, memory, decide, call, draft, final, answer, error, done)
    and polls GET /api/health every 2 s. If the endpoint is missing it falls back to a labelled MOCK so the UI still runs. */
 (function () {
   'use strict';
@@ -36,12 +36,11 @@
       tr.innerHTML = `<div class="t-row"><span class="t-k">Question</span><span class="t-v">${esc(q.length > 80 ? q.slice(0, 80) + '…' : q)}</span></div>
         <div class="t-row" id="t-embed"><span class="t-k">1 Embedding</span><span class="t-v">…</span></div>
         <div class="t-lanes">
-          <div class="t-lane run" id="t-local"><h5>Local cache (SQLite)</h5><div class="b">looking…</div></div>
-          <div class="t-lane run" id="t-shared"><h5>Shared cache (Supabase)</h5><div class="b">looking…</div></div>
+          <div class="t-lane run" id="t-shared"><h5>Supabase cache</h5><div class="b">exact, then cosine…</div></div>
           <div class="t-lane run" id="t-draft"><h5>GPU 30B (self-hosted)</h5><div class="b">waiting…</div></div>
           <div class="t-lane run" id="t-mem"><h5>Memory</h5><div class="b">looking for solved examples…</div></div>
         </div>
-        <div class="t-row" id="t-cos"><span class="t-k">2 Cosine</span><span class="t-v">waiting for the caches…</span></div>
+        <div class="t-row" id="t-cos"><span class="t-k">2 Cosine</span><span class="t-v">waiting for the cache…</span></div>
         <div class="t-row" id="t-decide"><span class="t-k">3 Decision</span><span class="t-v">…</span></div>
         <div class="t-row" id="t-call"><span class="t-k">4 Call</span><span class="t-v">…</span></div>
         <div class="t-row" id="t-final"><span class="t-k">5 Final</span><span class="t-v">…</span></div>`;
@@ -62,16 +61,16 @@
       if (!T) return;
       d = d || {};
       if (name === 'embed') setRow('t-embed', `done <b>${ms(pick(d, 'ms', 'latency_ms'))}</b>${pick(d, 'dim') ? ' · ' + d.dim + '-dim vector' : ''}`);
-      else if (name === 'cache_local' || name === 'cache_shared') {
-        if (name === 'cache_shared') T.shared = true; else T.local = true;
-        const id = name === 'cache_local' ? 't-local' : 't-shared', hit = !!pick(d, 'hit'), m = pick(d, 'ms', 'latency_ms');
+      else if (name === 'cache_shared') {  // the only answer cache (Supabase); the Mac keeps none
+        T.shared = true;
+        const id = 't-shared', hit = !!pick(d, 'hit'), m = pick(d, 'ms', 'latency_ms');
         const sim = pick(d, 'score', 'sim', 'similarity'), st = pick(d, 'status'), err = st === 'timeout' || st === 'down' ? st : pick(d, 'error'), kind = pick(d, 'kind', 'source');
         if (pick(d, 'threshold') != null) T.th = d.threshold;
-        if (st === 'skipped') { lane(id, 'miss', 'skipped<br>local cache already hit'); return; }
+        if (st === 'skipped') { lane(id, 'miss', 'skipped'); return; }
         if (sim != null && (T.sim == null || sim > T.sim)) { T.sim = sim; const mp = pick(d, 'matched', 'matched_prompt'); if (mp) T.matched = mp; }
         const gd = pick(d, 'guard'); if (gd) T.guard = gd;
-        if (hit) T.hit = { kind: kind || 'semantic', where: name === 'cache_local' ? 'local' : 'shared' };
-        lane(id, err ? 'err' : hit ? 'hit' : 'miss', err ? `<b>${esc(err)}</b><br>${err === 'down' ? 'SQLite answered instead' : 'over budget'}<br>${ms(m)}` : `<b>${hit ? 'HIT' : 'MISS'}</b>${kind ? ' · ' + esc(kind) : ''}<br>${ms(m)}${sim != null ? '<br>cos ' + (+sim).toFixed(3) : ''}`);
+        if (hit) T.hit = { kind: kind || 'semantic', where: 'shared' };
+        lane(id, err ? 'err' : hit ? 'hit' : 'miss', err ? `<b>${esc(err)}</b><br>${err === 'down' ? 'Supabase unreachable' : 'over the time budget'}<br>${ms(m)}` : `<b>${hit ? 'HIT' : 'MISS'}</b>${kind ? ' · ' + esc(kind) : ''} · ${ms(m)}${sim != null ? '<br>cos ' + (+sim).toFixed(3) + ' / ' + (pick(d, 'threshold') ?? THRESH) : ''}<br>guard: ${esc(gd || 'no candidate')}`);
         cosine();
       } else if (name === 'draft') {
         T.drafted = true; selfTitle(pick(d, 'tier'));
@@ -104,8 +103,7 @@
       const self = !CLOUD.test(tier); if (self && !cacheHit) selfTitle(tier);
       if (!T.drafted && !T.called) lane('t-draft', cacheHit ? 'miss' : self ? 'hit' : 'miss', cacheHit ? 'not needed<br>cache answered' : self ? `<b>${esc(tier)}</b> answered<br>${tout ?? '?'} tok · ${ms(total)}` : 'climbed<br>' + esc(tier) + ' answered');
       if (!T.mem) lane('t-mem', 'miss', cacheHit ? 'not needed<br>cache answered' : 'no memory events<br>(module not connected)');
-      if (!T.shared) lane('t-shared', 'miss', 'not configured<br>local cache only');
-      if (!T.local) lane('t-local', 'miss', 'not in this ladder<br>shared cache only');
+      if (!T.shared) lane('t-shared', 'miss', 'not configured<br>no cache lookup');
       if (!T.decided) setRow('t-decide', cacheHit ? `<b>serve from cache</b> · cosine ≥ ${T.th || THRESH}` : `<b>${esc(tier)}</b> answered`);
       if (!T.called) setRow('t-call', cacheHit ? '<span class="t-chip good">no model called</span>' : `<b>${esc(tier)}</b> ${esc(pick(d, 'model') || '')}`);
       setRow('t-final', `<span class="t-chip ${cacheHit ? 'good' : ''}">${esc(tier)}${d.cache ? ' (' + esc(d.cache) + ' cache)' : ''}</span><span class="t-chip">${esc(pick(d, 'model') || (cacheHit ? 'no model' : 'model unnamed'))}</span>` +
@@ -171,10 +169,9 @@
       await wait(40); on('embed', { ms: 11.4, dim: 384 });
       const hit = mcache.has(key);
       await Promise.all([
-        wait(hit ? 9 : 18).then(() => on('cache_local', { hit, kind: hit ? 'exact' : null, ms: hit ? 9 : 18, score: hit ? 1 : 0.41, threshold: THRESH, guard: hit ? 'off' : null })),
-        wait(hit ? 0 : 140).then(() => on('cache_shared', { hit: false, status: hit ? 'skipped' : 'ok', ms: 140, score: 0.38, threshold: THRESH })),
+        wait(hit ? 110 : 140).then(() => on('cache_shared', { hit, status: 'ok', kind: hit ? 'exact' : null, ms: hit ? 110 : 140, score: hit ? 1 : 0.38, threshold: THRESH, guard: null })),
       ]);
-      if (hit) { on('final', { tier: 'exact_cache', model: null, tokens_in: 0, tokens_out: 0, cached_tokens: 0, dollars: 0, ms: performance.now() - t0, tokens_kept_off_big: 40, cache: 'exact' }); on('answer', { text: mcache.get(key) }); on('done', {}); return; }
+      if (hit) { on('final', { tier: 'exact_cache', model: null, tokens_in: 0, tokens_out: 0, cached_tokens: 0, dollars: 0, ms: performance.now() - t0, tokens_kept_off_big: 40, cache: 'shared' }); on('answer', { text: mcache.get(key) }); on('done', {}); return; }
       on('memory', { retrieved: 0, examples: [], ms: 3 }); on('decide', { tier: 'mock-30b', reason: 'cheapest healthy tier' }); await wait(650);
       on('call', { tier: 'mock-30b', model: 'mock', ok: true, ms: 650, tokens_in: 12, tokens_out: 38 }); on('draft', { tier: 'mock-30b', confidence: 0.97, gate: GATE });
       const a = 'MOCK reply (no backend connected): ' + q;
