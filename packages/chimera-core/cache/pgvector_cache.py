@@ -168,7 +168,7 @@ class PgVectorCache:
             self._strikes += 1
             if self._strikes >= self.max_strikes:  # one slow lookup is not an outage
                 self._down_until = time.monotonic() + self.cooldown_s
-            log.warning("pgvector cache unavailable, using local cache: %s", type(e).__name__)
+            log.warning("pgvector cache unavailable, skipping the cache for this call: %s", type(e).__name__)
             raise
 
     def _bg(self, fn: Callable[[Store], Any]) -> None:
@@ -249,7 +249,7 @@ class PgVectorCache:
         return (hit.response, hit.similarity) if hit else None
 
     def put(self, prompt: str, response: str, namespace: str = "", *, verified: bool = True, model: str = "",
-            tier: str = "", tokens_in: int = 0, tokens_out: int = 0) -> None:
+            tier: str = "", tokens_in: int = 0, tokens_out: int = 0, stored_prompt: str | None = None) -> None:
         """Store an answer. Pass verified=False for answers no check has passed yet; they are never auto-served."""
         if self.fallback:
             self.fallback.put(prompt, response, namespace)
@@ -257,8 +257,8 @@ class PgVectorCache:
         emb = _norm(self._embedder.embed(prompt))
         meta = {"model": model, "tier": tier, "tokens_in": tokens_in, "tokens_out": tokens_out,
                 "verified": verified, "ttl_s": self.ttl_s}
-        self._bg(lambda s: s.insert(self.tenant, namespace, h, prompt if self.store_text else None, emb,
-                                    response, meta))
+        text = (stored_prompt if stored_prompt is not None else prompt) if self.store_text else None
+        self._bg(lambda s: s.insert(self.tenant, namespace, h, text, emb, response, meta))
 
     def purge(self, namespace: str | None = None) -> int:
         """Delete this tenant's rows (one namespace, or all when None). Waits for the DB; raises if it is down."""

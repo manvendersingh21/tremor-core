@@ -16,7 +16,7 @@
 ## Resume
     export KIROCREW_SCRATCH=$PWD/bench/.scratch
     curl -s -m 3 127.0.0.1:8080/health || bash bench/serve_local.sh
-    ssh -i REDACTED_KEY_PATH -o IdentitiesOnly=yes -p REDACTED_PORT root@REDACTED_HOST -N -f -L 127.0.0.1:11439:127.0.0.1:11434
+    ssh -N -f -L 127.0.0.1:<port>:127.0.0.1:11434 <gpu-host>   # an SSH tunnel to your GPU box
     .venv/bin/python -u bench/run_suite.py POOL        # about 1-2 h on the shared Mac 3B
     .venv/bin/python bench/run_cache_eval.py sqlite pg  # about 20 min for pg
     .venv/bin/python bench/run_suite.py report          # writes results_suite.md/.csv

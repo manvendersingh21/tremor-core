@@ -227,7 +227,7 @@ def report() -> None:
 | grader | Crusoe `Qwen/Qwen3.8-27B` (wrote no graded answer) | 27.8B | $0.25 / $0.15 / $2.00 |
 
 Largest model on the key: DeepSeek-V4.1-Flash at 763.2B. No ~1T model is listed. Next: GLM-5.3 at 753.3B ($1.40 in / $4.40 out), GLM-5.3-Flash 321.3B, Nemotron-3.5-Super-VL 124.5B. Sizes are Crusoe's `parameter_count`; the MoE active size is not given except Nemotron (12B active).
-Tunnel: GPU Ollama via `ssh -L 127.0.0.1:LOCAL_PORT:127.0.0.1:11434` (port REDACTED_PORT).
+Tunnel: GPU Ollama via an SSH tunnel to your GPU box.
 
 Climb rules: 3B stays if mean token prob >= 0.85 (and asserts pass, when the prompt has them). Else the 30B answers. The 30B answer goes up if its self-check says ESCALATE or the asserts fail. Prompts with `complexity_score >= 0.6` skip both small answers: the 30B writes a brief of at most 200 tokens and the top model answers.
 
@@ -260,7 +260,7 @@ __VERDICT__
 ## Rerun
 ```
 bench/serve_local.sh &        # Mac 3B on 127.0.0.1:8080
-ssh -N -f -L 127.0.0.1:LOCAL_PORT:127.0.0.1:11434 -p REDACTED_PORT -i REDACTED_KEY_PATH -o IdentitiesOnly=yes root@REDACTED_HOST
+ssh -N -f -L 127.0.0.1:<port>:127.0.0.1:11434 <gpu-host>   # an SSH tunnel to your GPU box
 .venv/bin/python bench/run_ladder.py T && .venv/bin/python bench/run_ladder.py L
 .venv/bin/python bench/run_ladder.py Lnb && .venv/bin/python bench/run_ladder.py L4
 .venv/bin/python bench/run_ladder.py report   # delete $KIROCREW_SCRATCH/ladder_grades.json to regrade

@@ -119,7 +119,8 @@ def tier_checks(cfg: ChimeraConfig) -> list[tuple[str, str, str, dict]]:
 
 
 def load_config(path: str | os.PathLike | None = None) -> ChimeraConfig:
-    """`path`, else $CHIMERA_CONFIG, else <repo>/chimera.toml, else built-in defaults."""
+    """`path`, else $CHIMERA_CONFIG, else <repo>/chimera.toml, else built-in defaults. .env is read first ($VARS in tier URLs)."""
+    load_env()
     p = pathlib.Path(path or os.environ.get("CHIMERA_CONFIG") or ROOT / "chimera.toml")
     if not p.exists():
         if path or os.environ.get("CHIMERA_CONFIG"):

@@ -215,3 +215,14 @@ def test_ollama_without_logprobs_uses_self_check(monkeypatch):
     monkeypatch.setattr(OllamaBackend, "_post", lambda self, path, body: {
         "message": {"content": "Paris"}, "logprobs": [{"logprob": -0.01}, {"logprob": -0.03}], "eval_count": 2})
     assert 0.97 < build_backend(tier("gpu", 0.6)).complete("q", 16)[3] < 0.99
+
+
+def test_shared_cache_rows_are_scrubbed():
+    store = FakeStore()
+    r = make({"small": Fake("small", conf=0.99), "big": Fake("big")},
+             shared=PgVectorCache(Bag(), store, store_text=True))
+    run(r, "mail me at someone@example.com please")
+    settle(r.shared)
+    row = store.rows[0]
+    assert "someone@example.com" not in row["text"] and "someone@example.com" not in row["answer"]
+    assert r.shared.get("mail me at someone@example.com please") is not None  # lookups still match the raw prompt
