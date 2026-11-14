@@ -11,7 +11,7 @@ dependencies = ["pydantic>=2"]
 embed = ["sentence-transformers"]
 postgres = ["psycopg[binary]>=3.1", "psycopg-pool>=3.2"]
 gateway = ["fastapi>=0.110", "uvicorn>=0.29"]
-dev = ["pytest", "httpx", "fastapi>=0.110", "uvicorn>=0.29"]
+dev = ["pytest", "httpx", "mcp", "fastapi>=0.110", "uvicorn>=0.29"]
 
 # shortcut: the package dir is hyphenated (packages/chimera-core) and is loaded by the root
 # conftest.py shim, so nothing is installed as a module; upgrade by renaming the dir.

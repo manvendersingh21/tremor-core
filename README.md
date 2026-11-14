@@ -1,3 +1,5 @@
+[![ci](https://github.com/manvendersingh21/tremor-core/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/manvendersingh21/tremor-core/actions/workflows/ci.yml)
+
 # CHIMERA
 
 CHIMERA is a router for LLM calls. It tries the cheapest tier that can answer: an exact and semantic cache, then a small model on your own machine (Qwen2.5-3B on a Mac), then a 30B model on a GPU box, then a large cloud model. Each answer is logged with the tier used, tokens, latency and dollars. A separate firewall scores risky actions (pay, delete, merge) from 0 to 100 and asks for approval above 70. It is an experiment. The measured results below are mixed.
@@ -106,3 +108,7 @@ API keys live only in `.env`, which is git-ignored. Do not paste keys into issue
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Publishing the site (GitHub Pages)
+
+The `pages` workflow runs only by hand. Pages is off on a private repo without a paid plan. To turn it on, make the repo public (or use a paid plan), enable Pages with source "GitHub Actions" in the repo settings, then run the `pages` workflow from the Actions tab.
