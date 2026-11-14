@@ -54,7 +54,7 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │       ├── supervisor_graph.py     # (planned)
 │       └── modules/                # (planned) unknown_caller, marketplace_bot, mobile_hotfix, ride_arbitrage
 ├── deploy/                         # Gateway Docker files, sql/ (shared cache), modal/ (H200 app)
-├── site/                           # The web page: world/ (walkable castle, bat chat), castle/ + vendor/ (3D castle in progress), dashboard.js, rooms.js posters, build.py (no-JS page)
+├── site/                           # The web page: castle/ (3D castle, panels, layout.json), vendor/ (three.js r170), world/ (chat.js; old 2D castle), dashboard.js, rooms.js, build.py
 ├── scripts/                        # android_setup.sh, phone_check.sh
 ├── bench/                          # Prompts, runners, results
 │   ├── prompts.jsonl               # 30 prompts

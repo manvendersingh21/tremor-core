@@ -48,7 +48,8 @@ const isCache=e=>/cache/.test(e.tier_used);
 const tokens=u=>(u.input_tokens||0)+(u.output_tokens||0);
 
 function addEvent(e){
-  if(e._meta){const s=$('src');s.textContent=e._meta.source;const demo=/demo/.test(e._meta.source);s.className='badge'+(demo?' demo':'');$('ledsrc').hidden=!demo;return}
+  if(!e._meta&&!S.srcSet){S.srcSet=1;const s=$('src');if(/waiting/.test(s.textContent))s.textContent='live: this machine\'s telemetry log'}
+  if(e._meta){S.srcSet=1;const s=$('src');s.textContent=e._meta.source;const demo=/demo/.test(e._meta.source);s.className='badge'+(demo?' demo':'');$('ledsrc').hidden=!demo;return}
   const cache=isCache(e),pt=cache?{}:perTier(e);
   S.calls++;S.tok+=e.tokens_saved||0;S.usd+=e.dollars_saved||0;S.allLat.push(e.latency_ms||0);if(S.allLat.length>1000)S.allLat.shift();
   if(e.acceptance_rate_alpha!=null){S.asum+=e.acceptance_rate_alpha;S.acount++}

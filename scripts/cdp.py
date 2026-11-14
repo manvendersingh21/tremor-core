@@ -13,10 +13,10 @@ class Page:
         self.ws, self.proc, self.tmp, self.n = ws, proc, tmp, 0
 
     @classmethod
-    async def open(cls, url, w=1280, h=720, port=9333):
+    async def open(cls, url, w=1280, h=720, port=9333, extra=()):
         tmp = tempfile.mkdtemp(prefix="cdp-", dir=os.environ.get("KIROCREW_SCRATCH"))
         proc = subprocess.Popen([CHROME, *([] if "headless-shell" in CHROME else ["--headless=new"]), f"--remote-debugging-port={port}", f"--user-data-dir={tmp}",
-                                 f"--window-size={w},{h}", "--hide-scrollbars", "--remote-allow-origins=*", "--mute-audio", "--no-sandbox", "--disable-gpu-sandbox", "--no-first-run",
+                                 f"--window-size={w},{h}", "--hide-scrollbars", "--remote-allow-origins=*", "--mute-audio", "--no-sandbox", "--disable-gpu-sandbox", "--no-first-run", *extra,
                                  "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(60):
             try:

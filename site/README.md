@@ -1,72 +1,72 @@
-# CHIMERA site: the walkable castle
+# CHIMERA site: the 3D castle
 
-One page, one port. You walk a cloaked figure through a painted gothic castle with W A S D. Rooms hold the posters (real benchmark numbers), the live dashboard and the evals. On the top floor a bat answers questions through the router, and a trace shows every step it takes.
+One page, one port: http://127.0.0.1:8765. You start outside a castle. Press Enter at the gate and it opens. Inside the Great Hall, a guide sits at a desk: walk up and press E to talk. He answers through the real router. A savings board on the wall shows the totals. Climb the grand staircase. On the upper gallery three doors open the **Dashboard**, the **Chat** (the Count's room) and the **Evals**.
 
-No framework, no npm. The only external request is Google Fonts.
+No framework, no npm. three.js is vendored in `vendor/` (MIT, licence in `vendor/three.LICENSE.txt`). Every model in the scene is built in `castle/castle.js` from three.js primitives and canvas textures. No downloaded 3D models or textures are used, so the scene has no asset licences. The painted images in `art/` were generated for this project (Seedream via GMI) and are used by the no-WebGL fallback. Google Fonts is the only external request, with system fallbacks.
 
-![Walk, stairs, dashboard, then the bat answers twice: a miss, then a cache hit](docs/walk.gif)
+![Walk-through](docs/castle3d.gif)
+
+Proof, screenshots and fps: [docs/one_url_gates.md](docs/one_url_gates.md).
 
 ## Run
 
 ```
 make web       # http://127.0.0.1:8765  (CHIMERA_PORT to change)
-make demo      # same, plus demo telemetry so the Observatory moves
+make demo      # the same page fed by invented demo telemetry, labelled demo
 ```
 
-`make web` runs `apps/phantom-phone/hud-web/server.py`. That one server serves `site/`, the telemetry stream (`/events`), `/api/bench`, `/api/evals`, and the backend API (`/api/chat`, `/api/health`, `/api/stats`, from `chimera_core.service`, see `docs/api.md`). It binds `127.0.0.1`.
-
-Opening `index.html` as a file, or on a static host, still works. The walk needs `map.json` over HTTP. Without it the page falls back to the click-through tour (`tour.js`). The bat then shows a labelled MOCK reply, because there is no `/api/chat`.
+`make web` runs `apps/phantom-phone/hud-web/server.py`. That one server serves `site/`, the telemetry stream (`/events`, from the real log `~/.chimera/telemetry.jsonl`), `/api/bench`, `/api/evals`, and the backend API (`/api/chat`, `/api/health`, `/api/stats`, from `chimera_core.service`; see `docs/api.md`). It binds `127.0.0.1`.
 
 ## Controls
 
 | Key | Does |
 |---|---|
+| Click | look with the mouse (pointer lock). Esc releases it. |
 | W A S D, arrows | walk |
 | Shift | run |
-| E, Enter | open a door, use the stairs, talk |
-| Esc | leave a room |
-| M, "Skip the walk" | list of all rooms (keyboard and screen reader path) |
-| click or tap | walk there (A* on the tile grid) |
+| E, Enter | open the gate, talk to the guide, read the board, open a door |
+| Esc | leave a panel |
+| M, "Map and rooms" | map of both floors, plus a list of places to go to (keyboard and screen-reader path) |
 
-Phones get a joystick and an E button. Walking onto stairs also climbs them.
+Phones get a joystick, an E button, and drag-to-look. The corner minimap follows you and shows the floor you are on, the doors, the stairs and your facing.
 
-## Floors and rooms
+## What each place shows
 
-| Floor | Rooms |
+| Place | Data |
 |---|---|
-| Ground: courtyard and Great Hall | The Crypt (cache), The Ladder (how routing works), The Guild (companies), The Gate (get started). The Count stands in the hall. Grand stairs at the south end. |
-| First | The Observatory (live dashboard), The Ledger (benchmarks and evals), The Familiar's Study (phone) |
-| Tower | The Count's study with the bat agent, The Manor and The Castle (GPUs), The Tower (cloud) |
+| Savings board (hall) | `/api/stats`: tokens kept off the big model, dollars saved, GPU calls avoided, cache hit rate |
+| Guide (hall) | chat over `/api/chat`, with the live trace, plus a short guide to the castle |
+| Dashboard door | `/api/stats` totals, tokens saved over time (`/events`), database size, "how it answered" for recent questions, the live ledger |
+| Chat door | chat with the live trace. Side panel: cache hit rate, tokens used today, tokens per task |
+| Evals door | benchmarks and the eval log (`/api/bench`, `/api/evals`) |
 
-![All three floors](docs/walk_map.png)
+The trace shows each step `/api/chat` sends: embedding, the Supabase cache (exact, then cosine against 0.97, the guard, ms), N+1 memory, each tier tried, the GPU 30B's confidence against the gate, and the final tier, model, tokens, $, ms and tokens kept off the big model.
 
-## The bat (talk to the agent)
-
-The chat posts to `/api/chat` and reads the SSE steps from `docs/api.md`. The trace shows: embedding, the shared cache (cosine score against 0.97 and the guard), the GPU 30B (self-hosted) with its confidence against the gate, the N+1 memory (examples retrieved, stored as teacher data or not), the decision with its reason, each call, and the final tier, model, tokens, $, ms and tokens kept off the big model. Totals for the chat: hit rate, GPU calls avoided, $ saved. The strip on top polls `/api/health` every 2 s: GPU tunnel, Supabase, Crusoe, RAM, Modal.
-
-If the self-hosted tier that answered is the Mac 3B, the lane title says "Mac 3B (experiment, not the 30B)". The 3B is not in the product ladder.
-
-## Add a room
-
-- Map: `site/world/map.json`. Floors are rows of tiles (`#` wall, `t` torch, `w` window, `b` books, `f` furniture, `c` candles, `~` fountain, `D` door, `.` floor, `,` courtyard, `=` carpet, `U` stairs up, `d` stairs down). A door entry links a `D` tile to a room. `tests/test_world.py` checks the schema, that the art exists, and that every door, NPC and stair can be reached.
-- Posters: `site/rooms.js` (`window.ROOMS`). Then run `python3 site/build.py`. It writes the no-JS fallback (one plain section per room) into `index.html`. `--check` fails if it is out of date. Use only real numbers from `bench/*.md`.
-- Dashboard blocks: `.dash[data-dash=<room id>]` in `#dash-store` in `index.html`. A room borrows its block while it is open (Observatory: live ledger; Ledger: benchmarks and evals; Ladder: how it works).
+Fields the backend does not serve yet are marked **pending API** (requested in `docs/api.md`). Until they arrive, the page shows only what it measures itself. Traces, tokens today and tokens per task come from this browser's own questions (localStorage) and say so.
 
 ## Files
 
-- `index.html`: page, dashboard blocks, generated no-JS fallback.
-- `world/`: `world.js` (engine), `grid.js` (tiles, A*), `chat.js` (bat room, trace, monitor), `world.css`, `map.json`, `player.png` and `count.png` (drawn by `scripts/gen_sprites.py`).
-- `dashboard.js`, `dashboard.css`: the dashboard (SSE ledger, donut, benchmarks, evals, themes).
-- `rooms.js`, `build.py`, `styles.css`, `tour.js` (fallback tour), `art/` (painted Seedream images).
-- `docs/walk.gif`, `docs/walk_map.png`: made by `scripts/capture_walk.py` against a running server.
+- `index.html`: the page, the dashboard blocks (`#dash-store`), the generated plain fallback.
+- `castle/`: `castle.js` (scene, controls, minimap), `physics.js` (walking rules, also tested in node), `panels.js` (the HTML panels), `layout.json` (walls, zones, stairs, doors, places), `castle.css`.
+- `vendor/three.module.min.js` (r170).
+- `world/chat.js`, `world/world.css`: the chat, trace and panel styles, shared with the 2D castle.
+- `world/`: the earlier 2D castle. It is off the main path and kept for its tests.
+- `dashboard.js`, `dashboard.css`, `rooms.js`, `build.py`, `styles.css`, `tour.js`, `art/`.
+
+## Add a door or a place
+
+Edit `castle/layout.json`: a door needs `id`, `label`, `x`, `z`, `use`, and a panel in `castle/panels.js` with the same id. `tests/test_castle.py` checks the layout and walks gate → hall → stairs → gallery with the real `physics.js`. Posters for the plain fallback live in `rooms.js`. Run `python3 site/build.py` after editing it; `--check` fails if `index.html` is out of date.
+
+## Without WebGL
+
+The page drops the 3D root and shows the plain HTML version: every room as a section with its posters. No 2D game runs in that case.
 
 ## Motion
 
-The loop is one `requestAnimationFrame`. It never pauses: not behind panels, not with reduced motion. Bats and clouds cross the sky, torches and candles flicker and cast light, the courtyard has fog, and dust drifts in every room.
+One `requestAnimationFrame` loop that never pauses: torches flicker, flags and banners wave, clouds drift, bats circle the towers, the chandelier sways, and the guide breathes and turns his head toward you.
 
 ## Limits
 
-- Only Chromium was checked (headless, over the DevTools protocol). No phone was tested. The frame rate was not measured.
-- The rooms are drawn tiles with painted art as backdrop and banners. The painted rooms are not walkable scenes.
-- The light layer is dark. Some corners are hard to see.
-- The fallback tour does not show the dashboard blocks.
+- Only Chromium was checked, headless, with the Mac GPU (58 to 60 fps). Touch was not tried on a phone.
+- The figures are simple low-poly shapes.
+- The fallback page has no chat.
