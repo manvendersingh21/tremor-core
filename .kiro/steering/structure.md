@@ -1,31 +1,53 @@
 # Project Structure & Architectural Conventions
 
-## Repository Layout
+Built items are listed as they exist. Items marked **(planned)** are not built.
+
 ```text
 /
-├── .kiro/                          # Steering, EARS Specs, and Event Hooks
-├── packages/
-│   └── chimera-core/               # THE SKELETON: Shared Speculative & Cache Engine
-│       ├── cache/
-│       │   ├── exact_cache.py      # SHA-256 prompt + normalized AST cache
-│       │   └── semantic_cache.py   # sqlite-vec / Qdrant cosine similarity cache
-│       ├── inference/
-│       │   ├── local_draft.py      # Gemma 1B/4B & Qwen 3B local KV + entropy gate
-│       │   ├── cloud_verifier.py   # 27B/30B parallel rejection sampling verifier
-│       │   └── telemetry.py        # Token, latency, and data-center cost tracker
-│       └── firewall/
-│           └── risk_scorer.py      # 0-100 blast-radius interceptor for GUI/CLI actions
+├── .kiro/                          # Steering, specs, hooks
+├── .github/workflows/ci.yml        # pytest on Python 3.11 and 3.12, pushes and PRs to dev
+├── bin/chimera                     # CLI launcher
+├── chimera.example.toml            # Settings template (no secrets). Copy to chimera.toml
+├── conftest.py                     # Loads hyphenated packages/chimera-core as `chimera_core`
+├── Makefile                        # setup, test, serve-local, bench, demo
+├── pyproject.toml
+├── README.md, LICENSE
+├── docs/architecture.md            # Tiers, KV cache rule, brief vs verify, telemetry, firewall
+├── packages/chimera-core/
+│   ├── router.py                   # SpeculativeCascadeRouter (cache -> local -> cloud)
+│   ├── ladder.py                   # LadderRouter: local -> GPU -> Crusoe top, escalate on failed check
+│   ├── config.py                   # Loads chimera.toml
+│   ├── cache/
+│   │   ├── exact_cache.py          # SHA-256 normalized prompt cache
+│   │   └── semantic_cache.py       # Cosine cache, threshold 0.97 from config
+│   ├── inference/
+│   │   ├── local_draft.py          # llama.cpp backend, logprob confidence gate
+│   │   ├── cloud_verifier.py       # Crusoe / Ollama backends, verify call
+│   │   ├── handoff.py              # Heavy-task handoff: no brief or brief <= 200 tokens
+│   │   └── telemetry.py            # tier_used, tokens, latency, dollars (JSONL)
+│   └── firewall/risk_scorer.py     # 0-100 action risk score, one-time token at >= 70
 ├── apps/
-│   ├── kiro-trimmer/               # SHOWCASE APP 1 (Computer / Kiro IDE & GitHub)
-│   │   ├── mcp_server.py           # Exposes Chimera Router as a Kiro MCP tool
-│   │   ├── hook_interceptor.py     # Handles .kiro/hooks STDIN diffs locally on 3B/4B
-│   │   └── github_autopatcher.py   # Webhook -> Tavily + Local Draft + Auto-PR
-│   └── phantom-phone/              # SHOWCASE APP 2 (Phone / DND Multi-Agent OS)
-│       ├── supervisor_graph.py     # LangGraph master router for DND tasks
-│       ├── modules/
-│       │   ├── unknown_caller.py   # Twilio + ElevenLabs + Tavily + PhoneUse 2FA/Lock
-│       │   ├── marketplace_bot.py  # FB Marketplace OCR scraper + haggler + Venmo stager
-│       │   ├── mobile_hotfix.py    # Drives GitHub & ChatGPT iOS apps via PhoneUse
-│       │   └── ride_arbitrage.py   # Uber vs. Lyft vs. Waymo live screen price sniper
-│       └── hud-web/                # Mobile-first Replit dashboard & live telemetry UI
-└── tests/                          # Pytest suites for cache, speculative math, and firewall
+│   ├── kiro-trimmer/
+│   │   ├── cli.py                  # ask, stats, doctor
+│   │   ├── mcp_server.py           # Router as an MCP server
+│   │   ├── hook_interceptor.py     # Kiro hook: diff on STDIN -> local review
+│   │   ├── common.py
+│   │   └── github_autopatcher.py   # (planned) issue webhook -> patch -> PR
+│   └── phantom-phone/
+│       ├── hud-web/                # index.html, server.py (SSE), demo.py
+│       ├── supervisor_graph.py     # (planned)
+│       └── modules/                # (planned) unknown_caller, marketplace_bot, mobile_hotfix, ride_arbitrage
+├── bench/                          # Prompts, runners, results
+│   ├── prompts.jsonl               # 30 prompts
+│   ├── run_bench.py, results.md    # Mac cascade vs Crusoe only
+│   ├── run_bench_gpu.py, results_gpu.md   # Mac cascade vs GPU only
+│   ├── run_ladder.py               # Ladder run
+│   ├── run_spec.py, verify_server.py, start_verifier.sh   # Speculative verify (results pending)
+│   └── serve_local.sh              # Start the Mac llama-server
+└── tests/                          # Offline pytest: router, backends, ladder, app, HUD
+```
+
+## Conventions
+- The package directory is hyphenated. Import it as `chimera_core` (set up by `conftest.py`).
+- Config goes in `chimera.toml`. Keys go in `.env`. Neither holds hostnames of private boxes in committed docs.
+- Benchmarks write `bench/*.md` with the setup, the numbers and a verdict that names failures.

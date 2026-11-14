@@ -1,33 +1,40 @@
-# Technical Architecture & System Design: CHIMERA-OS
+# Technical Architecture & System Design: CHIMERA
 
-## 1. End-to-End Cascade Architecture
+## 1. Tier ladder
 ```mermaid
-sequenceDiagram
-    participant User as Surface (Phone DND / Kiro IDE)
-    participant FW as Quarantine Risk Firewall
-    participant T1 as Tier 1: Semantic Cache (sqlite-vec)
-    participant T2 as Tier 2: Local Draft (Gemma 1B/4B or Qwen 3B)
-    participant T3 as Tier 3: Cloud Verifier (Gemma 27B / Qwen 30B)
-    participant Tools as Execution (PhoneUse MCP / ElevenLabs / Tavily)
+flowchart TD
+    Q[Prompt] --> FW0[Firewall: score action 0-100]
+    Q --> C{Exact or semantic cache >= 0.97}
+    C -- hit --> A[Answer, 0 tokens]
+    C -- miss --> H{Heavy task?}
+    H -- no --> L[Tier 1 Mac: Qwen2.5-3B, llama.cpp, logprobs]
+    L -- confidence >= 0.85 and check passes --> A
+    L -- low confidence or failed check --> G[Tier 2 GPU: Ollama qwen3:30b-instruct, SSH tunnel]
+    H -- yes, skip 3B --> G
+    G -- ok --> A
+    G -- heavy or ESCALATE or failed check --> T[Tier 3 Crusoe: Qwen3.8-27B / gpt-oss-120b]
+    T --> A
+    A --> S[Store in cache + emit telemetry]
+```
 
-    User->>T1: Incoming Prompt / UI Screen State / File Diff
-    alt Cosine Similarity >= 0.94 (e.g., "Capital of France?" or known UI button)
-        T1-->>User: Instant Cached Answer (<5ms, 0 GPU/Cloud Tokens)
-    else Cache Miss
-        T1->>T2: Forward to Local Model (Warm Prefix KV Cache)
-        T2->>T2: Generate K Draft Tokens + Compute Logprob Entropy
-        alt Mean Token Confidence >= 0.85
-            T2->>T1: Store in Semantic Cache
-            T2-->>FW: Proposed Action / Response (0 Cloud Tokens)
-        else Entropy Spike (Complex Code / Negotiation)
-            T2->>T3: Stream K Draft Token IDs + Logprobs p_d(x)
-            T3->>T3: Parallel 1-Pass Verification + Rejection Sampling
-            T3-->>FW: Lossless 27B/30B Verified Response
-        end
+## 2. Two ways a heavy task reaches a bigger model
+```mermaid
+flowchart LR
+    subgraph BP["Brief path (built)"]
+      B1[Heavy prompt] --> B2[No brief, or brief <= 200 tokens] --> B3[Bigger model answers alone]
     end
-    FW->>FW: Score Blast Radius (0-100)
-    alt Risk Score < 70
-        FW->>Tools: Execute PhoneUse Tap / Voice Reply / GitHub PR
-    else Risk Score >= 70 (Pay / Delete / Merge)
-        FW->>User: Trigger ElevenLabs Voice / SMS Approval Gate
+    subgraph VP["Verify path (runner built, not measured)"]
+      V1[Mac 3B drafts K tokens] -- token ids + logprobs --> V2[llama.cpp verifier, same family]
+      V2 -- accepted ids + correction --> V1
     end
+```
+- Brief path: works on any API. A long brief raised GPU tokens by 37% (`bench/results_gpu.md`), so it is capped.
+- Verify path: needs a llama.cpp verifier on the GPU box (`bench/verify_server.py`). Ollama gives no prompt logprobs. Crusoe rejects `echo`. Same model family on both sides. No KV tensors cross the network.
+
+## 3. Action firewall
+Every proposed GUI or CLI action gets a score from 0 to 100 (`firewall/risk_scorer.py`). Below 70 it runs. At 70 or more it waits for a one-time token sent back by voice or SMS. Rule-based, so unusual phrasing can slip through.
+
+## 4. Surfaces
+- Kiro: `apps/kiro-trimmer/` (`cli.py`, `mcp_server.py`, `hook_interceptor.py`).
+- HUD: static HTML plus Python SSE server reading the telemetry JSONL.
+- Phone agent: planned.
