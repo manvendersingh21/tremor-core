@@ -119,14 +119,21 @@ def _modal_state() -> dict:
     """Read-only `modal app list`. Never deploys, starts or probes the app URL (that would wake the GPU)."""
     exe = shutil.which("modal") or str(pathlib.Path(__file__).resolve().parents[2] / ".venv/bin/modal")
     try:
-        out = subprocess.run([exe, "app", "list"], capture_output=True, text=True, timeout=15).stdout
+        apps = json.loads(subprocess.run([exe, "app", "list", "--json"], capture_output=True, text=True,
+                                         timeout=15).stdout)
     except Exception:  # noqa: BLE001
         return {"state": "unknown"}
-    line = next((ln for ln in out.splitlines() if "chimera-gpu-large" in ln), "")
-    low = line.lower()
-    state = ("stopped" if "stopped" in low else "deployed" if "deployed" in low else "ephemeral" if "ephemeral" in low
-             else "not_deployed" if out.strip() else "unknown")
-    return {"state": state}
+    return {"state": modal_state_of(apps)}
+
+
+def modal_state_of(apps: list[dict]) -> str:
+    """State of the newest chimera-gpu-large app in `modal app list --json` output."""
+    mine = sorted((a for a in apps if a.get("description") == "chimera-gpu-large"),
+                  key=lambda a: a.get("created_at", ""), reverse=True)
+    if not mine:
+        return "not_deployed"
+    st = str(mine[0].get("state", "")).lower()
+    return st if st in ("stopped", "deployed", "ephemeral") else "unknown"
 
 
 def _http_probe(t) -> bool:
@@ -326,7 +333,19 @@ def default_service() -> Service:
             cfg = load_config()
             tracker = TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))], keep=0)
             _default = Service(build_router(cfg, tracker=tracker), cfg)
+            threading.Thread(target=_warm, args=(_default.router,), daemon=True).start()
         return _default
+
+
+def _warm(router) -> None:
+    """Load the embedder and open the DB pool off the request path (the first embed took ~6 s, the first lookup > 300 ms)."""
+    try:
+        if router.embedder is not None:
+            router.embedder.embed("warm up")
+        if router.shared is not None:
+            router.shared.ping()
+    except Exception as e:  # noqa: BLE001
+        log.warning("warm-up failed: %s", type(e).__name__)
 
 
 # ---- stdlib http.server glue ---------------------------------------------------------------------

@@ -181,6 +181,12 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     port = int(os.environ.get("CHIMERA_PORT") or os.environ.get("HUD_PORT") or "8765")
     ThreadingHTTPServer.request_queue_size = 64  # the default 5 resets bursts of parallel /api/chat calls
+    if os.environ.get("CHIMERA_API", "1") != "0":  # build the router and warm it before the first /api/chat
+        import threading
+        sys.path.insert(0, str(HERE.parent.parent.parent))
+        import conftest  # noqa: F401
+        from chimera_core.service import default_service
+        threading.Thread(target=default_service, daemon=True).start()
     host = os.environ.get("CHIMERA_HOST") or os.environ.get("HUD_HOST") or "127.0.0.1"  # 0.0.0.0 only in a container
     srv = ThreadingHTTPServer((host, port), Handler)
     srv.daemon_threads = True

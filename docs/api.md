@@ -67,7 +67,7 @@ Field notes:
 
 ## GET /api/health
 
-Cached about 2 s (Modal state 60 s). A part that is not configured is absent.
+Cached about 2 s (Modal state 60 s). A part that is not configured is absent: `llama` appears only when the Mac 3B experiment tier is enabled (it is off in the product ladder). `gpu_tunnel` is the GPU 30B. `supabase.lookup_ms` is one real lookup round trip.
 
 ```json
 {
