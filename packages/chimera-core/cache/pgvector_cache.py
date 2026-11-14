@@ -29,8 +29,8 @@ class Hit:
 
 
 class Store(Protocol):
-    def find_exact(self, tenant: str, ns: str, h: str) -> tuple[int, str] | None: ...
-    def find_nearest(self, tenant: str, ns: str, emb: list[float], k: int) -> list[tuple[int, str, float, bool]]: ...
+    def lookup(self, tenant: str, ns: str, h: str, emb: list[float], k: int
+               ) -> tuple[tuple[int, str] | None, list[tuple[int, str, float, bool]]]: ...
     def insert(self, tenant: str, ns: str, h: str, text: str | None, emb: list[float], answer: str,
                meta: dict[str, Any]) -> int: ...
     def touch(self, tenant: str, prompt_id: int) -> None: ...
@@ -60,6 +60,22 @@ class PgStore:
             conn.execute("select set_config('app.tenant', %s, true)", (tenant,))
             cur = conn.execute(sql, params)
             return cur.fetchone() if fetch == "one" else cur.fetchall() if fetch == "all" else cur.rowcount
+
+    def lookup(self, tenant, ns, h, emb, k):
+        """Exact row and top-k neighbours in ONE round trip (pipeline mode): the DB is far, round trips cost."""
+        v = _vec(emb)
+        live = "(ttl_s is null or created_at + ttl_s * interval '1 second' > now())"
+        with self._pool.connection() as conn:
+            with conn.pipeline():
+                conn.execute("select set_config('app.tenant', %s, true)", (tenant,))
+                c1 = conn.execute(f"select id, answer from prompts where tenant=%s and namespace=%s "
+                                  f"and prompt_hash=%s and verified and {live}", (tenant, ns, h))
+                c2 = conn.execute(f"select id, answer, 1 - (embedding <=> %s::vector), verified from prompts "
+                                  f"where tenant=%s and namespace=%s and {live} "
+                                  f"order by embedding <=> %s::vector limit %s", (v, tenant, ns, v, k))
+            r = c1.fetchone()
+            rows = c2.fetchall()
+        return ((r[0], r[1]) if r else None), [(x[0], x[1], float(x[2]), bool(x[3])) for x in rows]
 
     def find_exact(self, tenant, ns, h):
         r = self._tx(tenant, "select id, answer from prompts where tenant=%s and namespace=%s and prompt_hash=%s "
@@ -115,14 +131,16 @@ class PgVectorCache:
     def __init__(
         self, embedder: Embedder, store: Store | Callable[[], Store], *, threshold: float = 0.97,
         tenant: str = "default", fallback: SemanticCache | None = None, store_text: bool = False,
-        ttl_s: int | None = None, top_k: int = 5, budget_s: float = 0.15, cooldown_s: float = 30.0,
+        ttl_s: int | None = None, top_k: int = 5, budget_s: float = 0.3, cooldown_s: float = 30.0,
+        max_strikes: int = 3,
     ) -> None:
         self._embedder, self.threshold, self.tenant = embedder, threshold, tenant
         self._store_arg = store  # a callable is built lazily on first use, so a dead DB cannot block startup
         self._store: Store | None = None if callable(store) else store
         self.fallback, self.store_text, self.ttl_s, self.top_k = fallback, store_text, ttl_s, top_k
-        self.budget_s, self.cooldown_s = budget_s, cooldown_s
+        self.budget_s, self.cooldown_s, self.max_strikes = budget_s, cooldown_s, max_strikes
         self._down_until = 0.0
+        self._strikes = 0
         self._lock = threading.Lock()
         self._pool = cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="pgcache")
         self._wpool = cf.ThreadPoolExecutor(max_workers=2, thread_name_prefix="pgcache-w")  # writes never queue lookups
@@ -141,9 +159,13 @@ class PgVectorCache:
             return fn(self._store)
 
         try:
-            return self._pool.submit(run).result(timeout=self.budget_s)
+            out = self._pool.submit(run).result(timeout=self.budget_s)
+            self._strikes = 0
+            return out
         except Exception as e:  # noqa: BLE001  (timeout or any driver error; never log the DSN)
-            self._down_until = time.monotonic() + self.cooldown_s
+            self._strikes += 1
+            if self._strikes >= self.max_strikes:  # one slow lookup is not an outage
+                self._down_until = time.monotonic() + self.cooldown_s
             log.warning("pgvector cache unavailable, using local cache: %s", type(e).__name__)
             raise
 
@@ -171,10 +193,10 @@ class PgVectorCache:
         emb = _norm(self._embedder.embed(prompt))
 
         def lookup(s: Store) -> Hit | None:
-            ex = s.find_exact(self.tenant, namespace, h)
+            ex, near = s.lookup(self.tenant, namespace, h, emb, self.top_k)
             if ex:
                 return Hit(ex[0], ex[1], 1.0, "exact")
-            for pid, answer, sim, verified in s.find_nearest(self.tenant, namespace, emb, self.top_k):
+            for pid, answer, sim, verified in near:
                 if sim >= self.threshold and verified:  # rows are sorted best first
                     return Hit(pid, answer, sim, "vector")
             return None
@@ -216,6 +238,11 @@ class PgVectorCache:
         if self.fallback and namespace is not None:
             self.fallback.purge(namespace)
         return self._pool.submit(lambda: self._store_ready().purge(self.tenant, namespace)).result(timeout=10)
+
+    def flush(self, timeout: float = 30.0) -> None:
+        """Wait until queued background writes finished (tests and benchmarks)."""
+        for _ in range(2):  # two write workers
+            self._wpool.submit(lambda: None).result(timeout=timeout)
 
     def _store_ready(self) -> Store:
         with self._lock:

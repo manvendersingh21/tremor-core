@@ -31,7 +31,7 @@ tenant = "default"           # rows are isolated per tenant
 store_text = false           # true keeps prompt text in the shared DB (opt-in)
 # ttl_s = 2592000            # row lifetime in seconds; unset = forever
 top_k = 5
-budget_ms = 150              # DB time per lookup before the local cache answers
+budget_ms = 300              # DB time per lookup before the local cache answers (150 was too tight from a laptop)
 
 [telemetry]
 path = "~/.chimera/telemetry.jsonl"   # CHIMERA_TELEMETRY overrides
