@@ -5,7 +5,6 @@ confident? return : escalate (verify if same-family tokenizer, else handoff).
 """
 from __future__ import annotations
 
-import concurrent.futures as cf
 import logging
 import re
 import time
@@ -25,6 +24,26 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("chimera.router")
 OnEvent = Callable[[str, dict], None]
+
+
+class Memory(Protocol):
+    """N+1 memory: solved problems from the big model, retrieved as few-shot context for the 30B."""
+
+    def retrieve(self, prompt: str):  # -> str, or an object with .render() -> str (memory.MemoryContext)
+        ...
+
+    def store(self, prompt: str, answer: str, model: str, tier: str, verified: bool, tests: bool | None,
+              tokens: dict | None = None): ...
+
+
+class NoMemory:
+    """Used when packages/chimera-core/memory/ is not configured: retrieves nothing, stores nothing."""
+
+    def retrieve(self, prompt: str) -> str:
+        return ""
+
+    def store(self, prompt, answer, model, tier, verified, tests, tokens=None):
+        return None
 
 
 class Events:
@@ -92,21 +111,29 @@ class SpeculativeCascadeRouter:
         pool: "TierPool | None" = None,
         shared=None,
         embedder=None,
+        memory: Memory | None = None,
     ) -> None:
+        self.memory = memory or NoMemory()
         self.local, self.cloud = local, cloud
-        self.exact = exact or ExactCache()
+        # shortcut: with no shared cache and no exact cache given, keep the old in-memory default (tests and
+        # offline use). Production (config.build_router, backend=supabase) passes a shared cache and no local one.
+        # exact=False: no exact cache at all (production with no shared cache configured).
+        self.exact = None if exact is False else exact if exact is not None or shared is not None else ExactCache()
         self.semantic = semantic
         self.tracker = tracker or TelemetryTracker()
         self.cfg = config or RouterConfig()
         self.tokenizer = tokenizer
         self.shared = shared      # shared PgVectorCache; looked up in parallel with the local caches
         self.embedder = embedder  # same object the caches use; lets generate() time the embed step
-        self._lookups = cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="router-cache")
         self.pool = pool  # config flag `use_pool`: route through the tier pool instead of local/cloud
 
     # ---- public API -------------------------------------------------------
-    def generate(self, prompt: str, context: str = "", on_event: OnEvent | None = None) -> GenerateResult:
-        """on_event(step, data) is optional. Steps: embed, cache_local, cache_shared, decide, call, draft, final."""
+    def generate(self, prompt: str, context: str = "", on_event: OnEvent | None = None,
+                 check: Callable[[str], bool] | None = None) -> GenerateResult:
+        """on_event(step, data) is optional. Steps: embed, cache_shared, memory, decide, call, draft, final.
+
+        check(answer) -> bool (e.g. unit tests): a failing answer is served but never cached or stored as memory.
+        """
         t0 = time.perf_counter()
         ev = Events(on_event)
 
@@ -117,7 +144,7 @@ class SpeculativeCascadeRouter:
                               cache_source=source)  # dollars_saved: priced at the big tier from tokens_saved
 
         if self.pool is not None:
-            return self._pooled(prompt, t0, ev)
+            return self._pooled(prompt, t0, ev, check)
 
         heavy = complexity_score(prompt) >= self.cfg.heavy_threshold
         if heavy and self.cloud is not None:
@@ -141,40 +168,38 @@ class SpeculativeCascadeRouter:
             t = time.perf_counter()
             vec = self.embedder.embed(prompt)
             ev("embed", {"ms": round((time.perf_counter() - t) * 1000, 2), "dim": len(vec)})
-        fut = self._lookups.submit(self.shared.lookup, prompt, ns) if self.shared is not None else None
-
-        t = time.perf_counter()
-        local: tuple[str, str, str] | None = None
-        info: dict = {"kind": None, "score": None, "guard": None}
-        exact = self.exact.get(prompt, ns)
-        if exact is not None:
-            local, info = (exact, "exact_cache", "exact"), {"kind": "exact", "score": 1.0, "guard": None}
-        elif self.semantic is not None:
-            lk = self.semantic.lookup(prompt, ns)
-            if lk.hit is not None:
-                local = (lk.hit[0], "semantic_cache", "local")
-            info = {"kind": "semantic" if lk.hit else None, "guard": lk.guard,
-                    "score": None if lk.best_sim is None else round(lk.best_sim, 4)}
-        ev("cache_local", {"hit": local is not None, **info, "threshold": getattr(self.semantic, "threshold", None),
-                           "ms": round((time.perf_counter() - t) * 1000, 2)})
+        if self.exact is not None or self.semantic is not None:  # local caches: offline tests only
+            t = time.perf_counter()
+            local: tuple[str, str, str] | None = None
+            info: dict = {"kind": None, "score": None, "guard": None}
+            exact = self.exact.get(prompt, ns) if self.exact is not None else None
+            if exact is not None:
+                local, info = (exact, "exact_cache", "exact"), {"kind": "exact", "score": 1.0, "guard": None}
+            elif self.semantic is not None:
+                lk = self.semantic.lookup(prompt, ns)
+                if lk.hit is not None:
+                    local = (lk.hit[0], "semantic_cache", "local")
+                info = {"kind": "semantic" if lk.hit else None, "guard": lk.guard,
+                        "score": None if lk.best_sim is None else round(lk.best_sim, 4)}
+            ev("cache_local", {"hit": local is not None, **info, "threshold": getattr(self.semantic, "threshold", None),
+                               "ms": round((time.perf_counter() - t) * 1000, 2)})
+            if local is not None:
+                return local
         if self.shared is None:
-            return local
-        if local is not None:  # the answer is in hand; do not wait for the network
-            ev("cache_shared", {"hit": False, "status": "skipped", "threshold": self.shared.threshold})
-            return local
+            return None
         try:
-            lk = fut.result(timeout=self.shared.budget_s + 0.2)
-        except Exception as e:  # noqa: BLE001  the cache must never block or fail a call
-            ev("cache_shared", {"hit": False, "status": "timeout", "threshold": self.shared.threshold,
+            lk = self.shared.lookup(prompt, ns)  # runs under its own budget; never raises past it
+        except Exception as e:  # noqa: BLE001  the cache must never fail a call
+            ev("cache_shared", {"hit": False, "status": "unavailable", "threshold": self.shared.threshold,
                                 "error": type(e).__name__})
             return None
         ev("cache_shared", {"hit": lk.hit is not None, "status": lk.status, "threshold": self.shared.threshold,
+                            "kind": None if lk.hit is None else ("exact" if lk.hit[1] >= 1.0 else "semantic"),
                             "score": None if lk.best_sim is None else round(lk.best_sim, 4),
                             "guard": lk.guard, "ms": round(lk.ms, 2)})
         if lk.hit is None:
             return None
-        self._remember(prompt, lk.hit[0], shared=False)  # warm this machine: the next lookup is local
-        return lk.hit[0], "semantic_cache", "shared"
+        return lk.hit[0], ("exact_cache" if lk.hit[1] >= 1.0 else "semantic_cache"), "shared"
 
     # ---- paths --------------------------------------------------------------
     def _price_saved(self, tin: int, tout: int) -> float:
@@ -183,11 +208,31 @@ class SpeculativeCascadeRouter:
             return (tin + tout) / 1000 * self.cfg.cloud_dollars_per_1k_tokens
         return tin / 1000 * top.cost_per_1k_in + tout / 1000 * top.cost_per_1k_out
 
-    def _pooled(self, prompt: str, t0: float, ev: Events) -> GenerateResult:
-        r = self.pool.generate(prompt, on_event=ev)
-        cache_ok = not r.low_confidence and (r.confidence is None or r.confidence >= self.cfg.min_cache_confidence)
+    def _pooled(self, prompt: str, t0: float, ev: Events, check: Callable[[str], bool] | None = None) -> GenerateResult:
+        tm = time.perf_counter()
+        try:
+            got = self.memory.retrieve(prompt)
+            ctx = (got if isinstance(got, str) else got.render()) if got else ""
+        except Exception as e:  # noqa: BLE001  memory is optional; it must never fail a call
+            ctx = ""
+            log.warning("memory.retrieve failed: %s", type(e).__name__)
+        ev("memory", {"op": "retrieve", "chars": len(ctx), "ms": round((time.perf_counter() - tm) * 1000, 2)})
+        r = self.pool.generate(prompt, on_event=ev, context=ctx)
+        passed = check(r.text) if check is not None else None
+        cache_ok = (not r.low_confidence and passed is not False
+                    and (r.confidence is None or r.confidence >= self.cfg.min_cache_confidence))
         if cache_ok and r.text.strip():
             self._remember(prompt, r.text, meta={"model": r.model, "tier": r.tier})
+        stored = bool(cache_ok and r.text.strip() and self.pool.is_teacher(r.tier))
+        if stored:  # a checked big-model answer becomes teacher data for the 30B
+            try:
+                u = r.per_tier[r.tier]
+                stored = self.memory.store(prompt, r.text, model=r.model, tier=r.tier, verified=True, tests=passed,
+                                           tokens={"in": u.tokens_in, "out": u.tokens_out}) is not None
+            except Exception as e:  # noqa: BLE001
+                stored = False
+                log.warning("memory.store failed: %s", type(e).__name__)
+        ev("memory", {"op": "store", "stored": stored, "tier": r.tier, "tests_passed": passed})
         per = self.pool.telemetry_per_tier(r)
         top = self.pool.top
         tin = sum(u.tokens_in for u in r.per_tier.values())
@@ -235,12 +280,13 @@ class SpeculativeCascadeRouter:
                           local_tokens=len(brief) // 4, ev=ev)
 
     # ---- helpers ------------------------------------------------------------
-    def _remember(self, prompt: str, text: str, *, shared: bool = True, meta: dict | None = None) -> None:
-        """Write a checked answer to the exact and local semantic caches, and (shared=True) to the shared cache."""
-        self.exact.put(prompt, text, self.cfg.namespace)
+    def _remember(self, prompt: str, text: str, *, meta: dict | None = None) -> None:
+        """Write a checked answer to every configured cache (production: Supabase only)."""
+        if self.exact is not None:
+            self.exact.put(prompt, text, self.cfg.namespace)
         if self.semantic is not None:
             self.semantic.put(prompt, text, self.cfg.namespace)
-        if shared and self.shared is not None:
+        if self.shared is not None:
             self.shared.put(prompt, text, self.cfg.namespace, verified=True, **(meta or {}))
 
     def _done(

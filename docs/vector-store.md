@@ -2,15 +2,17 @@
 
 Status: built, migrated on a Supabase project (Postgres 17, pgvector) and measured once with `bench/run_cache.py`. Single run, 18 gradable prompts. See "Measured results".
 
+**Since 2026-11-14 this is the ONLY answer cache.** No machine keeps an answer cache of its own (no SQLite exact or semantic cache, no SQLite fallback). `[cache] backend = "supabase"` is the default. `backend = "sqlite"` remains for offline tests only. The four rows that were in `~/.chimera/cache.db` were moved here as `verified = false` (tier `migrated-local`) and the file was deleted. llama.cpp's in-memory prompt KV reuse (`cache_prompt`) is not an answer cache and stays.
+
 ## Why a shared cache
 
-The SQLite cache lives on one machine. Each laptop, phone and gateway relearns the same answers. GPUs are scarce, so every call that one machine already answered should skip the GPU on all the others. One Postgres table with a vector index gives every client the same memory.
+A per-machine cache lives on one machine. Each laptop, phone and gateway relearns the same answers. GPUs are scarce, so every call that one machine already answered should skip the GPU on all the others. One Postgres table with a vector index gives every client the same memory.
 
 ```
 laptop ─┐
 phone  ─┼─> PgVectorCache ──> Postgres + pgvector   (exact hash, then nearest neighbour)
 gateway─┘        │
-                 └─ DB down or over the budget (300 ms) ──> local SQLite cache ──> normal ladder
+                 └─ DB down or over the budget (300 ms) ──> no cache for this call ──> normal ladder (event cache_shared: unavailable)
 ```
 
 Code: `packages/chimera-core/cache/pgvector_cache.py`. Same interface as `SemanticCache` (`get`, `put`, `purge`), plus `get_hit`, `report_false_hit`, `mark_verified`, `record_signal`, `summary`.
@@ -21,7 +23,8 @@ Code: `packages/chimera-core/cache/pgvector_cache.py`. Same interface as `Semant
 2. Else nearest neighbour: cosine distance over `vector(384)` (all-MiniLM-L6-v2), top `top_k` rows of this tenant and namespace. The best row with similarity >= `thresholds.semantic` (0.97) **and `verified = true`** is served.
 3. Unverified rows are stored but never auto-served. Pass `put(..., verified=False)` for answers no check has passed. `mark_verified(id)` promotes one.
 4. `report_false_hit(hit)` sets `verified = false` on the row and writes a `false_hit` event. The row stops being served at once.
-5. Never block on the DB. Each lookup gets `budget_ms` (300; see results for why not 150). On timeout or error the local SQLite cache answers. After 3 failures in a row the DB is skipped for 30 s (circuit breaker). A lookup is one round trip (exact row and top-k in one pipelined transaction). Writes run on a background thread and never delay the caller.
+5. Guard (`cache/guard.py`, on by default): a cosine hit is served only if the two prompts agree on numbers, negation and named entities. It needs `store_text = true` (the default now) because it compares against the stored prompt text.
+6. Never block on the DB. Each lookup gets `budget_ms` (300; see results for why not 150). On timeout or error the call skips the cache and goes to the model tiers; the step event says `cache_shared` status `unavailable`. Nothing is written locally instead. After 3 failures in a row the DB is skipped for 30 s (circuit breaker). A lookup is one round trip (exact row and top-k in one pipelined transaction). Writes run on a background thread and never delay the caller.
 
 ## Schema
 
@@ -57,16 +60,17 @@ hits, last_hit_at, ttl_s
 
 ```toml
 [cache]
-backend = "postgres"        # "sqlite" is the default
+backend = "supabase"        # the default; "postgres" is the same; "sqlite" = offline tests only
 dsn_env = "CHIMERA_DB_URL"  # name of the env var; the value goes in .env
 tenant = "team-a"
-store_text = false
+store_text = true           # the guard and N+1 memory need the prompt text
+guard = true
 # ttl_s = 2592000
 top_k = 5
 budget_ms = 300
 ```
 
-`.env`: `CHIMERA_DB_URL=postgresql://chimera_app:<password>@<host>:5432/<db>`. If `backend = "postgres"` but the variable is empty, the router logs a warning and uses SQLite. Install the driver with `pip install -e ".[postgres]"` (psycopg 3 with a small pool).
+`.env`: `CHIMERA_DB_URL=postgresql://chimera_app:<password>@<host>:5432/<db>`. If the variable is empty, the router logs a warning and runs with no answer cache at all. Install the driver with `pip install -e ".[postgres]"` (psycopg 3 with a small pool).
 
 ## Supabase setup
 
@@ -74,7 +78,7 @@ budget_ms = 300
 2. Open the SQL editor and run `001_schema.sql`, `002_rls_tenant.sql`, then `003_supabase_api.sql`.
 3. Database > Roles: set a password for `chimera_app`. Do not use the `postgres` role in clients. It bypasses RLS.
 4. Use the **session pooler** (`aws-0-us-west-2.pooler.supabase.com:5432`, user `postgres.<project-ref>`), not the direct `db.<ref>.supabase.co` host. The direct host is IPv6-only and many networks (including the Mac used here) cannot reach it. Put the string in `.env` as `CHIMERA_DB_URL`. Later switch the user to `chimera_app.<project-ref>` once you set its password. The transaction pooler (6543) also works because each operation sets `app.tenant` inside its own transaction.
-5. Set `[cache] backend = "postgres"` and a `tenant` per team or device group.
+5. Keep `[cache] backend = "supabase"` (default) and set a `tenant` per team or device group.
 6. Optional: for the Supabase REST API, add `{"tenant": "team-a"}` to `app_metadata` of each user. `003` then lets that user read only that tenant's rows.
 
 ## Plain Postgres setup

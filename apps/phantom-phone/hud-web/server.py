@@ -101,6 +101,14 @@ def read_new_events(path: pathlib.Path, offset: int) -> tuple[list[dict], int]:
     return events, offset + end
 
 
+def _api(h, method: str) -> bool:
+    """/api/chat, /api/health, /api/stats from chimera_core.service. Imported on first use (the router is heavy)."""
+    sys.path.insert(0, str(HERE.parent.parent.parent))
+    import conftest  # noqa: F401  registers the hyphenated package as chimera_core
+    from chimera_core.service import handle_http
+    return handle_http(h, method)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):  # quiet
         pass
@@ -113,7 +121,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self) -> None:
+        if not _api(self, "POST"):
+            self._send(404, b"not found", "text/plain")
+
     def do_GET(self) -> None:
+        if self.path.split("?")[0] in ("/api/chat", "/api/health", "/api/stats") and _api(self, "GET"):
+            return  # backend API: chimera_core.service (docs/api.md)
         if self.path.split("?")[0] in ("/", "/index.html"):  # ?theme=standard is read by the page
             self._send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
         elif self.path in ("/evals.js", "/evals.css"):  # the Evals tab's own files, so it can be mounted elsewhere
@@ -154,6 +168,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     port = int(os.environ.get("HUD_PORT", "8765"))
+    ThreadingHTTPServer.request_queue_size = 64  # the default 5 resets bursts of parallel /api/chat calls
     srv = ThreadingHTTPServer((os.environ.get("HUD_HOST", "127.0.0.1"), port), Handler)  # HUD_HOST=0.0.0.0 only in a container
     srv.daemon_threads = True
     print(f"HUD on http://127.0.0.1:{port}  (telemetry: {TELEMETRY})")

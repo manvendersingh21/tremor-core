@@ -226,7 +226,7 @@ class PgVectorCache:
             ms = (time.perf_counter() - t0) * 1000
             h2 = Hit(None, fb[0], fb[1], "sqlite") if fb else None
             return h2, Lookup(fb, fb[1] if fb else None, None, ms,
-                              "timeout" if isinstance(e, (TimeoutError, cf.TimeoutError)) else "down")
+                              "unavailable")  # skipped: the call goes to the tiers
         ms = (time.perf_counter() - t0) * 1000
         self.stats["lookup_ms"].append(ms)
         if hit:

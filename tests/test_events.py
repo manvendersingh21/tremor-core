@@ -3,7 +3,7 @@ import json
 import time
 import zlib
 
-from chimera_core.cache.guard import make_guard
+from chimera_core.cache.guard import consistent, make_guard
 from chimera_core.cache.pgvector_cache import PgVectorCache
 from chimera_core.cache.semantic_cache import SemanticCache
 from chimera_core.router import RouterConfig, SpeculativeCascadeRouter
@@ -38,12 +38,13 @@ class Fake:
 
 
 def make(fakes, shared=None, semantic=None, gate=0.95):
+    """Production shape: the only cache is the shared one (Supabase stand-in). `semantic` is the offline-test path."""
     tiers = [tier("small", 0.5, device="laptop"), tier("big", 1.0, cost=0.001, device="cloud")]
     pool = TierPool(tiers, min_confidence=gate, probe=lambda t: True, backend_factory=lambda t: fakes[t.name])
     emb = Bag()
-    return SpeculativeCascadeRouter(
-        None, pool=pool, semantic=semantic or SemanticCache(emb, 0.97), shared=shared, embedder=emb,
-        config=RouterConfig(min_confidence=gate))
+    shared = shared if shared is not None else PgVectorCache(emb, FakeStore(), threshold=0.97)
+    return SpeculativeCascadeRouter(None, pool=pool, semantic=semantic, shared=shared, embedder=emb,
+                                    config=RouterConfig(min_confidence=gate))
 
 
 def steps(events):
@@ -59,9 +60,9 @@ def run(r, prompt="what is two plus two"):
 def test_miss_then_answer_event_order_and_contents():
     r = make({"small": Fake("small", conf=0.99), "big": Fake("big")})
     res, got = run(r)
-    assert steps(got) == ["embed", "cache_local", "decide", "call", "draft", "final"]
+    assert steps(got) == ["embed", "cache_shared", "memory", "decide", "call", "draft", "memory", "final"]
     d = dict(got)
-    assert d["cache_local"]["hit"] is False and d["cache_local"]["threshold"] == 0.97
+    assert d["cache_shared"]["hit"] is False and d["cache_shared"]["threshold"] == 0.97 and d["cache_shared"]["status"] == "ok"
     assert d["decide"]["tier"] == "small" and "complexity" in d["decide"]["reason"]
     assert (d["call"]["model"], d["call"]["tokens_in"], d["call"]["tokens_out"]) == ("small-m", 10, 5)
     assert d["draft"]["confidence"] == 0.99 and d["draft"]["gate"] == 0.95
@@ -75,8 +76,8 @@ def test_miss_then_answer_event_order_and_contents():
 def test_low_confidence_climbs_and_decide_says_why():
     r = make({"small": Fake("small", conf=0.90), "big": Fake("big")})
     res, got = run(r)
-    assert steps(got) == ["embed", "cache_local", "decide", "call", "draft", "decide", "call", "final"]
-    assert "confidence 0.900 < gate 0.95" in got[5][1]["reason"]
+    assert steps(got) == ["embed", "cache_shared", "memory", "decide", "call", "draft", "decide", "call", "memory", "final"]
+    assert "confidence 0.900 < gate 0.95" in got[6][1]["reason"]
     assert got[-1][1]["tier"] == "big" and got[-1][1]["tokens_kept_off_big"] == 0 and got[-1][1]["dollars"] > 0
     assert res.telemetry.per_tier["crusoe"].output_tokens == 5
 
@@ -91,45 +92,59 @@ def test_only_checked_answers_are_cached():
     r2.pool.tiers = r2.pool.tiers[:1]  # nothing above the unsure 3B: its answer is served, not stored
     res, _ = run(r2, "q none")
     settle(r2.shared)
-    assert res.text == "small-answer" and r2.shared.get("q none") is None and r2.exact.get("q none", "") is None
+    assert res.text == "small-answer" and r2.shared.get("q none") is None
 
 
-def test_shared_hit_is_reported_and_warms_local():
+def test_shared_hit_on_a_second_machine():
     store = FakeStore()
     a = make({"small": Fake("small", conf=0.99), "big": Fake("big")}, shared=PgVectorCache(Bag(), store))
     run(a, "shared question")
     settle(a.shared)
     b = make({"small": Fake("small", fail=True), "big": Fake("big", fail=True)}, shared=PgVectorCache(Bag(), store))
-    res, got = run(b, "shared question")  # a second machine: empty local cache, no model works
-    assert steps(got) == ["embed", "cache_local", "cache_shared", "final"]
+    res, got = run(b, "shared question")  # a second machine: no model works, Supabase answers
+    assert steps(got) == ["embed", "cache_shared", "final"]
     d = dict(got)
-    assert d["cache_shared"]["hit"] is True and d["cache_shared"]["score"] == 1.0 and d["cache_shared"]["threshold"] == 0.97
-    assert d["final"]["cache"] == "shared" and res.telemetry.tier_used == "semantic_cache"
-    _, got2 = run(b, "shared question")
-    assert dict(got2)["cache_local"]["hit"] is True and dict(got2)["cache_shared"]["status"] == "skipped"
+    assert d["cache_shared"]["hit"] is True and d["cache_shared"]["kind"] == "exact" and d["cache_shared"]["score"] == 1.0
+    assert d["final"]["cache"] == "shared" and res.telemetry.tier_used == "exact_cache"
 
 
-def test_slow_shared_cache_is_cut_at_the_budget_and_does_not_fail_the_call():
+def test_slow_or_down_shared_cache_is_skipped_within_budget():
     class Slow(FakeStore):
         def lookup(self, *a):
             time.sleep(1.0)
             return super().lookup(*a)
 
-    r = make({"small": Fake("small", conf=0.99), "big": Fake("big")},
-             shared=PgVectorCache(Bag(), Slow(), budget_s=0.05))
+    shared = PgVectorCache(Bag(), Slow(), budget_s=0.05)
+    r = make({"small": Fake("small", conf=0.99), "big": Fake("big")}, shared=shared)
     t = time.perf_counter()
     res, got = run(r)
     assert time.perf_counter() - t < 0.8 and res.text == "small-answer"
-    assert dict(got)["cache_shared"]["status"] in ("timeout", "down") and dict(got)["cache_shared"]["hit"] is False
+    assert dict(got)["cache_shared"] == {"hit": False, "status": "unavailable", "threshold": 0.97, "kind": None,
+                                         "score": None, "guard": None, "ms": dict(got)["cache_shared"]["ms"]}
+    down = FakeStore()
+    down.fail = True
+    _, got = run(make({"small": Fake("small", conf=0.99), "big": Fake("big")}, shared=PgVectorCache(Bag(), down)))
+    assert dict(got)["cache_shared"]["status"] == "unavailable"
 
 
 def test_guard_verdict_is_in_the_event():
+    store = FakeStore()
+    shared = PgVectorCache(Bag(), store, threshold=0.5, store_text=True, guard=lambda q, c, s: consistent(q, c))
+    shared.put("add 5 and 7", "12")
+    settle(shared)
+    r = make({"small": Fake("small", conf=0.99), "big": Fake("big")}, shared=shared)
+    _, got = run(r, "add 5 and 9")
+    c = dict(got)["cache_shared"]
+    assert c["hit"] is False and c["guard"] == "rejected" and c["score"] >= 0.5
+
+
+def test_offline_local_cache_still_reports_cache_local():
     sem = SemanticCache(Bag(), 0.5, guard=make_guard())
     sem.put("add 5 and 7", "12")
-    r = make({"small": Fake("small", conf=0.99), "big": Fake("big")}, semantic=sem)
+    r = SpeculativeCascadeRouter(None, pool=make({"small": Fake("small", conf=0.99), "big": Fake("big")}).pool,
+                                 semantic=sem, embedder=Bag())
     _, got = run(r, "add 5 and 9")
-    c = dict(got)["cache_local"]
-    assert c["hit"] is False and c["guard"] == "rejected"
+    assert steps(got)[:2] == ["embed", "cache_local"] and dict(got)["cache_local"]["guard"] == "rejected"
 
 
 def test_a_broken_listener_does_not_break_the_call():
@@ -140,3 +155,63 @@ def test_a_broken_listener_does_not_break_the_call():
 def test_no_listener_still_works_and_telemetry_has_events():
     r = make({"small": Fake("small", conf=0.99), "big": Fake("big")})
     assert r.generate("plain call").telemetry.events[-1]["step"] == "final"
+
+
+class Mem:
+    def __init__(self, ctx="Solved example: 2+2=4"):
+        self.ctx, self.stored = ctx, []
+
+    def retrieve(self, prompt):
+        return self.ctx
+
+    def store(self, prompt, answer, model, tier, verified, tests, tokens=None):
+        self.stored.append((prompt, answer, tier, model, tests))
+        return 1
+
+
+class Spy(Fake):
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.prompts = []
+
+    def complete(self, prompt, n):
+        self.prompts.append(prompt)
+        return super().complete(prompt, n)
+
+
+def test_memory_context_reaches_the_30b_only_and_big_answers_are_stored():
+    small, big = Spy("small", conf=0.5), Spy("big")
+    r = make({"small": small, "big": big})
+    r.memory = mem = Mem()
+    res, got = run(r, "what is three plus three")
+    assert small.prompts[0].startswith("Solved example") and big.prompts[0] == "what is three plus three"
+    assert mem.stored == [("what is three plus three", "big-answer", "big", "big-m", None)]
+    m = [d for s, d in got if s == "memory"]
+    assert m[0]["op"] == "retrieve" and m[0]["chars"] == len(mem.ctx) and m[1] == {
+        "op": "store", "stored": True, "tier": "big", "tests_passed": None}
+
+
+def test_30b_answers_and_failed_checks_are_not_stored():
+    r = make({"small": Fake("small", conf=0.99), "big": Fake("big")})
+    r.memory = mem = Mem()
+    run(r, "small one")
+    assert mem.stored == []  # answered by the 30B: not teacher data
+    r2 = make({"small": Fake("small", conf=0.1), "big": Fake("big")})
+    r2.memory = mem2 = Mem()
+    r2.generate("failing tests", check=lambda a: False)
+    settle(r2.shared)
+    assert mem2.stored == [] and r2.shared.get("failing tests") is None
+
+
+def test_ollama_without_logprobs_uses_self_check(monkeypatch):
+    from chimera_core.inference.cloud_verifier import OllamaBackend
+    from chimera_core.tiers import build_backend
+
+    replies = iter([{"message": {"content": "42"}, "prompt_eval_count": 7, "eval_count": 2},
+                    {"message": {"content": "ESCALATE"}, "prompt_eval_count": 50, "eval_count": 1}])
+    monkeypatch.setattr(OllamaBackend, "_post", lambda self, path, body: next(replies))
+    text, tin, tout, conf = build_backend(tier("gpu", 0.6)).complete("q", 16)
+    assert (text, tin, tout, conf) == ("42", 7, 2, 0.0)
+    monkeypatch.setattr(OllamaBackend, "_post", lambda self, path, body: {
+        "message": {"content": "Paris"}, "logprobs": [{"logprob": -0.01}, {"logprob": -0.03}], "eval_count": 2})
+    assert 0.97 < build_backend(tier("gpu", 0.6)).complete("q", 16)[3] < 0.99

@@ -32,14 +32,14 @@ class FakeEmbedder:
 
 def cfg_for(tmp_path, **cache):
     return ChimeraConfig.model_validate({
-        "cache": {"path": str(tmp_path / "c.db"), "semantic": False, **cache},
+        "cache": {"backend": "sqlite", "path": str(tmp_path / "c.db"), "semantic": False, **cache},
         "telemetry": {"path": str(tmp_path / "t.jsonl")},
     })
 
 
 def test_example_toml_loads_with_spec_values():
     cfg = load_config(ROOT / "chimera.example.toml")
-    assert (cfg.thresholds.semantic, cfg.thresholds.confidence, cfg.thresholds.heavy) == (0.97, 0.85, 0.6)
+    assert (cfg.thresholds.semantic, cfg.thresholds.confidence, cfg.thresholds.heavy) == (0.97, 0.95, 0.6)
     assert cfg.gpu.model == "qwen3:30b-instruct" and cfg.gpu.url.endswith(":11435")
     assert "key" not in (ROOT / "chimera.example.toml").read_text().lower().replace("api_key comes", "").replace("api_key_env", "").replace("gmi_api_key", "")
 
@@ -68,7 +68,7 @@ def test_semantic_cache_persists_in_same_file(tmp_path):
 
 def test_cli_ask_prints_answer_and_one_telemetry_line(tmp_path, monkeypatch, capsys):
     cfg_file = tmp_path / "chimera.toml"
-    cfg_file.write_text(f'[cache]\npath="{tmp_path}/c.db"\nsemantic=false\n[telemetry]\npath="{tmp_path}/t.jsonl"\n')
+    cfg_file.write_text(f'[cache]\nbackend="sqlite"\npath="{tmp_path}/c.db"\nsemantic=false\n[telemetry]\npath="{tmp_path}/t.jsonl"\n')
     monkeypatch.setattr(cli, "build_router", lambda cfg: build_router(cfg, local=FakeLocal(), mid=object(), top=object()))
     assert cli.main(["--config", str(cfg_file), "ask", "capital of France?"]) == 0
     lines = capsys.readouterr().out.splitlines()
@@ -97,7 +97,7 @@ def test_mcp_stdio_tools_list_and_call_round_trip(tmp_path):
     cfg_file = tmp_path / "chimera.toml"
     cfg_file.write_text(
         f'[local]\nurl="http://127.0.0.1:{srv.server_port}"\n[gpu]\nenabled=false\n'
-        f'[cache]\npath="{tmp_path}/c.db"\nsemantic=false\n[telemetry]\npath="{tmp_path}/t.jsonl"\n')
+        f'[cache]\nbackend="sqlite"\npath="{tmp_path}/c.db"\nsemantic=false\n[telemetry]\npath="{tmp_path}/t.jsonl"\n')
     env = {"PATH": "/usr/bin:/bin", "CHIMERA_CONFIG": str(cfg_file)}
     p = subprocess.Popen([sys.executable, str(APP / "mcp_server.py")], stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, text=True, env=env)

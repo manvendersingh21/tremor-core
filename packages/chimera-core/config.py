@@ -54,15 +54,15 @@ class PathCfg(BaseModel):
 
 
 class CacheCfg(BaseModel):
-    path: str = "~/.chimera/cache.db"
-    semantic: bool = True
-    backend: Literal["sqlite", "postgres"] = "sqlite"  # postgres: shared pgvector cache, sqlite is the fallback
+    backend: Literal["supabase", "postgres", "sqlite"] = "supabase"  # supabase (= postgres): the only answer cache
+    path: str = "~/.chimera/cache.db"  # sqlite backend only (offline tests); never created otherwise
+    semantic: bool = True              # sqlite backend only: false = exact cache only
     dsn_env: str = "CHIMERA_DB_URL"                    # NAME of the env var holding the DSN. The DSN is never in toml.
     tenant: str = "default"
     store_text: bool = False       # opt-in: keep prompt text in the shared DB
     ttl_s: int | None = None       # row lifetime in seconds; None = forever
     top_k: int = 5
-    budget_ms: int = 300           # DB time allowed per lookup before the local cache answers
+    budget_ms: int = 300           # DB time per lookup (measured ~120 ms); over it the call skips the cache
     guard: bool = True  # MeanCache-style false-hit guard on semantic hits (cache/guard.py); wrong hits 4 -> 2 of 34
 
 
@@ -154,25 +154,39 @@ class _NoKey:
         raise RuntimeError("CRUSOE_API_KEY is not set (put it in .env or the environment)")
 
 
-def make_semantic(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float):
-    """(local SQLite semantic cache, shared pgvector cache or None, the shared embedder).
+def make_caches(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float):
+    """(exact, semantic, shared, embedder) for the router.
 
-    The router looks both up in parallel; the local cache is the fallback when the shared one is slow or down.
+    backend = "supabase" (default): the ONLY answer cache is the shared PgVectorCache (exact hash, then pgvector
+    cosine). Nothing is cached on this machine; with no DSN, or the DB down, calls go straight to the tiers.
+    backend = "sqlite": the old local exact + semantic caches, for offline tests only.
     """
-    emb = CachedEmbedder(embedder or _LazyEmbedder())  # one embedding per prompt for the router and both caches
-    local = SemanticCache(emb, threshold, str(cfg.cache_path), guard=_guard(cfg))
     cc = cfg.cache
+    if cc.backend == "sqlite":
+        emb = CachedEmbedder(embedder or _LazyEmbedder()) if cc.semantic else None
+        sem = SemanticCache(emb, threshold, str(cfg.cache_path), guard=_guard(cfg)) if emb else None
+        return ExactCache(path=str(cfg.cache_path)), sem, None, emb
     dsn = os.environ.get(cc.dsn_env, "")
-    if cc.backend != "postgres" or not dsn:
-        if cc.backend == "postgres":
-            logging.getLogger("chimera").warning("cache.backend=postgres but %s is not set; using sqlite", cc.dsn_env)
-        return local, None, emb
+    if not dsn:
+        logging.getLogger("chimera").warning("cache.backend=supabase but %s is not set; no answer cache", cc.dsn_env)
+        return None, None, None, None
     from .cache.pgvector_cache import PgStore, PgVectorCache
 
+    emb = CachedEmbedder(embedder or _LazyEmbedder())  # one embedding per prompt for the router and the cache
     shared = PgVectorCache(emb, lambda: PgStore(dsn), threshold=threshold, tenant=cc.tenant,
                            fallback=None, store_text=cc.store_text, ttl_s=cc.ttl_s, top_k=cc.top_k,
                            budget_s=cc.budget_ms / 1000, guard=_guard(cfg))
-    return local, shared, emb
+    return None, None, shared, emb
+
+
+def make_memory(cfg: ChimeraConfig):
+    """packages/chimera-core/memory/ (N+1 teacher memory) when it exists and exposes build(cfg); else no memory."""
+    try:
+        from . import memory as mem  # type: ignore[attr-defined]
+    except ImportError:
+        return None
+    build = getattr(mem, "build", None)
+    return build(cfg) if build else None
 
 
 def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder: Embedder | None = None,
@@ -190,20 +204,22 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
     if top is None:
         top = (TopBackend(cr.top_model, cr.top_template_kwargs, base_url=cr.base_url)
                if has_key else _NoKey())
-    cfg.cache_path.parent.mkdir(parents=True, exist_ok=True)
+    if cfg.cache.backend == "sqlite":
+        cfg.cache_path.parent.mkdir(parents=True, exist_ok=True)
     cfg.telemetry_path.parent.mkdir(parents=True, exist_ok=True)
     t = cfg.thresholds
-    sem, shared, emb = make_semantic(cfg, embedder, t.semantic) if cfg.cache.semantic else (None, None, None)
+    exact, sem, shared, emb = make_caches(cfg, embedder, t.semantic)
+    exact = exact if exact is not None else False  # False: no exact cache on this machine
     if cfg.use_pool and cfg.tiers:
         return SpeculativeCascadeRouter(
-            local, exact=ExactCache(path=str(cfg.cache_path)), semantic=sem, shared=shared, embedder=emb,
+            local, exact=exact, semantic=sem, shared=shared, embedder=emb,
             tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
             config=RouterConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),
-            pool=TierPool(cfg.tiers, min_confidence=t.confidence),
+            pool=TierPool(cfg.tiers, min_confidence=t.confidence), memory=make_memory(cfg),
         )
     return LadderRouter(
         local, mid, top,
         LadderConfig(min_confidence=t.confidence, heavy_threshold=t.heavy, learned_router=t.learned_router),
-        exact=ExactCache(path=str(cfg.cache_path)), semantic=sem, shared=shared, embedder=emb,
+        exact=exact, semantic=sem, shared=shared, embedder=emb,
         tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
     )
