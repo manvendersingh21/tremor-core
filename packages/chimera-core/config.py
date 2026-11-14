@@ -77,6 +77,10 @@ class GatewayCfg(BaseModel):
     actions: bool = False               # enable POST /v1/actions/score
 
 
+class MemoryCfg(BaseModel):
+    enabled: bool = True  # N+1 memory: 30B gets solved examples; checked big-model answers are stored (docs/memory.md)
+
+
 def _guard(cfg: "ChimeraConfig"):
     from .cache.guard import make_guard
     return make_guard() if cfg.cache.guard else None
@@ -91,6 +95,7 @@ class ChimeraConfig(BaseModel):
     telemetry: PathCfg = PathCfg(path="~/.chimera/telemetry.jsonl")
     gateway: GatewayCfg = GatewayCfg()
     use_pool: bool = False  # true: route through [[tiers]] (needs at least one)
+    memory: MemoryCfg = MemoryCfg()
     tiers: list[TierCfg] = Field(default_factory=list)  # empty: the fixed 4-tier ladder is used
 
     @property
@@ -180,14 +185,19 @@ def make_caches(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float)
     return None, None, shared, emb
 
 
-def make_memory(cfg: ChimeraConfig):
-    """packages/chimera-core/memory/ (N+1 teacher memory) when it exists and exposes build(cfg); else no memory."""
-    try:
-        from . import memory as mem  # type: ignore[attr-defined]
-    except ImportError:
+def make_memory(cfg: ChimeraConfig, embedder: Embedder | None):
+    """N+1 teacher memory (packages/chimera-core/memory/, docs/memory.md), or None (the router then uses NoMemory).
+
+    Never fails the router build: a missing driver or an unreachable store logs a warning and turns memory off.
+    """
+    if not cfg.memory.enabled:
         return None
-    build = getattr(mem, "build", None)
-    return build(cfg) if build else None
+    try:
+        from . import memory as mem
+        return mem.build(embedder or CachedEmbedder(_LazyEmbedder()), tenant=cfg.cache.tenant)
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("chimera").warning("memory off: %s", type(e).__name__)
+        return None
 
 
 def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder: Embedder | None = None,
@@ -216,7 +226,7 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
             local, exact=exact, semantic=sem, shared=shared, embedder=emb,
             tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
             config=RouterConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),
-            pool=TierPool(cfg.tiers, min_confidence=t.confidence), memory=make_memory(cfg),
+            pool=TierPool(cfg.tiers, min_confidence=t.confidence), memory=make_memory(cfg, emb),
         )
     return LadderRouter(
         local, mid, top,

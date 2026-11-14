@@ -15,7 +15,8 @@ def normalize(prompt: str) -> str:
 
 
 def prompt_hash(prompt: str, namespace: str = "") -> str:
-    return hashlib.sha256(f"{namespace}\x00{normalize(prompt)}".encode()).hexdigest()
+    # surrogatepass: a lone surrogate (bad client input) still hashes instead of raising
+    return hashlib.sha256(f"{namespace}\x00{normalize(prompt)}".encode("utf-8", "surrogatepass")).hexdigest()
 
 
 class ExactCache:
