@@ -46,7 +46,7 @@ def test_unsure_3b_goes_to_mid_and_stops_there():
 
 
 def test_mid_self_check_escalate_climbs_with_short_brief():
-    r, mid, top = make(conf=0.3, escalate=True)
+    r, mid, top = make(conf=0.3, escalate=True, use_brief=True)
     out = r.generate("hi")
     assert out.telemetry.tier_used == "top"
     assert top.prompts[0].startswith("Brief from an assistant:")
@@ -54,7 +54,7 @@ def test_mid_self_check_escalate_climbs_with_short_brief():
 
 def test_heavy_task_skips_3b_and_mid_answer_and_no_brief_sends_prompt_as_is():
     heavy = "Refactor and redesign the architecture, then implement it. " * 5
-    r, mid, top = make(use_brief=False, heavy_threshold=0.3)
+    r, mid, top = make(heavy_threshold=0.3)
     out = r.generate(heavy)
     assert out.telemetry.tier_used == "top" and r.local.calls == 0
     assert top.prompts == [heavy] and not mid.prompts
@@ -64,3 +64,18 @@ def test_failed_check_climbs_even_when_3b_is_confident():
     r, mid, top = make()
     out = r.generate("write code", check=lambda a: a == "top")
     assert out.telemetry.tier_used == "top" and r.local.calls == 1
+
+
+def test_unsure_3b_answer_is_not_cached_and_mid_timeout_climbs_to_top():
+    r, mid, top = make(conf=0.9)  # answers (>= 0.85) but is below the 0.95 cache bar
+    assert r.generate("q1").telemetry.tier_used == "local"
+    assert r.generate("q1").telemetry.tier_used == "local"
+
+    r2, mid2, top2 = make(conf=0.3)
+
+    def boom(prompt, max_tokens):
+        raise TimeoutError
+
+    mid2.complete = boom
+    out = r2.generate("q2")
+    assert out.telemetry.tier_used == "top" and "mid" in out.telemetry.tier_ms

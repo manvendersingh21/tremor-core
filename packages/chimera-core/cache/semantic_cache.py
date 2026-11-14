@@ -9,7 +9,7 @@ import array
 import math
 import sqlite3
 import threading
-from typing import Protocol
+from typing import Callable, Protocol
 
 
 class Embedder(Protocol):
@@ -34,9 +34,12 @@ def _norm(v: list[float]) -> list[float]:
 
 
 class SemanticCache:
-    def __init__(self, embedder: Embedder, threshold: float = 0.94, path: str = ":memory:") -> None:
+    def __init__(self, embedder: Embedder, threshold: float = 0.94, path: str = ":memory:",
+                 guard: "Callable[[str, str, float], bool] | None" = None) -> None:
         self._embedder = embedder
         self.threshold = threshold
+        self.guard = guard  # (query, cached_prompt, similarity) -> accept; see cache/guard.py. Off (None) by default.
+        self.guarded_out = 0  # cosine hits the guard turned into misses
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._db.execute(
             "CREATE TABLE IF NOT EXISTS entries (id INTEGER PRIMARY KEY, namespace TEXT, "
@@ -64,13 +67,16 @@ class SemanticCache:
         query = _norm(self._embedder.embed(prompt))
         with self._lock:
             rows = self._db.execute(
-                "SELECT response, emb FROM entries WHERE namespace = ?", (namespace,)
+                "SELECT response, emb, prompt FROM entries WHERE namespace = ?", (namespace,)
             ).fetchall()
         best: tuple[str, float] | None = None
-        for response, blob in rows:
+        for response, blob, cached in rows:
             vec = array.array("f")
             vec.frombytes(blob)
             sim = sum(a * b for a, b in zip(query, vec))
             if sim >= self.threshold and (best is None or sim > best[1]):
+                if self.guard is not None and not self.guard(prompt, cached, sim):
+                    self.guarded_out += 1
+                    continue
                 best = (response, sim)
         return best

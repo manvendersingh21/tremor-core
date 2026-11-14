@@ -75,6 +75,10 @@ All numbers are single runs on 30 prompts (`bench/prompts.jsonl`): 10 easy facts
 
 `packages/chimera-core/ladder.py` adds a mid tier (the GPU 30B). Heavy tasks skip the 3B, and the brief is capped at 200 tokens and can be turned off (`use_brief=False`). A failed check escalates one tier. No measured results for this ladder or for cross-device speculative decoding exist yet, so none are claimed here. Cache thresholds have not been retuned. Speculative verification was not run in the cloud-only comparison above.
 
+## Research basis
+
+Papers read, how each fits this stack, and two measured builds (semantic-cache false-hit guard, learned router; both off by default) are in [docs/research.md](docs/research.md). The guard halved wrong cache hits at 0.97 on 800 QQP pairs (4 to 2, small counts). The learned router did not beat the existing confidence gate on 180 graded prompts.
+
 ## Repo layout
 
 ```

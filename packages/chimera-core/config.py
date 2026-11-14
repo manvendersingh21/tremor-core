@@ -46,6 +46,7 @@ class Thresholds(BaseModel):
     semantic: float = 0.97
     confidence: float = 0.85
     heavy: float = 0.6
+    learned_router: str = ""  # path to router_weights.json; "" keeps keyword complexity_score + confidence gate
 
 
 class PathCfg(BaseModel):
@@ -62,6 +63,7 @@ class CacheCfg(BaseModel):
     ttl_s: int | None = None       # row lifetime in seconds; None = forever
     top_k: int = 5
     budget_ms: int = 300           # DB time allowed per lookup before the local cache answers
+    guard: bool = False  # MeanCache-style false-hit guard on semantic hits (cache/guard.py); off until measured
 
 
 class GatewayCfg(BaseModel):
@@ -73,6 +75,11 @@ class GatewayCfg(BaseModel):
     retry_backoff_s: float = 1.0
     log_prompts: bool = False           # opt-in: put prompt text in request logs
     actions: bool = False               # enable POST /v1/actions/score
+
+
+def _guard(cfg: "ChimeraConfig"):
+    from .cache.guard import make_guard
+    return make_guard() if cfg.cache.guard else None
 
 
 class ChimeraConfig(BaseModel):
@@ -149,7 +156,7 @@ class _NoKey:
 
 def make_semantic(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float):
     """SQLite semantic cache, or the shared pgvector cache (with SQLite as fallback) when backend = postgres."""
-    local = SemanticCache(embedder or _LazyEmbedder(), threshold, str(cfg.cache_path))
+    local = SemanticCache(embedder or _LazyEmbedder(), threshold, str(cfg.cache_path), guard=_guard(cfg))
     cc = cfg.cache
     dsn = os.environ.get(cc.dsn_env, "")
     if cc.backend != "postgres" or not dsn:
@@ -191,7 +198,7 @@ def build_router(cfg: ChimeraConfig, *, local=None, mid=None, top=None, embedder
         )
     return LadderRouter(
         local, mid, top,
-        LadderConfig(min_confidence=t.confidence, heavy_threshold=t.heavy),
+        LadderConfig(min_confidence=t.confidence, heavy_threshold=t.heavy, learned_router=t.learned_router),
         exact=ExactCache(path=str(cfg.cache_path)),
         semantic=(make_semantic(cfg, embedder, t.semantic) if cfg.cache.semantic else None),
         tracker=tracker or TelemetryTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]),
