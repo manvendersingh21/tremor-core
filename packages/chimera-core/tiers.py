@@ -50,6 +50,7 @@ class TierUsage(BaseModel):
     tokens_out: int = 0
     dollars: float = 0.0
     latency_ms: float = 0.0
+    cached_tokens: int = 0
 
 
 class PoolResult(BaseModel):
@@ -59,6 +60,9 @@ class PoolResult(BaseModel):
     latency_ms: float
     per_tier: dict[str, TierUsage]            # every tier tried, including failed attempts
     attempts: list[str]                       # tiers tried, in order
+    confidence: float | None = None           # of the answering tier (llama.cpp tiers only)
+    low_confidence: bool = False              # True: no tier passed the gate, this is the last low-confidence answer
+    model: str = ""
 
 
 class AllTiersFailed(RuntimeError):
@@ -154,15 +158,25 @@ class TierPool:
             self._open_until[t.name] = self._clock() + self._cooldown
             self._fails[t.name] = 0
 
-    def generate(self, prompt: str, complexity: float | None = None) -> PoolResult:
+    @property
+    def top(self) -> TierCfg | None:
+        """The most expensive tier: what 'kept off the big model' is measured against."""
+        return max(self.tiers, key=lambda t: (t.cost_per_1k_in + t.cost_per_1k_out, t.max_complexity), default=None)
+
+    def generate(self, prompt: str, complexity: float | None = None,
+                 on_event: Callable[[str, dict], None] | None = None) -> PoolResult:
+        ev = on_event or (lambda step, data: None)
         t0 = time.perf_counter()
         score = complexity_score(prompt) if complexity is None else complexity
         usage: dict[str, TierUsage] = {}
         attempts: list[str] = []
-        fallback: tuple[str, TierCfg] | None = None  # last low-confidence answer, used if nothing above answers
+        fallback: tuple[str, TierCfg, float | None] | None = None  # last low-confidence answer
+        why, skipped = f"cheapest healthy tier that covers complexity {score:.2f}", []
         for t in (x for x in self.tiers if x.max_complexity >= score):
             if not self.healthy(t):
+                skipped.append(t.name)
                 continue
+            ev("decide", {"tier": t.name, "reason": why + (f"; skipped unhealthy: {', '.join(skipped)}" if skipped else "")})
             attempts.append(t.name)
             u = usage.setdefault(t.name, TierUsage())
             u.calls += 1
@@ -170,21 +184,34 @@ class TierPool:
             try:
                 be = self._backends.get(t.name) or self._backends.setdefault(t.name, self._factory(t))
                 text, tin, tout, conf = be.complete(prompt, self.max_tokens)
-            except Exception:  # timeout, connection or HTTP error: climb
-                u.latency_ms += (time.perf_counter() - ta) * 1000
+            except Exception as e:  # timeout, connection or HTTP error: climb
+                ms = (time.perf_counter() - ta) * 1000
+                u.latency_ms += ms
                 u.errors += 1
                 self._record(t, False)
+                err = type(e).__name__
+                ev("call", {"tier": t.name, "model": t.model, "ok": False, "error": err, "ms": round(ms, 1),
+                            "tokens_in": 0, "tokens_out": 0, "cached_tokens": 0})
+                why, skipped = f"climb: {t.name} failed ({err})", []
                 continue
-            u.latency_ms += (time.perf_counter() - ta) * 1000
+            ms = (time.perf_counter() - ta) * 1000
+            u.latency_ms += ms
             self._record(t, True)
             u.tokens_in, u.tokens_out = tin, tout
+            u.cached_tokens = int(((getattr(be, "raw", None) and be.raw.last_usage) or {}).get("cached_tokens", 0))
             u.dollars = tin / 1000 * t.cost_per_1k_in + tout / 1000 * t.cost_per_1k_out
+            ev("call", {"tier": t.name, "model": t.model, "ok": True, "ms": round(ms, 1), "tokens_in": tin,
+                        "tokens_out": tout, "cached_tokens": u.cached_tokens})
+            if conf is not None:
+                ev("draft", {"tier": t.name, "model": t.model, "confidence": round(conf, 4), "gate": self.min_confidence})
             if conf is not None and conf < self.min_confidence:
-                fallback = (text, t)  # low confidence: climb (its tokens stay billed to this tier)
+                fallback = (text, t, conf)  # low confidence: climb (its tokens stay billed to this tier)
+                why, skipped = f"climb: {t.name} confidence {conf:.3f} < gate {self.min_confidence}", []
                 continue
-            return self._result(text, t, attempts, usage, t0)
+            return self._result(text, t, attempts, usage, t0, conf)
         if fallback:
-            return self._result(*fallback, attempts, usage, t0)
+            ev("decide", {"tier": fallback[1].name, "reason": "no tier above answered; serving the last low-confidence answer"})
+            return self._result(fallback[0], fallback[1], attempts, usage, t0, fallback[2], low=True)
         raise AllTiersFailed(f"no tier answered (tried: {attempts or 'none healthy'})")
 
     def telemetry_per_tier(self, r: PoolResult) -> dict:
@@ -206,6 +233,7 @@ class TierPool:
         return out
 
     @staticmethod
-    def _result(text, t, attempts, usage, t0) -> PoolResult:
-        return PoolResult(text=text, tier=t.name, device=t.device, attempts=attempts,
+    def _result(text, t, attempts, usage, t0, conf=None, low=False) -> PoolResult:
+        return PoolResult(text=text, tier=t.name, device=t.device, attempts=attempts, model=t.model,
+                          confidence=conf, low_confidence=low,
                           latency_ms=(time.perf_counter() - t0) * 1000, per_tier=usage)

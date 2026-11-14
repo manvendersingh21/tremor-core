@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
 from .exact_cache import prompt_hash
-from .semantic_cache import Embedder, SemanticCache, _norm
+from .semantic_cache import Embedder, Lookup, SemanticCache, _norm
 
 log = logging.getLogger("chimera.pgvector")
 
@@ -30,7 +30,7 @@ class Hit:
 
 class Store(Protocol):
     def lookup(self, tenant: str, ns: str, h: str, emb: list[float], k: int
-               ) -> tuple[tuple[int, str] | None, list[tuple[int, str, float, bool]]]: ...
+               ) -> tuple[tuple[int, str] | None, list[tuple]]: ...  # rows: (id, answer, sim, verified[, prompt_text])
     def insert(self, tenant: str, ns: str, h: str, text: str | None, emb: list[float], answer: str,
                meta: dict[str, Any]) -> int: ...
     def touch(self, tenant: str, prompt_id: int) -> None: ...
@@ -70,12 +70,12 @@ class PgStore:
                 conn.execute("select set_config('app.tenant', %s, true)", (tenant,))
                 c1 = conn.execute(f"select id, answer from prompts where tenant=%s and namespace=%s "
                                   f"and prompt_hash=%s and verified and {live}", (tenant, ns, h))
-                c2 = conn.execute(f"select id, answer, 1 - (embedding <=> %s::vector), verified from prompts "
+                c2 = conn.execute(f"select id, answer, 1 - (embedding <=> %s::vector), verified, prompt_text from prompts "
                                   f"where tenant=%s and namespace=%s and {live} "
                                   f"order by embedding <=> %s::vector limit %s", (v, tenant, ns, v, k))
             r = c1.fetchone()
             rows = c2.fetchall()
-        return ((r[0], r[1]) if r else None), [(x[0], x[1], float(x[2]), bool(x[3])) for x in rows]
+        return ((r[0], r[1]) if r else None), [(x[0], x[1], float(x[2]), bool(x[3]), x[4]) for x in rows]
 
     def find_exact(self, tenant, ns, h):
         r = self._tx(tenant, "select id, answer from prompts where tenant=%s and namespace=%s and prompt_hash=%s "
@@ -130,11 +130,13 @@ class PgStore:
 class PgVectorCache:
     def __init__(
         self, embedder: Embedder, store: Store | Callable[[], Store], *, threshold: float = 0.97,
-        tenant: str = "default", fallback: SemanticCache | None = None, store_text: bool = False,
+        tenant: str = "default", fallback: SemanticCache | None = None, store_text: bool = False, guard=None,
         ttl_s: int | None = None, top_k: int = 5, budget_s: float = 0.3, cooldown_s: float = 30.0,
         max_strikes: int = 3,
     ) -> None:
         self._embedder, self.threshold, self.tenant = embedder, threshold, tenant
+        self.guard = guard  # (query, cached_prompt, sim) -> accept; only judges rows stored with prompt text
+        self.guarded_out = 0
         self._store_arg = store  # a callable is built lazily on first use, so a dead DB cannot block startup
         self._store: Store | None = None if callable(store) else store
         self.fallback, self.store_text, self.ttl_s, self.top_k = fallback, store_text, ttl_s, top_k
@@ -188,25 +190,43 @@ class PgVectorCache:
 
     # ---- SemanticCache interface -------------------------------------------------
     def get_hit(self, prompt: str, namespace: str = "") -> Hit | None:
+        return self._lookup(prompt, namespace)[0]
+
+    def lookup(self, prompt: str, namespace: str = "") -> Lookup:
+        """Like get(), plus the best cosine, the guard verdict and the DB status, for step events."""
+        return self._lookup(prompt, namespace)[1]
+
+    def _lookup(self, prompt: str, namespace: str) -> tuple[Hit | None, Lookup]:
         t0 = time.perf_counter()
         h = prompt_hash(prompt, namespace)
         emb = _norm(self._embedder.embed(prompt))
+        info = {"best": None, "guard": "off" if self.guard is None else None}
 
         def lookup(s: Store) -> Hit | None:
             ex, near = s.lookup(self.tenant, namespace, h, emb, self.top_k)
             if ex:
                 return Hit(ex[0], ex[1], 1.0, "exact")
-            for pid, answer, sim, verified in near:
+            info["best"] = near[0][2] if near else None
+            for pid, answer, sim, verified, *rest in near:
                 if sim >= self.threshold and verified:  # rows are sorted best first
+                    if self.guard is not None and rest and rest[0] is not None:
+                        if not self.guard(prompt, rest[0], sim):
+                            self.guarded_out += 1
+                            info["guard"] = "rejected"
+                            continue
+                        info["guard"] = "pass"
                     return Hit(pid, answer, sim, "vector")
             return None
 
         try:
             hit = self._call(lookup)
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             self.stats["fallbacks"] += 1
             fb = self.fallback.get(prompt, namespace) if self.fallback else None
-            return Hit(None, fb[0], fb[1], "sqlite") if fb else None
+            ms = (time.perf_counter() - t0) * 1000
+            h2 = Hit(None, fb[0], fb[1], "sqlite") if fb else None
+            return h2, Lookup(fb, fb[1] if fb else None, None, ms,
+                              "timeout" if isinstance(e, (TimeoutError, cf.TimeoutError)) else "down")
         ms = (time.perf_counter() - t0) * 1000
         self.stats["lookup_ms"].append(ms)
         if hit:
@@ -215,7 +235,14 @@ class PgVectorCache:
         else:
             self.stats["misses"] += 1
             self._bg(lambda s: s.event(self.tenant, "miss", None, None, ms))
-        return hit
+        best = 1.0 if hit and hit.source == "exact" else info["best"]
+        return hit, Lookup((hit.response, hit.similarity) if hit else None, best, info["guard"], ms)
+
+    def ping(self) -> float:
+        """ms for `select 1` through the same budget and breaker as lookups. Raises when the DB is not reachable."""
+        t0 = time.perf_counter()
+        self._call(lambda s: s._tx(self.tenant, "select 1", (), "one"))  # type: ignore[attr-defined]
+        return (time.perf_counter() - t0) * 1000
 
     def get(self, prompt: str, namespace: str = "") -> tuple[str, float] | None:
         hit = self.get_hit(prompt, namespace)

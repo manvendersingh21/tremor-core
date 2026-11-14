@@ -14,7 +14,7 @@ from typing import Callable, Protocol
 from .inference.cloud_verifier import CrusoeBackend
 from .inference.local_draft import should_escalate
 from .inference.telemetry import Telemetry
-from .router import GenerateResult, RouterConfig, SpeculativeCascadeRouter, complexity_score
+from .router import Events, GenerateResult, RouterConfig, SpeculativeCascadeRouter, complexity_score
 
 BRIEF_PROMPT = (
     "Write a brief for a stronger engineer model that will solve the task below. Max 120 words: "
@@ -32,7 +32,6 @@ class TextBackend(Protocol):
 
 class LadderConfig(RouterConfig):
     use_brief: bool = False  # bench: a 30B brief was slower and no better; cap 200 tokens when on
-    min_cache_confidence: float = 0.95  # 3B answers below this are served but not cached
     brief_max_tokens: int = 200
     learned_router: str = ""  # path to router_weights.json (bench/train_router.py); "" = keyword complexity_score + confidence gate
     max_mid_tokens: int = 1500
@@ -73,15 +72,13 @@ class LadderRouter(SpeculativeCascadeRouter):
             from .learned_router import LearnedRouter
             self.learned = LearnedRouter.load(self.cfg.learned_router)
 
-    def generate(self, prompt: str, context: str = "", check: Callable[[str], bool] | None = None) -> GenerateResult:
+    def generate(self, prompt: str, context: str = "", check: Callable[[str], bool] | None = None,
+                 on_event=None) -> GenerateResult:
         t0 = time.perf_counter()
         cfg = self.cfg
-        ns = cfg.namespace
-        hit = self.exact.get(prompt, ns)
-        if hit is not None:
-            return self._emit(prompt, "exact_cache", hit, t0)
-        if self.semantic is not None and (sem := self.semantic.get(prompt, ns)) is not None:
-            return self._emit(prompt, "semantic_cache", sem[0], t0)
+        ev = Events(on_event)
+        if (hit := self._lookup(prompt, ev)) is not None:
+            return self._emit(prompt, hit[1], hit[0], t0, source=hit[2])
 
         local_tokens, ms, mid_ok = 0, {}, True
         if (not self.learned.skip_local(prompt)) if self.learned else complexity_score(prompt) < cfg.heavy_threshold:
@@ -93,13 +90,13 @@ class LadderRouter(SpeculativeCascadeRouter):
                     if self.learned else not should_escalate(draft, cfg.min_confidence))
             if keep and (check is None or check(draft.text)):
                 return self._emit(prompt, "local", draft.text, t0, local_tokens=local_tokens, ms=ms,
-                                  cache=draft.mean_confidence >= cfg.min_cache_confidence)
+                                  cache=draft.mean_confidence >= cfg.min_cache_confidence, ev=ev)
             t = time.perf_counter()
             try:
                 mid_text = self.mid.complete(prompt, cfg.max_mid_tokens)
                 ms["mid"] = (time.perf_counter() - t) * 1000
                 if check(mid_text) if check else not self._mid_says_escalate(prompt, mid_text):
-                    return self._emit(prompt, "gpu", mid_text, t0, local_tokens=local_tokens, ms=ms)
+                    return self._emit(prompt, "gpu", mid_text, t0, local_tokens=local_tokens, ms=ms, ev=ev)
             except OSError:  # timeout / tunnel down: skip the mid tier for this call
                 mid_ok = False
                 ms["mid"] = (time.perf_counter() - t) * 1000
@@ -116,24 +113,28 @@ class LadderRouter(SpeculativeCascadeRouter):
         t = time.perf_counter()
         text = self.top.complete(top_prompt, cfg.max_top_tokens)
         ms["top"] = (time.perf_counter() - t) * 1000
-        return self._emit(prompt, "top", text, t0, local_tokens=local_tokens, ms=ms)
+        return self._emit(prompt, "top", text, t0, local_tokens=local_tokens, ms=ms, ev=ev)
 
     def _mid_says_escalate(self, prompt: str, answer: str) -> bool:
         return "ESCALATE" in self.mid.complete(CHECK_PROMPT.format(task=prompt, answer=answer), 8).upper()
 
     def _emit(self, prompt: str, tier: str, text: str, t0: float, local_tokens: int = 0,
-              ms: dict | None = None, cache: bool = True) -> GenerateResult:
+              ms: dict | None = None, cache: bool = True, ev: Events | None = None,
+              source: str | None = None) -> GenerateResult:
         """tokens_saved/dollars_saved = top-model tokens this call did not use (estimated, len/4)."""
         if cache and not tier.endswith("_cache"):
             self._remember(prompt, text)
         est_out = len(text) // 4
         saved_in, saved_out = (max(len(prompt) // 4, 1), est_out) if tier != "top" else (0, 0)
+        ev = ev or Events()
+        saved, dollars = saved_in + saved_out, (saved_in * self.cfg.top_usd_per_m_in + saved_out * self.cfg.top_usd_per_m_out) / 1e6
+        lat = (time.perf_counter() - t0) * 1000
+        ev("final", {"tier": tier, "model": "", "tokens_in": 0, "tokens_out": est_out, "cached_tokens": 0, "dollars": 0.0,
+                     "dollars_saved": round(dollars, 6), "ms": round(lat, 1), "tokens_kept_off_big": saved, "cache": source})
         tel = Telemetry(
-            tier_used=tier, tokens_saved=saved_in + saved_out,
-            latency_ms=(time.perf_counter() - t0) * 1000,
-            dollars_saved=(saved_in * self.cfg.top_usd_per_m_in + saved_out * self.cfg.top_usd_per_m_out) / 1e6,
+            tier_used=tier, tokens_saved=saved, latency_ms=lat, dollars_saved=dollars,
             local_tokens=local_tokens, gpu_tokens=est_out if tier == "gpu" else 0,
-            cloud_tokens=est_out if tier == "top" else 0, tier_ms=ms or {},
+            cloud_tokens=est_out if tier == "top" else 0, tier_ms=ms or {}, cache_source=source, events=ev.log,
         )
         self.tracker.emit(tel)
         return GenerateResult(text=text, telemetry=tel)
