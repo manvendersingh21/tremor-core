@@ -1,4 +1,4 @@
-"""Build bench/datasets/suite.jsonl (300 rows) from the public datasets in fetch.py. Seeded: same output every run.
+"""Build bench/datasets/suite.jsonl (1000 rows: the original 300, then 700 more) from the public datasets in fetch.py. Seeded: same output every run.
 
     .venv/bin/python bench/datasets/build_suite.py
 
@@ -62,9 +62,9 @@ def norm(s: str) -> str:
     return re.sub(r"\W+", " ", s.lower()).strip()
 
 
-def pairs(n_dup: int, n_neg: int) -> list[dict]:
+def pairs(n_dup: int, n_neg: int, skip: frozenset = frozenset()) -> list[dict]:
     qs = [r for r in fetch.sample_rows("qqp", 6, 7)
-          if 25 <= len(r["question1"]) <= 200 and 25 <= len(r["question2"]) <= 200
+          if r["idx"] not in skip and 25 <= len(r["question1"]) <= 200 and 25 <= len(r["question2"]) <= 200
           and norm(r["question1"]) != norm(r["question2"])]
     rng.shuffle(qs)
     dup = [r for r in qs if r["label"] == 1][:n_dup]
@@ -77,6 +77,16 @@ def pairs(n_dup: int, n_neg: int) -> list[dict]:
         out.append({"id": f"qqp-{k}-b", "source": "qqp", "type": "repeat", "prompt": r["question2"],
                     "grader": "pair", "data": {"role": "b", "a_id": f"qqp-{k}-a", "duplicate": bool(r["label"])}})
     return out
+
+
+def place_pairs(rows: list[dict], ps: list[dict]) -> None:
+    for p in ps:  # a pair's B row always lands after its A row
+        if p["data"]["role"] == "a":
+            rows.insert(rng.randrange(len(rows) + 1), p)
+    for p in ps:
+        if p["data"]["role"] == "b":
+            at = next(i for i, r in enumerate(rows) if r["id"] == p["data"]["a_id"])
+            rows.insert(rng.randrange(at + 1, len(rows) + 1), p)
 
 
 def main() -> None:
@@ -101,13 +111,16 @@ def main() -> None:
             + [gsm8k(i, r) for i, r in gs_hard[:30]] + [humaneval(r, "hard") for r in he_long])
     rng.shuffle(rows)
     ps = pairs(24, 6)
-    for p in ps:  # a pair's B row always lands after its A row
-        if p["data"]["role"] == "a":
-            rows.insert(rng.randrange(len(rows) + 1), p)
-    for p in ps:
-        if p["data"]["role"] == "b":
-            at = next(i for i, r in enumerate(rows) if r["id"] == p["data"]["a_id"])
-            rows.insert(rng.randrange(at + 1, len(rows) + 1), p)
+    place_pairs(rows, ps)
+    # Extra block (rows 301-1000): same sources, items not used above, same mix. Appended after the first 300,
+    # so the first 300 rows (and finished runs on them) stay valid.
+    used = frozenset(int(p["id"].split("-")[1]) for p in ps)
+    extra = ([mmlu(i, r) for i, r in mm[60:200]] + [dolly(i, r) for i, r in dl[60:200]]
+             + [humaneval(r, "code") for r in he_rest[40:100]] + [mbpp(r) for r in mb[35:150]]
+             + [gsm8k(i, r) for i, r in gs_hard[30:135]])
+    rng.shuffle(extra)
+    place_pairs(extra, pairs(56, 14, used))
+    rows += extra
     OUT.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows))
     kinds = {}
     for r in rows:
