@@ -33,6 +33,7 @@ class Telemetry(BaseModel):
     cloud_tokens: int = 0
     local_tokens: int = 0
     gpu_tokens: int = 0
+    tier_ms: dict[str, float] = {}  # ms per tier: local, mid, brief, top
     # Optional per-model split of this call. Old events lack it; readers fall back to local_tokens/cloud_tokens.
     per_tier: dict[TierKey, TierUsage] | None = None
     # Shared-cache metrics. All optional: old events and old readers ignore them.

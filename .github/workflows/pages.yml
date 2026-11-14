@@ -1,8 +1,5 @@
 name: pages
 on:
-  push:
-    branches: [dev]
-    paths: ["site/**"]
   workflow_dispatch:
 permissions:
   contents: read
