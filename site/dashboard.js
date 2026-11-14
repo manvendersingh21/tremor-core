@@ -11,10 +11,10 @@ const ORDER=['cache','phone_3b','mac_3b','gpu_small','gpu_large','crusoe'];
 const T={
   cache:{th:'The Crypt',real:'Cache',c:'--cache',model:'exact + semantic'},
   phone_3b:{th:'The Familiar',real:'Phone 3B',c:'--phone',model:'Gemma 3 (no calls yet)'},
-  mac_3b:{th:'The Lantern',real:'Mac 3B',c:'--mac',model:'Qwen2.5-3B (no calls yet)'},
-  gpu_small:{th:'The Manor',real:'GPU small (Qwen3-30B)',c:'--gpus',model:'qwen3:30b-instruct (no calls yet)'},
-  gpu_large:{th:'The Castle',real:'GPU large (future)',c:'--gpul',model:'none yet'},
-  crusoe:{th:"The Count's Tower",real:'Crusoe',c:'--crusoe',model:'no calls yet'}};
+  mac_3b:{th:'The Lantern',real:'Mac 3B (experiment, off)',c:'--mac',model:'Qwen2.5-3B (no calls yet)'},
+  gpu_small:{th:'The Manor',real:'GPU 30B (self-hosted)',c:'--gpus',model:'qwen3:30b-instruct (no calls yet)'},
+  gpu_large:{th:'The Castle',real:'H200 120B (optional)',c:'--gpul',model:'gpt-oss-120b (no calls yet)'},
+  crusoe:{th:"The Count's Tower",real:'Crusoe (cloud)',c:'--crusoe',model:'no calls yet'}};
 function lab(k){const s=h('span');s.append(h('span',T[k].th,'th'),h('span',T[k].real,'rl'));return s}
 function dotted(k,...kids){const s=h('span');const d=h('span',null,'dot');d.style.background=`var(${T[k].c})`;s.append(d,...kids);return s}
 
