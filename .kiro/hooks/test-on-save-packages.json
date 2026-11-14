@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run the test file for the saved module",
+      "description": "Offline pytest for packages/** and tests/** saves. No network.",
+      "trigger": "PostFileSave",
+      "matcher": "(^|/)(packages|tests)/.*\\.py$",
+      "action": {
+        "type": "command",
+        "command": "python3 .kiro/hooks/scripts/test_module.py"
+      },
+      "timeout": 110
+    }
+  ]
+}

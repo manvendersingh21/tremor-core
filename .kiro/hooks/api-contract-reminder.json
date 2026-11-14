@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "api-contract-reminder",
+      "description": "docs/api.md is the contract; site/ consumers must follow it.",
+      "trigger": "PostFileSave",
+      "matcher": "(^|/)docs/api\\.md$",
+      "action": {
+        "type": "agent",
+        "prompt": "docs/api.md changed. It is the contract between the backend and the site. Check every consumer under site/ (site/world/chat.js, site/dashboard.js) and apps/phantom-phone/hud-web/server.py against the new shapes. Update consumers for added fields, or report a removed or renamed field to the backend owner instead of working around it. Then run tests/test_hud.py and tests/test_world.py."
+      }
+    }
+  ]
+}

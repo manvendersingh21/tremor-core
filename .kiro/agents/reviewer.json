@@ -1,0 +1,33 @@
+{
+  "name": "reviewer",
+  "description": "Read-only reviewer. Runs tests and hooks, reports findings, changes nothing.",
+  "prompt": "file://./prompts/reviewer.md",
+  "tools": ["read", "shell", "@chimera/chimera_stats", "@chimera/chimera_risk_score"],
+  "mcpServers": {
+    "chimera": {
+      "command": ".venv/bin/python",
+      "args": ["apps/kiro-trimmer/mcp_server.py"],
+      "env": {},
+      "autoApprove": ["chimera_stats", "chimera_risk_score"]
+    }
+  },
+  "includeMcpJson": false,
+  "resources": [
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/testing.md",
+    "file://.kiro/steering/security.md",
+    "file://.kiro/steering/api.md",
+    "file://.kiro/steering/ui.md"
+  ],
+  "permissions": {
+    "rules": [
+      { "capability": "fs_write", "match": ["**"], "effect": "deny" },
+      { "capability": "fs_read", "match": [".env", "**/id_rsa*", "**/*.pem"], "effect": "deny" },
+      { "capability": "shell", "match": ["make test*", ".venv/bin/python -m pytest*", "python3 .kiro/hooks/scripts/*", "python3 site/build.py --check", "git status*", "git diff*", "git log*"], "effect": "allow" },
+      { "capability": "shell", "match": ["git add *", "git commit *", "git push*", "rm *", "sudo *", "cat .env*"], "effect": "deny" }
+    ]
+  },
+  "welcomeMessage": "Reviewer: read-only. I run tests and hooks and report."
+}

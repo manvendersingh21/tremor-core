@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run the site tests",
+      "description": "tests/test_world.py, tests/test_hud.py and site/build.py --check. No network.",
+      "trigger": "PostFileSave",
+      "matcher": "(^|/)site/(?!vendor/).*\\.(js|css|json|html|py)$",
+      "action": {
+        "type": "command",
+        "command": "python3 .kiro/hooks/scripts/test_site.py"
+      },
+      "timeout": 150
+    }
+  ]
+}

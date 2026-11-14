@@ -1,10 +1,15 @@
+---
+inclusion: always
+---
+
 # Project Structure & Architectural Conventions
 
 Built items are listed as they exist. Items marked **(planned)** are not built.
 
 ```text
 /
-├── .kiro/                          # Steering, specs, hooks
+├── .kiro/                          # steering/, specs/, hooks/ (+ scripts/), agents/, settings/mcp.json (docs/handoff/kiro-setup.md)
+├── powers/chimera/                 # Kiro Power: plugin.json, mcp.json, skills/
 ├── .github/workflows/ci.yml        # pytest on Python 3.11 and 3.12, pushes and PRs to dev
 ├── bin/chimera                     # CLI launcher
 ├── chimera.example.toml            # Settings template (no secrets). Copy to chimera.toml
@@ -20,12 +25,13 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │   ├── router.py                   # SpeculativeCascadeRouter (cache -> local -> cloud)
 │   ├── learned_router.py           # Logistic router (prompt + 3B token stats); off by default, not better than the confidence gate
 │   ├── ladder.py                   # LadderRouter: local -> GPU -> Crusoe top, escalate on failed check
+│   ├── memory/                     # N+1 memory: memory.py, graph.py, neo4j_store.py (Aura only), extract.py, safety.py
 │   ├── tiers.py                    # Tier pool: [[tiers]] from chimera.toml
 │   ├── config.py                   # Loads chimera.toml
 │   ├── cache/
 │   │   ├── exact_cache.py          # SHA-256 normalized prompt cache
 │   │   ├── semantic_cache.py       # Cosine cache, threshold 0.97 from config
-│   │   ├── pgvector_cache.py       # Shared Supabase cache (Postgres + pgvector), SQLite fallback
+│   │   ├── pgvector_cache.py       # Shared Supabase cache (Postgres + pgvector); the only answer cache
 │   │   └── guard.py                # False-hit guard (numbers, negation, entities); off by default
 │   ├── inference/
 │   │   ├── local_draft.py          # llama.cpp backend, logprob confidence gate
@@ -36,6 +42,7 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │   └── firewall/risk_scorer.py     # 0-100 action risk score, one-time token at >= 70
 ├── apps/
 │   ├── gateway/                    # OpenAI-compatible gateway, keys per tenant, /metrics
+│   ├── terminal/                   # `chimera code` terminal agent: agent.py, edits.py, routing.py, safety.py, cli.py
 │   ├── kiro-trimmer/
 │   │   ├── cli.py                  # ask, stats, doctor
 │   │   ├── mcp_server.py           # Router as an MCP server
@@ -47,7 +54,7 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │       ├── supervisor_graph.py     # (planned)
 │       └── modules/                # (planned) unknown_caller, marketplace_bot, mobile_hotfix, ride_arbitrage
 ├── deploy/                         # Gateway Docker files, sql/ (shared cache), modal/ (H200 app)
-├── site/                           # The web page: world/ (walkable castle, bat chat), dashboard.js, rooms.js posters, build.py (no-JS page)
+├── site/                           # The web page: world/ (walkable castle, bat chat), castle/ + vendor/ (3D castle in progress), dashboard.js, rooms.js posters, build.py (no-JS page)
 ├── scripts/                        # android_setup.sh, phone_check.sh
 ├── bench/                          # Prompts, runners, results
 │   ├── prompts.jsonl               # 30 prompts
@@ -59,7 +66,7 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │   ├── run_research_collect.py, train_router.py, run_research_cache.py   # research measurements (docs/research.md)
 │   ├── run_spec.py, verify_server.py, start_verifier.sh, spec_results.md   # Plain speculative verify (4.5x to 7x slower)
 │   └── serve_local.sh              # Start the Mac llama-server
-└── tests/                          # Offline pytest: router, backends, ladder, app, HUD
+└── tests/                          # Offline pytest: router, backends, ladder, memory, terminal, world, app, HUD; Hypothesis helpers in _props.py
 ```
 
 ## Conventions

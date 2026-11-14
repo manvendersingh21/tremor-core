@@ -8,7 +8,9 @@
       "action": {
         "type": "command",
         "command": "python3 apps/kiro-trimmer/hook_interceptor.py --mode=post-save --prefer-local-kv"
-      }
+      },
+      "timeout": 30,
+      "description": "Reviews the saved diff with the router. Calls the ladder, so it needs the GPU tunnel or network; it never blocks a save (exit 0)."
     }
   ]
 }

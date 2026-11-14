@@ -1,0 +1,54 @@
+{
+  "name": "backend-owner",
+  "description": "Owns the router, caches, tiers, memory, APIs, tests, evals and docs/api.md.",
+  "prompt": "file://./prompts/backend-owner.md",
+  "tools": ["read", "write", "shell", "@chimera", "@neo4j-aura-readonly"],
+  "mcpServers": {
+    "chimera": {
+      "command": ".venv/bin/python",
+      "args": ["apps/kiro-trimmer/mcp_server.py"],
+      "env": {
+        "CRUSOE_API_KEY": "${CRUSOE_API_KEY}",
+        "CHIMERA_DB_URL": "${CHIMERA_DB_URL}",
+        "CHIMERA_GRAPH_URL": "${CHIMERA_GRAPH_URL}",
+        "CHIMERA_GRAPH_USER": "${CHIMERA_GRAPH_USER}",
+        "CHIMERA_GRAPH_PASSWORD": "${CHIMERA_GRAPH_PASSWORD}",
+        "CHIMERA_GRAPH_DATABASE": "${CHIMERA_GRAPH_DATABASE}"
+      },
+      "autoApprove": ["chimera_stats", "chimera_risk_score"]
+    },
+    "neo4j-aura-readonly": {
+      "command": "uvx",
+      "args": ["neo4j-mcp-server"],
+      "env": {
+        "NEO4J_MCP_URI": "${CHIMERA_GRAPH_URL}",
+        "NEO4J_MCP_USERNAME": "${CHIMERA_GRAPH_USER}",
+        "NEO4J_MCP_PASSWORD": "${CHIMERA_GRAPH_PASSWORD}",
+        "NEO4J_MCP_DATABASE": "${CHIMERA_GRAPH_DATABASE}",
+        "NEO4J_MCP_READ_ONLY": "true",
+        "NEO4J_MCP_TELEMETRY": "false"
+      }
+    }
+  },
+  "includeMcpJson": false,
+  "resources": [
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/testing.md",
+    "file://.kiro/steering/security.md",
+    "file://.kiro/steering/api.md",
+    "file://docs/api.md",
+    "file://docs/memory.md"
+  ],
+  "permissions": {
+    "rules": [
+      { "capability": "fs_write", "match": ["packages/**", "apps/kiro-trimmer/**", "apps/terminal/**", "apps/gateway/**", "tests/**", "bench/**", "deploy/**", "docs/**", "chimera.example.toml"], "effect": "allow" },
+      { "capability": "fs_write", "match": [".env", ".env.*", "chimera.toml", "site/**"], "effect": "deny" },
+      { "capability": "fs_read", "match": [".env", "**/id_rsa*", "**/*.pem"], "effect": "deny" },
+      { "capability": "shell", "match": ["make test*", ".venv/bin/python -m pytest*", "git status*", "git diff*", "git log*", "git add *", "git commit *", "git push origin dev"], "effect": "allow" },
+      { "capability": "shell", "match": ["rm -rf *", "sudo *", "git push -f*", "git push --force*", "cat .env*"], "effect": "deny" }
+    ]
+  },
+  "welcomeMessage": "Backend owner: router, caches, tiers, APIs, tests. docs/api.md is mine."
+}
