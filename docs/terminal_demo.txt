@@ -1,0 +1,118 @@
+# chimera code: real terminal session (2026-11-14), ladder = Supabase cache -> GPU 30B -> 763B
+# Captured from stdout of bin/chimera code. Model-load noise lines removed.
+
+$ printf '/help\n/add shop.py\n...' | bin/chimera code --cwd demo-repo --yes
+chimera> /help
+/add <file>      add a file to the context      /drop [file|all]  remove one or all
+/files           list the context files         /diff             git diff (or what this session changed)
+/undo            undo the last write            /run <cmd>        run a command (risk-scored)
+/test            run the tests                  /fix              run tests, ask the model to fix them
+/tier auto|local|gpu|cloud   choose the tier    /cost             session totals per tier
+/commit [msg]    git commit tracked changes     /clear            clear the screen and last output
+/help            this text                      /exit             quit
+Anything else is a request to the model.
+chimera> /add shop.py
+added shop.py
+chimera> /test
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+__________________________________ test_total __________________________________
+    def test_total():
+>       assert total([10, 20, 30]) == 60
+E       assert 50.0 == 60
+E        +  where 50.0 = total([10, 20, 30])
+tests/test_shop.py:5: AssertionError
+________________________________ test_discount _________________________________
+    def test_discount():
+>       assert total([50, 50], 10) == 90
+E       assert 45.0 == 90
+E        +  where 45.0 = total([50, 50], 10)
+tests/test_shop.py:7: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_shop.py::test_total - assert 50.0 == 60
+FAILED tests/test_shop.py::test_discount - assert 45.0 == 90
+2 failed in 0.09s
+FAIL
+chimera> fix the bug in total so the tests pass
+  . trying gpu-small
+-> gpu (qwen3:30b-instruct) · 236 tok · $0 · 95.2 s · supabase MISS cos - · kept 236 tok off the big model
+--- a/shop.py
++++ b/shop.py
+@@ -1,4 +1,4 @@
+ def total(prices, discount=0):
+     """Sum of prices minus a percent discount."""
+-    s = sum(prices[1:])
++    s = sum(prices)
+     return s - s * discount / 100
+tests pass
+chimera> /diff
+diff --git a/shop.py b/shop.py
+index 36b1b88..028600e 100644
+--- a/shop.py
++++ b/shop.py
+@@ -1,4 +1,4 @@
+ def total(prices, discount=0):
+     """Sum of prices minus a percent discount."""
+-    s = sum(prices[1:])
++    s = sum(prices)
+     return s - s * discount / 100
+chimera> /run rm -rf tests
+risk 95/100 (destructive shell): rm -rf tests
+type 3212b7 to allow, anything else to refuse: refused by the risk gate
+chimera> /undo
+undid: shop.py
+chimera> /test
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+__________________________________ test_total __________________________________
+    def test_total():
+>       assert total([10, 20, 30]) == 60
+E       assert 50.0 == 60
+E        +  where 50.0 = total([10, 20, 30])
+tests/test_shop.py:5: AssertionError
+________________________________ test_discount _________________________________
+    def test_discount():
+>       assert total([50, 50], 10) == 90
+E       assert 45.0 == 90
+E        +  where 45.0 = total([50, 50], 10)
+tests/test_shop.py:7: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_shop.py::test_total - assert 50.0 == 60
+FAILED tests/test_shop.py::test_discount - assert 45.0 == 90
+2 failed in 0.09s
+FAIL
+chimera> /cost
+tier             calls   tokens          $  $ if 763B  kept tok
+gpu-small            1      236    0.00000    0.00015       236
+total                1      236    0.00000    0.00015       236
+saved vs an all-763B baseline (cloud-deepseek): $0.00015; 236 tokens kept off the big model
+chimera> /exit
+saved vs an all-763B baseline (cloud-deepseek): $0.00015; 236 tokens kept off the big model
+
+# Same request twice, same file text: the second run is a Supabase exact hit.
+
+$ bin/chimera code --cwd demo-repo --yes -m "fix the bug in total so the tests pass" shop.py   # run 1
+  . trying gpu-small
+-> gpu (qwen3:30b-instruct) · 236 tok · $0 · 98.0 s · supabase MISS cos - · kept 236 tok off the big model
+--- a/shop.py
++++ b/shop.py
+@@ -1,4 +1,4 @@
+ def total(prices, discount=0):
+     """Sum of prices minus a percent discount."""
+-    s = sum(prices[1:])
++    s = sum(prices)
+     return s - s * discount / 100
+tests pass
+saved vs an all-763B baseline (cloud-deepseek): $0.00015; 236 tokens kept off the big model
+$ bin/chimera code --cwd demo-repo --yes -m "fix the bug in total so the tests pass" shop.py   # run 2
+-> cache (supabase) · 0 tok · $0 · 5.7 s · supabase HIT cos 1.00 · kept 214 tok off the big model
+--- a/shop.py
++++ b/shop.py
+@@ -1,4 +1,4 @@
+ def total(prices, discount=0):
+     """Sum of prices minus a percent discount."""
+-    s = sum(prices[1:])
++    s = sum(prices)
+     return s - s * discount / 100
+tests pass
+saved vs an all-763B baseline (cloud-deepseek): $0.00013; 214 tokens kept off the big model
