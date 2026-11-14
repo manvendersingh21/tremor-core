@@ -1,6 +1,6 @@
 # Implementation Plan: CHIMERA
 
-Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.venv/bin/python -m pytest tests` was run on 2026-11-13: 26 passed, 2 failed (`test_exact_cache_survives_restart_and_telemetry_is_written`, `test_mcp_stdio_tools_list_and_call_round_trip` in `tests/test_chimera_app.py`, still being worked on).
+Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.venv/bin/python -m pytest -q tests` was run on 2026-11-14: 86 passed, 1 deselected, with other workers' uncommitted changes in the tree.
 
 ## Wave 1: Core (`packages/chimera-core`)
 - [x] 1. Exact and semantic cache (`cache/`)
@@ -11,9 +11,10 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
   - Qwen2.5-3B q4_k_m on llama.cpp. Evidence: `tests/test_backends.py`, `bench/results.md` (14 of 30 answered locally).
   - [ ] 2a. Gemma 3 1B/4B on the phone (planned).
   - _Requirements: 2.1, 2.2, 2.3_
-- [ ] 3. Speculative verifier with rejection sampling
-  - Built: `bench/verify_server.py`, `bench/run_spec.py`, `bench/start_verifier.sh`. Not ticked: `bench/spec_results.md` does not exist, so acceptance rate and speedup are unmeasured.
-  - [ ] 3a. Run `bench/run_spec.py` and write `bench/spec_results.md`.
+- [x] 3. Speculative verifier with rejection sampling
+  - Built: `bench/verify_server.py`, `bench/run_spec.py`, `bench/start_verifier.sh`. Evidence: `bench/spec_results.md`. Measured result is a loss: 4.5x to 7x slower than plain Ollama over the internet, round trip about 0.6 s, alpha 0.68 at K=4.
+  - [x] 3a. Ran `bench/run_spec.py`; result in `bench/spec_results.md`.
+  - [ ] 3b. Run again with a verifier fully on GPU and a round trip under about 50 ms.
   - _Requirements: 3.1, 3.2, 3.3_
 - [x] 4. Risk firewall (`firewall/risk_scorer.py`)
   - Evidence: `chimera_risk_score` MCP tool; firewall tests in `tests/`. Rule list only.
@@ -23,16 +24,16 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
 
 ## Wave 1b: Added after the first benchmarks
 - [x] 6. Ladder router (`ladder.py`, `config.py`): local -> GPU -> Crusoe top, escalate one tier on a failed check. Evidence: `tests/test_ladder.py`.
-  - [ ] 6a. Measure the ladder with `bench/run_ladder.py` and write the result.
+  - [x] 6a. Measured with `bench/run_ladder.py`. Evidence: `bench/results_ladder.md` (top tokens -45.1% for gpt-oss-120b, -65.6% for the 763B model; median latency higher; one pass).
 - [x] 7. GPU middle tier: Ollama `qwen3:30b-instruct` on a V100 over an SSH tunnel. Evidence: `bench/results_gpu.md`.
 - [x] 8. Heavy-task handoff with no brief or brief <= 200 tokens (`inference/handoff.py`).
-  - [ ] 8a. Measure token savings with the short brief. Not measured.
+  - [x] 8a. Short brief measured on 4 heavy prompts. Evidence: `bench/results_ladder.md` (brief added 827 input tokens, cut 402 output tokens, same dollars, 4.4x slower). The brief is now off by default.
 - [x] 9. Benchmarks: Mac cascade vs Crusoe only (`bench/results.md`) and vs GPU only (`bench/results_gpu.md`).
-  - [ ] 9a. Rerun the GPU handoff tail (about 300 s for 4 handoffs, cause unknown).
+  - [ ] 9a. Rerun the GPU handoff tail (about 300 s for 4 handoffs). `bench/results_ladder.md` places the stall inside the shared 30B call (queueing), not the Mac or Crusoe. Not rerun on an idle box.
 
 ## Wave 2: Surfaces
-- [x] 10. Kiro CLI, MCP server and hook interceptor (`apps/kiro-trimmer/`). Evidence: `tests/test_chimera_app.py` (2 tests failing, see top).
-  - [ ] 10a. Fix the 2 failing tests.
+- [x] 10. Kiro CLI, MCP server and hook interceptor (`apps/kiro-trimmer/`). Evidence: `tests/test_chimera_app.py`.
+  - [x] 10a. The 2 failing tests pass. Evidence: pytest run in the header (86 passed).
   - [ ] 10b. `github_autopatcher.py` (issue webhook -> Tavily -> patch -> PR). Planned.
   - _Requirements: 4.1, 4.2_
 - [ ] 11. Phone modules: `unknown_caller`, `marketplace_bot`, `mobile_hotfix`, `ride_arbitrage`, `supervisor_graph.py`. Planned, not started.
@@ -42,8 +43,8 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
 - [x] 12. HUD: static HTML plus Python SSE server (`apps/phantom-phone/hud-web/`). Evidence: `tests/test_hud.py`.
   - [ ] 12a. Phone video, voice transcript and trace tabs. Planned.
   - _Requirements: 1.2, 3.2_
-- [x] 13. CI: `.github/workflows/ci.yml` runs pytest on Python 3.11 and 3.12. Evidence: file exists; a green run is not yet confirmed.
-  - [ ] 13a. Confirm a green run on `dev`.
+- [x] 13. CI: `.github/workflows/ci.yml` runs pytest on Python 3.11 and 3.12. Evidence: file exists, and `gh run list --branch dev` showed two successful `ci` runs on 2026-11-14 (ids 43567996930, 43567920967).
+  - [x] 13a. Green run on `dev` confirmed by those two runs. Recheck after each push.
 
 ## Research (docs/research.md)
 - [x] 15. Paper sweep and feasibility table. Evidence: `docs/research.md`.
@@ -52,5 +53,15 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
   - [ ] 17a. Retrain on 1,000+ graded real calls including the GPU tier.
   - [ ] 17b. Measure `thresholds.confidence` 0.95 on the full ladder.
 
+## Added 2026-11-14
+- [x] 18. Tier pool (`tiers.py`, `[[tiers]]` in `chimera.toml`). Evidence: `tests/test_tiers.py`. No benchmark.
+- [x] 19. Gateway (`apps/gateway/`, `deploy/`). Evidence: `tests/test_gateway.py`. Gateway overhead not measured.
+- [x] 20. Shared Supabase cache (`cache/pgvector_cache.py`, `deploy/sql/`). Evidence: `tests/test_pgvector_cache.py`, `docs/vector-store.md` (hit rate 0.80, 48 of 60 GPU calls avoided, 0 false hits, lookup 121 ms vs 8.9 ms local; one run, 6 near-miss prompts).
+- [x] 21. Spec+ (`inference/specplus.py`). Evidence: `tests/test_specplus.py`, `bench/results_specplus.md` (1.14x to 1.22x over best plain spec, against a stand-in target only).
+  - [ ] 21a. Measure Spec+ against a real Qwen-family verifier with a short round trip.
+- [ ] 22. Modal H200 tier (`deploy/modal/vllm_server.py`). Not ticked: `bench/results_modal.md` says it never served a request. Retry pending.
+- [ ] 23. Android phone tier (`docs/android.md`, `scripts/`). Setup written. No phone run yet, so no evidence.
+- [ ] 24. Real-data suite (`bench/run_suite.py`, `bench/results_suite.md`). `bench/results_suite.md` does not exist yet.
+
 ## Next
-- [ ] 14. Measure the ladder, the short brief, and speculative verify; update `bench/` and `.kiro/steering/product.md`.
+- [ ] 14. Repeat the benchmarks, retry the Modal tier, and keep `.kiro/steering/product.md` in line with `bench/*.md`.

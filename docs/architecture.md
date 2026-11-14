@@ -4,10 +4,10 @@
 
 | Tier | What | Answers when |
 |---|---|---|
-| 0 | Exact cache (hash of the prompt) and semantic cache (embedding, cosine >= 0.94) | the prompt or a near copy was seen before |
-| 1 | Small local model: Qwen2.5-3B on a Mac, Gemma 3 1B/4B planned for the phone | the task is not heavy and mean token logprob confidence is >= 0.85 |
+| 0 | Exact cache (hash of the prompt) and semantic cache (embedding, cosine >= 0.97; 0.94 served wrong answers in [results_gpu.md](../bench/results_gpu.md)) | the prompt or a near copy was seen before |
+| 1 | Small local model: Qwen2.5-3B on a Mac; a Qwen phone tier is written but not tested | the task is not heavy and mean token logprob confidence is >= 0.85 |
 | 2 | GPU box: Qwen3-30B | tier 1 is unsure, a check fails, or the task is heavy |
-| 3 | Large Crusoe model | the task is heavy, or tier 2 says ESCALATE, or a check fails |
+| 3 | Crusoe model: `gpt-oss-120b`, or the largest on the key (DeepSeek-V4.1-Flash, 763B) | the task is heavy, or tier 2 says ESCALATE, times out (90 s) or fails a check |
 
 Tier choice goes in this order: rules first (`complexity_score`, heavy threshold 0.6), then local logprob confidence, then a failed check that moves up one tier. The code is in `packages/chimera-core/router.py` and `ladder.py`.
 
@@ -27,9 +27,9 @@ Speculative verification compares the draft model's probability for a token id w
 | Model pairing | any pair | same family only |
 | Output | the big model's own answer | same distribution as the big model |
 | Fits | heavy tasks the small model should not attempt | tasks the small model can mostly draft |
-| Cost seen | brief and draft add input tokens: heavy tasks cost more ([results.md](../bench/results.md)) | not yet measured |
+| Cost seen | brief and draft add input tokens: heavy tasks cost more ([results.md](../bench/results.md)). A 30B brief cost the same dollars and was 4.4x slower ([results_ladder.md](../bench/results_ladder.md)) | plain: 4.5x to 7x slower than no speculation over the internet ([spec_results.md](../bench/spec_results.md)) |
 
-Use handoff when the families differ or the task is heavy. Use verification when the small model drafts well and the target is its family. Some hosted APIs (Crusoe) reject the `echo` parameter, so they cannot score draft tokens in one pass. Verification needs a server that can, such as the repo's verifier on the GPU box (`bench/verify_server.py`).
+Use handoff when the families differ or the task is heavy. Use verification only when the round trip is short. Over the internet the round trip alone was about 0.6 s, which cancelled the gain. Heavy tasks now go up with no brief by default. Some hosted APIs (Crusoe) reject the `echo` parameter, so they cannot score draft tokens in one pass. Verification needs a server that can, such as the repo's verifier on the GPU box (`bench/verify_server.py`).
 
 ## Telemetry
 
@@ -63,3 +63,25 @@ Set `use_pool = true` to have `SpeculativeCascadeRouter` route through the pool.
 ## Spec+ (cross-device speculative decoding)
 
 `packages/chimera-core/inference/specplus.py` cuts the network cost of draft-here, verify-there decoding. Each feature is a toggle: adaptive K (from alpha and RTT), token-tree drafts, pipelined next-block drafting, free drafts (prompt n-gram copy, cache neighbour), compact binary wire (varint ids, int8 logprobs), and an optional lossy mode (off). Lossless by default: rejection sampling with `min(1, p_t/p_d)` and residual resampling. Results and caveats: `bench/results_specplus.md`. Run: `.venv/bin/python bench/run_specplus.py`.
+
+Measured against a stand-in target (the 3B with a sharpened distribution), not a real big model: 1.14x to 1.22x over the best plain spec at a simulated round trip of 0 to 300 ms, and still below the big model alone (13.36 against 19.27 tok/s at 150 ms) ([results_specplus.md](../bench/results_specplus.md)). No speedup over plain Ollama is claimed. Real plain spec was slower than plain Ollama ([spec_results.md](../bench/spec_results.md)).
+
+## Gateway
+
+`apps/gateway/` is an OpenAI-compatible HTTP service in front of `LadderRouter.generate()`. Apps change `base_url` and the key. Keys are stored as hashes, each tenant has its own cache namespace, and `/metrics` gives Prometheus text by tenant and tier. Streaming replays a finished answer, so first-byte latency equals full-answer latency. See [deploy/README.md](../deploy/README.md). No benchmark of gateway overhead exists.
+
+## Shared cache (Supabase)
+
+`cache/pgvector_cache.py` stores prompts, 384-number embeddings and answers in Postgres with pgvector, so a second machine reads what the first wrote. Only rows marked verified are served. A lookup that takes over 300 ms, or an error, falls back to local SQLite. Measured once: hit rate 0.80, 48 of 60 GPU calls avoided on a second machine, 0 false hits. A lookup took a median 121 ms against 8.9 ms local, and a 150 ms budget fell back on 59 of 60 lookups ([vector-store.md](vector-store.md)). The exact-hash cache in the router is still local.
+
+## Cache guard and learned router (both off)
+
+`cache/guard.py` rejects a cache hit when numbers, negation or entities differ. On 800 QQP pairs at 0.97 it cut wrong hits from 4 to 2 and recall from 10.1% to 9.1% ([results_research_cache.md](../bench/results_research_cache.md)). `learned_router.py` predicts whether the 3B will be right. On 180 graded prompts it reached 70.0%, the same as the confidence gate ([results_research_router.md](../bench/results_research_router.md)).
+
+## Modal tier (`gpu-large`)
+
+`deploy/modal/vllm_server.py` runs vLLM on a Modal H200 that scales to zero. It never served a request in two cold starts, so no ladder, spec or cache numbers exist for it. Retry pending ([results_modal.md](../bench/results_modal.md)).
+
+## Android tier
+
+`phone-3b` runs a small Qwen model on the phone through Termux and reaches it over USB ([android.md](android.md)). Not tested on a phone yet. Gemma 3 is a possible stand-alone tier but cannot verify for a Qwen target.
