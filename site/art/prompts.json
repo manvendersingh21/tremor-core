@@ -1,0 +1,94 @@
+{
+ "_style": "Cinematic painterly gothic romance digital painting, rich glossy stylized look, deep purple and wine-red night palette with candle-gold accents, volumetric light, no text, no letters, no logos, no watermark.",
+ "gate": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Cinematic painterly gothic romance matte painting. A huge gothic castle with many spires on a cliff, warm glowing windows, under a giant glowing full orange moon. Layered purple and wine-red night sky with soft clouds, bats flying across the moon, drifting fog in the valley, a candlelit wrought-iron gate with burning candles and a few autumn leaves in the foreground. Glossy stylized rich look, volumetric light, deep shadows, premium game key art. No text, no letters, no logos, no watermark."
+ },
+ "hall": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Cinematic painterly interior of a grand candlelit gothic great hall. Tall arched windows showing a large glowing moon, a long red carpet, iron chandeliers with candles, massive stone pillars, wine-red drapes, warm gold candle light, large empty stone wall spaces between pillars for doors, symmetrical wide view. Rich glossy painted look, volumetric light. No text, no letters, no logos, no watermark."
+ },
+ "door": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 1,
+  "prompt": "One ornate arched dark oak door with iron studs and hinges, stone arch frame, a small blank brass plaque in the middle with no writing, front view, centered, painterly gothic style, soft warm glow around the edges, plain flat very dark background so it can be cut out. No text, no letters, no logos."
+ },
+ "room-crypt": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly gothic crypt interior at night: stone vaults, old coffins, cobwebs, candles in iron stands, cold green ghostly wisps, purple mist, a big empty smooth stone wall area in the center for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "room-ladder": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly gothic spiral stair tower interior seen from below, winding stone steps with iron rail, glowing candle lanterns, arched windows with moonlight, wine-red banners, a flat empty stone wall area on one side for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "room-familiar": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly cozy gothic study at night: a black raven on a perch, a burning candle, leather armchair, bookshelves, a moonlit window, warm gold light, wine-red rug, an empty wood-panelled wall area for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "room-manor": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly gothic forge and engine room: brass and iron machinery with glowing orange furnace light, gears, pipes, steam, stone arches, sparks, a big flat dark stone wall area for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "room-castle": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly vast gothic throne hall: a tall dark throne on steps, huge pillars, red carpet, tall moonlit windows, candelabras, wine-red banners without symbols, an empty stone wall area for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "room-tower": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly top-of-tower gothic observatory under a starry purple sky and giant moon, brass telescope, star charts as abstract shapes, open domed roof, candles, a flat empty wooden wall area for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "room-ledger": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly gothic library: tall shelves of leather ledgers and books, quills and inkwells on a desk, a rolling ladder, candles, moonlit arched window, an empty wood-panelled wall area for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "room-guild": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Painterly gothic council chamber: a round dark wood table with high-backed chairs, hanging chandelier, stone walls, wine-red drapes, tall moonlit windows, candles, no fireplace, a large plain empty stone wall area on the left third for hanging posters. Cinematic, glossy, volumetric light. No text, no letters, no logos."
+ },
+ "count": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 3,
+  "prompt": "Painted portrait, waist up, of an original elegant vampire gentleman, Count Cuspid: pale, slicked dark hair, high-collar black cape with red satin lining, friendly half smile, tiny fangs, gold ring, warm candle rim light, glossy painterly gothic romance style, plain flat dark background for cutout. No text, no letters, no logos."
+ },
+ "parchment": {
+  "aspect": "4:3",
+  "width": 1152,
+  "height": 864,
+  "n": 1,
+  "prompt": "A blank aged parchment poster with no writing, stained warm cream paper, within a carved dark wood frame with small gold corner details, front view, flat, centered, plain dark background. No text, no letters, no symbols."
+ }
+}

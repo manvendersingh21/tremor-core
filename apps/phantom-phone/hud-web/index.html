@@ -56,10 +56,8 @@ body{margin:0;min-height:100vh;color:var(--fg);font:15px/1.55 Inter,system-ui,sa
 .bat{animation:flap 14s ease-in-out infinite}
 @keyframes flicker{0%,100%{opacity:1}45%{opacity:.78}55%{opacity:.95}70%{opacity:.82}}
 /* Gothic scene */
-.gmoon{top:34px;right:5%;width:clamp(150px,24vw,300px);animation:halo 9s ease-in-out infinite}
+.gart{position:absolute;left:50%;top:50%;width:max(100vw,177.78vh);height:max(56.25vw,100vh);transform:translate(-50%,-50%);object-fit:cover;filter:brightness(.55) saturate(.9);animation:halo 9s ease-in-out infinite}
 @keyframes halo{0%,100%{opacity:.92}50%{opacity:1}}
-.castle{bottom:0;right:0;width:min(100%,1100px);height:min(46vh,420px);opacity:.96}
-.castle .win{fill:#f3b866;animation:flicker 4s infinite}
 .flyer{position:absolute;left:-10%;animation:cross 52s linear infinite}
 .flyer.b2{animation-duration:68s;animation-delay:-24s}.flyer.b3{animation-duration:84s;animation-delay:-47s}
 @keyframes cross{from{transform:translateX(0)}to{transform:translateX(125vw)}}
@@ -147,7 +145,7 @@ code{background:var(--card);padding:1px 6px;border-radius:4px;border:1px solid v
 .legend2{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;margin:10px 0 4px}
 footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--mut);font-size:12px}
 [hidden]{display:none!important}
-@media (max-width:520px){nav{margin-left:0;width:100%}nav button{flex:1;padding:8px 6px}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:24px}.card{padding:14px}.tbtn{padding:8px 10px}.gmoon{top:330px;right:-30px;width:170px;opacity:.5;animation:none}.castle{opacity:.8}}
+@media (max-width:520px){nav{margin-left:0;width:100%}nav button{flex:1;padding:8px 6px}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:24px}.card{padding:14px}.tbtn{padding:8px 10px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
   .flyer{left:var(--rx);transform:none}.petal{opacity:0}}
 </style>
@@ -161,32 +159,10 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 <!-- Gothic scene: moon with halo, slow bats, castle on a cliff, low mist -->
 <div class="scene g" aria-hidden="true">
   <div class="fog f1"></div><div class="fog f2"></div>
-  <svg class="gmoon" viewBox="0 0 200 200"><defs>
-    <radialGradient id="gh"><stop offset=".25" stop-color="#f6e3c4" stop-opacity=".42"/><stop offset=".55" stop-color="#e9b88a" stop-opacity=".14"/><stop offset="1" stop-color="#e9b88a" stop-opacity="0"/></radialGradient>
-    <radialGradient id="gd" cx=".38" cy=".35" r=".8"><stop offset="0" stop-color="#fff6e3"/><stop offset=".6" stop-color="#f1d9ae"/><stop offset="1" stop-color="#d9b07a"/></radialGradient></defs>
-    <circle cx="100" cy="100" r="100" fill="url(#gh)"/><circle cx="100" cy="100" r="62" fill="#f6e3c4" opacity=".1"/>
-    <circle cx="100" cy="100" r="44" fill="url(#gd)"/>
-    <g fill="#b98a58" opacity=".35"><circle cx="86" cy="88" r="7"/><circle cx="114" cy="112" r="9"/><circle cx="108" cy="80" r="4"/><circle cx="90" cy="118" r="4.5"/><circle cx="122" cy="94" r="3"/></g>
-    <circle cx="100" cy="100" r="44" fill="none" stroke="#fff3da" stroke-opacity=".5" stroke-width="1"/></svg>
+  <img class="gart" src="gate-bg.webp" alt="" width="1024" height="576">
   <div class="flyer b1" style="top:92px;--rx:68%"><svg class="gbat" width="46" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
   <div class="flyer b2" style="top:150px;--rx:78%"><svg class="gbat" width="30" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
   <div class="flyer b3" style="top:58px;--rx:58%"><svg class="gbat" width="22" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
-  <svg class="castle" viewBox="0 -60 1100 520" preserveAspectRatio="xMaxYMax meet">
-    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a0c16"/><stop offset="1" stop-color="#0d0307"/></linearGradient></defs>
-    <path fill="url(#cg)" d="M0 460V380C120 372 240 352 360 342C450 334 500 312 540 280L1040 280C1070 292 1090 320 1100 350V460Z"/>
-    <g fill="#1a0711" stroke="rgba(217,163,91,.35)" stroke-width="1.2">
-      <rect x="690" y="190" width="220" height="92"/>
-      <rect x="560" y="236" width="140" height="46"/><rect x="900" y="226" width="150" height="56"/>
-      <rect x="640" y="130" width="52" height="152"/><path d="M630 130L666 40 702 130z"/>
-      <rect x="760" y="70" width="60" height="124"/><path d="M750 70L790 -40 830 70z"/>
-      <rect x="904" y="110" width="56" height="172"/><path d="M894 110L932 14 970 110z"/>
-      <rect x="722" y="162" width="26" height="30"/><path d="M716 162L735 122 754 162z"/>
-      <rect x="840" y="150" width="30" height="42"/><path d="M834 150L855 108 876 150z"/>
-    </g>
-    <g stroke="#0b0307" fill="none" stroke-width="12" stroke-dasharray="10 9"><path d="M690 184H910"/><path d="M560 230H700"/><path d="M900 220H1050"/></g>
-    <g class="win-g"><path class="win" d="M783 100v22h14v-22a7 7 0 00-14 0z"/><path class="win" style="animation-delay:-1.4s" d="M659 160v20h10v-20a5 5 0 00-10 0z"/><path class="win" style="animation-delay:-2.6s" d="M925 140v24h12v-24a6 6 0 00-12 0z"/><path class="win" style="animation-delay:-.6s" d="M726 206v20h8v-20a4 4 0 00-8 0z"/><path class="win" style="animation-delay:-3.1s" d="M850 208v20h8v-20a4 4 0 00-8 0z"/><path class="win" style="animation-delay:-2s" d="M940 250v18h8v-18a4 4 0 00-8 0z"/></g>
-    <path fill="#0b0307" d="M510 292c20-6 40-2 52 14l30 4 4 30-110 10z" opacity=".0"/>
-  </svg>
 </div>
 
 <!-- Hollowkeep scene -->

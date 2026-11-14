@@ -99,6 +99,8 @@
   }
   function enterRoom(r) {
     $('room-title').textContent = r.title;
+    const art = 'art/' + (r.art || 'room-' + r.id), bg = $('room-bg');
+    bg.srcset = `${art}-1024.webp 1024w, ${art}.webp 2048w`; bg.src = `${art}-1024.webp`;
     grid.textContent = '';
     const hungN = new Set();
     const upTo = (i) => r.posters.forEach((p, k) => {
