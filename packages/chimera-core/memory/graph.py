@@ -187,29 +187,3 @@ class PgGraphStore:
     def purge(self, tenant):
         n = self._tx(tenant, "delete from mem_nodes where tenant=%s", (tenant,))  # edges cascade
         return n + self._tx(tenant, "delete from teacher_pairs where tenant=%s", (tenant,))
-
-
-class Neo4jGraphStore:
-    """Stub with the GraphStore methods, for a dedicated graph DB later (the user may supply one).
-
-    TODO(neo4j): add the `neo4j` driver as an optional extra, then map the methods:
-      add_node/find_node  -> MERGE (n:Mem {tenant, kind, text}) SET n.embedding = $emb
-      add_edge            -> MATCH both nodes by id AND tenant, MERGE (a)-[r:REL {rel}]->(b) SET r.weight
-      nearest             -> a vector index (db.index.vector.queryNodes) filtered on tenant and kind
-      neighbors           -> MATCH (a)-[r]-(b) WHERE id(a) IN $ids AND r.tenant = $tenant
-      add_pair            -> keep teacher pairs in Postgres (training data), not here
-      purge               -> MATCH (n {tenant:$t}) DETACH DELETE n
-    Not built and not tested: no driver is installed.
-    """
-
-    def __init__(self, *_: Any, **__: Any) -> None:
-        raise NotImplementedError("Neo4jGraphStore is a stub; use PgGraphStore (see docs/memory.md)")
-
-    def add_node(self, tenant, kind, text, emb): raise NotImplementedError
-    def find_node(self, tenant, kind, text): raise NotImplementedError
-    def add_edge(self, tenant, src, dst, rel, weight=1.0): raise NotImplementedError
-    def nearest(self, tenant, kind, emb, k): raise NotImplementedError
-    def neighbors(self, tenant, ids): raise NotImplementedError
-    def add_pair(self, tenant, pair, emb): raise NotImplementedError
-    def stats(self, tenant): raise NotImplementedError
-    def purge(self, tenant): raise NotImplementedError

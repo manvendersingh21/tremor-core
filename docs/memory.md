@@ -8,8 +8,8 @@ Code: `packages/chimera-core/memory/`. Tests: `tests/test_memory.py` (fakes only
 ## Interface (for the router owner)
 
 ```python
-from chimera_core.memory import Memory, PgGraphStore          # Neo4jGraphStore: see "Graph store" below
-mem = Memory(store, embedder, tenant="acme", extractor=...)    # embedder: .embed(text) -> 384 floats (MiniLM)
+from chimera_core.memory import build
+mem = build(embedder, tenant="acme", extractor=...)            # embedder: .embed(text) -> 384 floats (MiniLM)
 
 ctx = mem.retrieve(prompt, k=3)       # MemoryContext(examples=[Example(problem, solution, why, score)], concepts=[...])
 text = ctx.render()                   # "" when memory has nothing; capped at 800 tokens (chars/4 estimate)
@@ -60,7 +60,23 @@ RLS: same pattern as 002 (`app.tenant`). Every query also filters on tenant.
 ## Graph store (adapter)
 
 `GraphStore` is a Protocol (`memory/graph.py`): `add_node, find_node, add_edge, nearest, neighbors, add_pair, stats,
-purge`. Implementations: `InMemoryStore` (tests, bench), `PgGraphStore` (Supabase), `Neo4jGraphStore` (see below).
-Teacher pairs always stay in Supabase.
+purge`. Implementations: `InMemoryStore` (tests and the benchmark curve), `PgGraphStore` (Supabase tables from
+`005_memory.sql`, kept as an adapter, not used as a fallback) and `Neo4jGraphStore` (`memory/neo4j_store.py`).
+
+**The graph is hosted Neo4j Aura only.** `default_store()` / `build(embedder, tenant)` read `CHIMERA_GRAPH_URL`,
+`CHIMERA_GRAPH_USER`, `CHIMERA_GRAPH_PASSWORD`, `CHIMERA_GRAPH_DATABASE` from `.env` (names in `.env.example`, never
+values). There is no Akash Neo4j and no Postgres graph fallback. If Aura is unreachable, `retrieve` returns an empty
+context for that call and `store` skips the graph part; both log `chimera.memory` warnings and never raise.
+Supabase keeps `teacher_pairs` (training data), embeddings and the answer cache. Install the driver with
+`pip install .[graph]` (the `neo4j` package).
+
+Graph model in Aura: `(:Problem)-[:SOLVED_BY]->(:Solution)-[:USES]->(:Concept)`,
+`(:Problem)-[:SIMILAR_TO {score}]->(:Problem)`, `(:Solution)-[:FIXES]->(:Error)`, and `(:Pattern)-[:PART_OF]->(:Solution)`
+for the one-line "why it works". Every node also has the label `:Mem` and `id, tenant, text, embedding, created_at`.
+Embeddings use Neo4j vector indexes (cosine, 384 dims), one per label. Tenants are separated by the `tenant` property
+on every node and edge, and every query filters on it.
 
 Concept extraction on `store`: the 30B itself (`llm_extractor`), falling back to a code-pattern heuristic. No GMI call.
+
+Live check (opt-in test, needs the Aura variables): `pytest tests/test_memory.py -k live` writes and reads a problem
+in a test tenant, checks another tenant sees nothing, then purges it.
