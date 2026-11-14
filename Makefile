@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 HUD = apps/phantom-phone/hud-web
 
-.PHONY: setup test demo bench serve-local
+.PHONY: setup test demo bench serve-local site loop
 
 setup:
 	python3 -m venv .venv
@@ -22,3 +22,11 @@ bench:
 
 serve-local:
 	bench/serve_local.sh
+
+loop:  # N rounds through the tier pool (ROUNDS=3); LOOP_ARGS=--forever for continuous
+	$(PY) bench/run_loop.py --rounds $(or $(ROUNDS),3) $(LOOP_ARGS)
+
+site:
+	python3 site/build.py --check || python3 site/build.py
+	@echo "Open http://127.0.0.1:8765  (Ctrl-C to stop)"
+	python3 -m http.server 8765 --bind 127.0.0.1 --directory site
