@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
@@ -17,6 +17,9 @@ from .inference.cloud_verifier import CloudVerifier
 from .inference.handoff import build_brief, cloud_prompt
 from .inference.local_draft import DraftBackend, DraftResult, chatml, should_escalate
 from .inference.telemetry import Telemetry, TelemetryTracker
+
+if TYPE_CHECKING:
+    from .tiers import TierPool
 
 HEAVY_HINTS = re.compile(
     r"\b(refactor|architecture|migrate|redesign|implement|debug|optimi[sz]e|concurrency|"
@@ -64,6 +67,7 @@ class SpeculativeCascadeRouter:
         tracker: TelemetryTracker | None = None,
         config: RouterConfig | None = None,
         tokenizer: Tokenizer | None = None,
+        pool: "TierPool | None" = None,
     ) -> None:
         self.local, self.cloud = local, cloud
         self.exact = exact or ExactCache()
@@ -71,6 +75,7 @@ class SpeculativeCascadeRouter:
         self.tracker = tracker or TelemetryTracker()
         self.cfg = config or RouterConfig()
         self.tokenizer = tokenizer
+        self.pool = pool  # config flag `use_pool`: route through the tier pool instead of local/cloud
 
     # ---- public API -------------------------------------------------------
     def generate(self, prompt: str, context: str = "") -> GenerateResult:
@@ -87,6 +92,9 @@ class SpeculativeCascadeRouter:
             if sem is not None:
                 return self._done(sem[0], "semantic_cache", t0, tokens_saved=est_tokens + len(sem[0]) // 4)
 
+        if self.pool is not None:
+            return self._pooled(prompt, t0)
+
         heavy = complexity_score(prompt) >= self.cfg.heavy_threshold
         if heavy and self.cloud is not None:
             return self._handoff(prompt, context, t0, draft=None)
@@ -100,6 +108,21 @@ class SpeculativeCascadeRouter:
         return self._handoff(prompt, context, t0, draft=draft)
 
     # ---- paths --------------------------------------------------------------
+    def _pooled(self, prompt: str, t0: float) -> GenerateResult:
+        r = self.pool.generate(prompt)
+        self._remember(prompt, r.text)
+        per = self.pool.telemetry_per_tier(r)
+        owned = r.device != "cloud"
+        tin = sum(u.tokens_in for u in r.per_tier.values())
+        tout = sum(u.tokens_out for u in r.per_tier.values())
+        return self._done(
+            r.text, {"phone": "local", "laptop": "local", "gpu": "gpu", "cloud": "top"}[r.device], t0,
+            tokens_saved=(tin + tout) if owned else 0,
+            local_tokens=sum(u.output_tokens for u in per.values() if u.device in ("phone", "laptop")),
+            cloud_tokens=sum(u.output_tokens for u in per.values() if u.device == "cloud"),
+            per_tier=per,
+        )
+
     def _store_local(self, prompt: str, draft: DraftResult, t0: float) -> GenerateResult:
         self._remember(prompt, draft.text)
         return self._done(
@@ -137,13 +160,13 @@ class SpeculativeCascadeRouter:
 
     def _done(
         self, text: str, tier: str, t0: float, tokens_saved: int = 0, alpha: float | None = None,
-        local_tokens: int = 0, cloud_tokens: int = 0,
+        local_tokens: int = 0, cloud_tokens: int = 0, per_tier: dict | None = None,
     ) -> GenerateResult:
         tel = Telemetry(
             tier_used=tier, tokens_saved=tokens_saved, acceptance_rate_alpha=alpha,
             latency_ms=(time.perf_counter() - t0) * 1000,
             dollars_saved=tokens_saved / 1000 * self.cfg.cloud_dollars_per_1k_tokens,
-            local_tokens=local_tokens, cloud_tokens=cloud_tokens,
+            local_tokens=local_tokens, cloud_tokens=cloud_tokens, per_tier=per_tier,
         )
         self.tracker.emit(tel)
         return GenerateResult(text=text, telemetry=tel)
