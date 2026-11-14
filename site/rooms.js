@@ -1,5 +1,16 @@
 window.ROOMS = [
   {
+    "id": "observatory",
+    "art": "room-tower",
+    "title": "The Observatory",
+    "door": "Live: every call, every token, as it happens.",
+    "say": [
+      "Welcome to the Observatory. Every call the router handles shows up here as it happens.",
+      "Watch the counters, the tier donut and the per-model token ledger. Demo data is labelled as demo."
+    ],
+    "posters": []
+  },
+  {
     "id": "crypt",
     "title": "The Crypt",
     "door": "Cache: the cheapest answer is one we already have.",

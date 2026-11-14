@@ -1,8 +1,12 @@
-# HUD: live savings dashboard
+# Dashboard and the one server
+
+The dashboard now lives in the castle site, in the Observatory (live ledger) and the Ledger (benchmarks and evals). Its code is `site/dashboard.js` and `site/dashboard.css`. This folder keeps the server (`server.py`, which serves the whole site on one port), the demo feeder (`demo.py`) and the screenshots. `index.html` here only redirects to `/#walk/observatory`. See `site/README.md`.
+
+The notes below describe the dashboard itself.
 
 A dark, mobile-first page (readable at 320 px) that shows what the router saves and which model spent each token. Three themes: **Gothic** (default; candlelit castle, enchanted rose under glass, full moon with slow bats, Cinzel and Cormorant type), **Hollowkeep** (the earlier dark green theme) and **Standard** (plain dark).
 
-This replaces the Next.js HUD in the spec. The Mac has too little free disk for `npm install`, so this is one static `index.html` plus a stdlib Python server. No node, no new dependencies.
+This replaces the Next.js HUD in the spec. The Mac has too little free disk for `npm install`, so this is static files plus a stdlib Python server. No node, no new dependencies.
 
 ![Live tab, Gothic theme, demo data](docs/gothic.png)
 
@@ -14,7 +18,7 @@ This replaces the Next.js HUD in the spec. The Mac has too little free disk for 
 
 ## Theme toggle
 
-Three buttons in the top bar. The choice is saved in `localStorage` (`chimera-theme`: `gothic`, `hollowkeep`, `standard`; an old `halloween` value maps to Hollowkeep). `?theme=standard` forces a theme for one load. Motion (fog, bats, petals, candle flames, counter easing) always runs; there is no pause control. Tiers show a themed name beside the real one (Standard shows the real name only):
+Three buttons in the dashboard bar. The choice is saved in `localStorage` (`chimera-theme`: `gothic`, `hollowkeep`, `standard`; an old `halloween` value maps to Hollowkeep). `?theme=standard` forces a theme for one load. Motion (fog, bats, petals, candle flames, counter easing) always runs; there is no pause control. Tiers show a themed name beside the real one (Standard shows the real name only):
 
 | Tier | Themed label |
 |---|---|
@@ -43,19 +47,20 @@ Old events without it still render from `local_tokens`, `gpu_tokens` and `cloud_
 ## Run
 
 ```
-python apps/phantom-phone/hud-web/server.py      # http://127.0.0.1:8765 (HUD_PORT to change)
+make web                                          # http://127.0.0.1:8765, the castle with the dashboard inside (CHIMERA_PORT to change)
 python apps/phantom-phone/hud-web/demo.py        # simulated backends, no network, no keys
-python apps/phantom-phone/hud-web/demo.py --real # llama-server on :8080 + Crusoe (CRUSOE_API_KEY in .env)
+make demo                                         # demo.py in the background, then the server
 ```
 
-- Binds `127.0.0.1` only.
+- Binds `127.0.0.1` only (`CHIMERA_HOST=0.0.0.0` only inside a container).
+- Serves `site/` at `/` (no file outside `site/`, no dotfiles), `/events`, `/api/bench`, `/api/evals`, and `/api/chat`, `/api/health`, `/api/stats` from `chimera_core.service` (`docs/api.md`).
 - Telemetry file: `apps/phantom-phone/hud-web/telemetry.jsonl`, or `HUD_TELEMETRY=/path`. Set the same value for both scripts.
 - `demo.py` resets that file when it starts. It writes one `_meta` line first (the source badge), then one `Telemetry` JSON line per call. Any code can feed the HUD with `TelemetryTracker.jsonl_sink(path)`.
 - `/events` is Server-Sent Events (replays the file, then follows it). `/api/bench` is the merged CSV summary. The CSVs are only read.
 
 ## Tests
 
-`.venv/bin/python -m pytest -q tests/test_hud.py` covers the CSV merge (with per-tier tokens), the `per_tier` telemetry field and the SSE tail (partial lines, missing file, truncation).
+`.venv/bin/python -m pytest -q tests/test_hud.py` covers the CSV merge (with per-tier tokens), the `per_tier` telemetry field, the SSE tail (partial lines, missing file, truncation), static files staying inside `site/`, and the one page on one port.
 
 ## Limits
 
@@ -63,7 +68,7 @@ python apps/phantom-phone/hud-web/demo.py --real # llama-server on :8080 + Cruso
 - The demo's tier mix is invented. It shows the HUD works, not how the router performs.
 - `docs/gothic.png` is the Live tab (1440 px, demo data); 320 px was checked by screenshot only during development. Screenshots, taken with headless Chromium from the Playwright cache. The Benchmarks tab was checked through `/api/bench` output and tests, not by screenshot.
 
-- Gothic backdrop motion: 5 flapping bats, a breathing moon glow and two slow cloud strips (transform and opacity only). The `Pause motion` button shares the site key `chimera-motion`. It pauses when the tab is hidden, and reduced motion shows a still frame.
+- Motion always runs. There is no pause control.
 
 ## Evals tab
 
@@ -72,7 +77,7 @@ One log of every benchmark run (`bench/evallog.py`): leaderboard, charts, tokens
 ```
 bin/chimera evals import        # result files -> ~/.chimera/evals.db (+ Supabase eval_runs if CHIMERA_DB_URL is set)
 bin/chimera evals leaderboard
-python apps/phantom-phone/hud-web/server.py   # open http://127.0.0.1:8765/#evals
+make web                        # open http://127.0.0.1:8765/#evals (the Ledger room)
 ```
 
 `/api/evals` reads the SQLite file, or the result files directly if it does not exist yet. `docs/evals.png` is the tab (Gothic, 1440 px, real rows). Tests: `tests/test_evallog.py`.

@@ -1,47 +1,72 @@
-# CHIMERA site
+# CHIMERA site: the walkable castle
 
-A castle you walk through. Count Cuspid greets you at the gate. The great hall has eight doors. Each room has posters that bats hang on the wall.
+One page, one port. You walk a cloaked figure through a painted gothic castle with W A S D. Rooms hold the posters (real benchmark numbers), the live dashboard and the evals. On the top floor a bat answers questions through the router, and a trace shows every step it takes.
 
 No framework, no npm. The only external request is Google Fonts.
+
+![Walk, stairs, dashboard, then the bat answers twice: a miss, then a cache hit](docs/walk.gif)
 
 ## Run
 
 ```
-python3 -m http.server 8765 --bind 127.0.0.1 --directory site
+make web       # http://127.0.0.1:8765  (CHIMERA_PORT to change)
+make demo      # same, plus demo telemetry so the Observatory moves
 ```
 
-or `make site`. Open http://127.0.0.1:8765. Stop it with Ctrl-C.
+`make web` runs `apps/phantom-phone/hud-web/server.py`. That one server serves `site/`, the telemetry stream (`/events`), `/api/bench`, `/api/evals`, and the backend API (`/api/chat`, `/api/health`, `/api/stats`, from `chimera_core.service`, see `docs/api.md`). It binds `127.0.0.1`.
 
-## Add a room or a poster
+Opening `index.html` as a file, or on a static host, still works. The walk needs `map.json` over HTTP. Without it the page falls back to the click-through tour (`tour.js`). The bat then shows a labelled MOCK reply, because there is no `/api/chat`.
 
-Edit `site/rooms.js`. It is plain JSON assigned to `window.ROOMS`. Each room has `id`, `title`, `door` (plaque line), `say` (what Count Cuspid says, one string per step) and `posters`. A poster has `at` (the step when bats bring it), `bats` (1 to 3), `title`, `big` or `steps`, `lines`, and `src` (label and repo path).
+## Controls
 
-Then run `python3 site/build.py`. It writes the no-JS fallback (doors and one plain section per room) into `index.html`. `python3 site/build.py --check` fails if they are out of date. Use only real numbers from `bench/*.md`.
+| Key | Does |
+|---|---|
+| W A S D, arrows | walk |
+| Shift | run |
+| E, Enter | open a door, use the stairs, talk |
+| Esc | leave a room |
+| M, "Skip the walk" | list of all rooms (keyboard and screen reader path) |
+| click or tap | walk there (A* on the tile grid) |
 
-## Routes
+Phones get a joystick and an E button. Walking onto stairs also climbs them.
 
-`#entrance`, `#hall`, `#room/<id>`. The browser Back button works. Esc leaves a room. Enter opens the gate. Arrow keys step through his lines.
+## Floors and rooms
+
+| Floor | Rooms |
+|---|---|
+| Ground: courtyard and Great Hall | The Crypt (cache), The Ladder (how routing works), The Guild (companies), The Gate (get started). The Count stands in the hall. Grand stairs at the south end. |
+| First | The Observatory (live dashboard), The Ledger (benchmarks and evals), The Familiar's Study (phone) |
+| Tower | The Count's study with the bat agent, The Manor and The Castle (GPUs), The Tower (cloud) |
+
+![All three floors](docs/walk_map.png)
+
+## The bat (talk to the agent)
+
+The chat posts to `/api/chat` and reads the SSE steps from `docs/api.md`. The trace shows: embedding, the shared cache (cosine score against 0.97 and the guard), the GPU 30B (self-hosted) with its confidence against the gate, the N+1 memory (examples retrieved, stored as teacher data or not), the decision with its reason, each call, and the final tier, model, tokens, $, ms and tokens kept off the big model. Totals for the chat: hit rate, GPU calls avoided, $ saved. The strip on top polls `/api/health` every 2 s: GPU tunnel, Supabase, Crusoe, RAM, Modal.
+
+If the self-hosted tier that answered is the Mac 3B, the lane title says "Mac 3B (experiment, not the 30B)". The 3B is not in the product ladder.
+
+## Add a room
+
+- Map: `site/world/map.json`. Floors are rows of tiles (`#` wall, `t` torch, `w` window, `b` books, `f` furniture, `c` candles, `~` fountain, `D` door, `.` floor, `,` courtyard, `=` carpet, `U` stairs up, `d` stairs down). A door entry links a `D` tile to a room. `tests/test_world.py` checks the schema, that the art exists, and that every door, NPC and stair can be reached.
+- Posters: `site/rooms.js` (`window.ROOMS`). Then run `python3 site/build.py`. It writes the no-JS fallback (one plain section per room) into `index.html`. `--check` fails if it is out of date. Use only real numbers from `bench/*.md`.
+- Dashboard blocks: `.dash[data-dash=<room id>]` in `#dash-store` in `index.html`. A room borrows its block while it is open (Observatory: live ledger; Ledger: benchmarks and evals; Ladder: how it works).
 
 ## Files
 
-- `index.html`: page, Dracula SVG, generated fallback.
-- `styles.css`, `tour.js`, `rooms.js`, `build.py`.
-- `life.js`: Pause motion button (saved in localStorage `chimera-motion`), pause when the tab is hidden, mouse parallax on desktop.
-- `docs/landing.png` (hall), `docs/room.png` (a room), `docs/animated.gif` (4.8 s of the gate), `docs/animated_still.png`.
+- `index.html`: page, dashboard blocks, generated no-JS fallback.
+- `world/`: `world.js` (engine), `grid.js` (tiles, A*), `chat.js` (bat room, trace, monitor), `world.css`, `map.json`, `player.png` and `count.png` (drawn by `scripts/gen_sprites.py`).
+- `dashboard.js`, `dashboard.css`: the dashboard (SSE ledger, donut, benchmarks, evals, themes).
+- `rooms.js`, `build.py`, `styles.css`, `tour.js` (fallback tour), `art/` (painted Seedream images).
+- `docs/walk.gif`, `docs/walk_map.png`: made by `scripts/capture_walk.py` against a running server.
 
 ## Motion
 
-Bats (10, or 6 on phones) slide across on a linear x layer and swoop on a y layer, with a flapping SVG. Three bats circle the moon now and then. Clouds are three seamless gradient strips, 70 to 170 s per loop. The moon glow and halo breathe at 7 and 9 s. Candle flames, castle windows and embers use opacity and scale. Only `transform` and `opacity` animate. Bats and fog sit behind the speech bubble and posters.
-
-## Deploy
-
-Any static host: upload the `site/` folder.
-
-GitHub Pages: `.github/workflows/pages.yml` publishes `site/` on pushes to `dev`. It does nothing until you enable Pages: repo Settings, Pages, Source "GitHub Actions". Then run the workflow or push a change under `site/`.
+The loop is one `requestAnimationFrame`. It never pauses: not behind panels, not with reduced motion. Bats and clouds cross the sky, torches and candles flicker and cast light, the courtyard has fog, and dust drifts in every room.
 
 ## Limits
 
-- Screenshots came from headless Chromium driven over the DevTools protocol. Only Chromium was checked.
-- No JS: all rooms show as plain sections. Reduced motion: no flying, no typing, no door swing, no bats; the moon glow stays as a still.
-- Bats are not cut out behind the castle: the art has no depth layers, so far bats are small and dim instead.
-- Candle and window glows are placed by eye on `gate.webp`; they drift a little from the art during the slow zoom.
+- Only Chromium was checked (headless, over the DevTools protocol). No phone was tested. The frame rate was not measured.
+- The rooms are drawn tiles with painted art as backdrop and banners. The painted rooms are not walkable scenes.
+- The light layer is dark. Some corners are hard to see.
+- The fallback tour does not show the dashboard blocks.

@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 HUD = apps/phantom-phone/hud-web
 
-.PHONY: setup test demo bench serve-local site loop modal-up modal-down
+.PHONY: setup test demo web bench serve-local site loop modal-up modal-down
 
 setup:
 	python3 -m venv .venv
@@ -10,11 +10,12 @@ setup:
 test:
 	$(PY) -m pytest -q tests
 
-demo:
-	@if [ -f $(HUD)/demo.py ] || [ -f $(HUD)/server.py ]; then \
-	  [ -f $(HUD)/demo.py ] && $(PY) $(HUD)/demo.py; \
-	  [ -f $(HUD)/server.py ] && $(PY) $(HUD)/server.py; \
-	else echo "HUD demo is not built yet"; fi
+web:  # one page, one port: castle, dashboard and API on http://127.0.0.1:8765 (CHIMERA_PORT to change)
+	python3 site/build.py --check || python3 site/build.py
+	$(PY) $(HUD)/server.py
+
+demo:  # demo telemetry in the background, then the one server, so the Observatory moves
+	$(PY) $(HUD)/demo.py & $(PY) $(HUD)/server.py
 
 bench:
 	@echo "Rerun commands (from bench/*.md):"
@@ -26,10 +27,7 @@ serve-local:
 loop:  # N rounds through the tier pool (ROUNDS=3); LOOP_ARGS=--forever for continuous
 	$(PY) bench/run_loop.py --rounds $(or $(ROUNDS),3) $(LOOP_ARGS)
 
-site:
-	python3 site/build.py --check || python3 site/build.py
-	@echo "Open http://127.0.0.1:8765  (Ctrl-C to stop)"
-	python3 -m http.server 8765 --bind 127.0.0.1 --directory site
+site: web  # old name
 
 modal-up:  # deploy the H200 tier (scales to zero by itself). First call after this cold-starts it.
 	.venv/bin/modal deploy deploy/modal/vllm_server.py

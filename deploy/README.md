@@ -12,7 +12,7 @@ your apps ──HTTPS──> reverse proxy ──> gateway (:8088) ──> route
                                           │                   ├─ 2 GPU Ollama (qwen3:30b)         optional
                                           │                   └─ 3 Crusoe serverless (top model)
                                           ├─ SQLite: API key hashes + audit log
-                                          └─ telemetry.jsonl ──> HUD (read-only)
+                                          └─ telemetry.jsonl ──> web page (read-only)
 ```
 
 Every request goes through `LadderRouter.generate()`. The cheapest tier that can answer does so. Bad answers climb one tier.
@@ -43,7 +43,7 @@ docker compose up -d --build
 docker compose --profile local up -d    # optional: also run llama.cpp (put model.gguf in MODELS_DIR)
 ```
 
-The gateway is published on `127.0.0.1:8088` and the HUD on `127.0.0.1:8765`. Inside the container the gateway binds `0.0.0.0`; the port is only exposed on the host loopback. Reach it from other machines through a TLS proxy (below).
+The gateway is published on `127.0.0.1:8088` and the web page (castle site with the dashboard) on `127.0.0.1:8765`. Inside the container the gateway binds `0.0.0.0`; the port is only exposed on the host loopback. Reach it from other machines through a TLS proxy (below).
 
 Without Docker, see `chimera-gateway.service` (systemd) and run `python -m apps.gateway --config /etc/chimera/chimera.toml`. It binds `127.0.0.1:8088` by default.
 

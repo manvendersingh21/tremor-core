@@ -96,3 +96,7 @@
 .t-chip.warn { border-color: #e9c46a; color: #f4d58d; }
 .t-sum { margin-top: .5rem; padding-top: .4rem; border-top: 1px solid #5b2a6a; color: #d9c9e0; }
 .c-mock { color: #f4d58d; font: 600 .75rem Inter, sans-serif; }
+
+/* dashboard blocks borrowed from #dash-store keep their own .dash styles */
+.w-dash { padding: .6rem 1rem 1.2rem; }
+.w-pb .w-dash .dash { display: block; }
