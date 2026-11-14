@@ -124,7 +124,7 @@ window.ROOMS = [
       {"at": 2, "bats": 3, "title": "Losses", "big": "5/6",
        "lines": ["Small coding tasks passed, against 6 of 6.", "Cascade wall time was 145 s against 31.8 s."],
        "src": ["bench/results.md", "bench/results.md"]},
-      {"at": 2, "bats": 1, "title": "Still unmeasured", "big": "none",
+      {"at": 2, "bats": 1, "title": "Still unmeasured", "big": "2 GAPS",
        "lines": ["No speculative-verify speedup. bench/spec_results.md does not exist yet.", "No cold-load time for the GPU model."],
        "src": ["bench/run_spec.py", "bench/run_spec.py"]}
     ]
