@@ -76,7 +76,6 @@ body{margin:0;min-height:100vh;color:var(--fg);font:15px/1.55 Inter,system-ui,sa
 .flyer.b4{animation-duration:44s;animation-delay:-9s}.flyer.b5{animation-duration:96s;animation-delay:-66s}
 .flyer .gbat{animation-duration:.14s}
 .flyer.b2 .gbat{animation-duration:.16s}.flyer.b3 .gbat{animation-duration:.18s}
-.motion-off .scene *,.tab-hidden .scene *{animation-play-state:paused!important}
 .tbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Rose under glass, candelabra */
 .stage{width:clamp(230px,32vw,360px);height:auto;justify-self:center;overflow:visible}
@@ -160,8 +159,6 @@ code{background:var(--card);padding:1px 6px;border-radius:4px;border:1px solid v
 footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--mut);font-size:12px}
 [hidden]{display:none!important}
 @media (max-width:520px){nav{margin-left:0;width:100%}nav button{flex:1;padding:8px 6px}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:24px}.card{padding:14px}.tbtn{padding:8px 10px}}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
-  .flyer{left:var(--rx);transform:none}.petal{opacity:0}.gmoon{opacity:.75}#motion{display:none}}
 </style>
 </head>
 <body>
@@ -208,7 +205,6 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
     <button class="tbtn" type="button" data-theme-btn="gothic" aria-pressed="true">Gothic</button>
     <button class="tbtn" type="button" data-theme-btn="hollowkeep" aria-pressed="false">Hollowkeep</button>
     <button class="tbtn" type="button" data-theme-btn="standard" aria-pressed="false">Standard</button>
-    <button class="tbtn" id="motion" type="button" aria-pressed="false">Pause motion</button>
   </div>
 </header>
 
@@ -319,7 +315,6 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 <script>
 const $=id=>document.getElementById(id);
 const root=document.documentElement;
-const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function h(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e}
 const f=(v,d=0)=>v==null?'–':Number(v).toLocaleString(undefined,{maximumFractionDigits:d});
 const median=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
@@ -344,10 +339,7 @@ function setTheme(t,save){
   $('themenote').textContent=THEMES[t]+' theme';
   if(save)try{localStorage.setItem('chimera-theme',t)}catch(_){}
 }
-{const R=document.documentElement,B=document.getElementById('motion');let off=false;try{off=localStorage.getItem('chimera-motion')==='off'}catch(_){}
-const ap=()=>{R.classList.toggle('motion-off',off);B.setAttribute('aria-pressed',off)};ap();
-B.onclick=()=>{off=!off;ap();try{localStorage.setItem('chimera-motion',off?'off':'on')}catch(_){}};
-document.addEventListener('visibilitychange',()=>R.classList.toggle('tab-hidden',document.hidden))}
+try{localStorage.removeItem('chimera-motion')}catch(_){}
 document.querySelectorAll('[data-theme-btn]').forEach(b=>b.onclick=()=>setTheme(b.dataset.themeBtn,true));
 setTheme(root.dataset.theme,false);
 document.querySelectorAll('.how').forEach(b=>b.append(lab(b.dataset.k)));
@@ -439,7 +431,7 @@ function ease(){
   if(Math.abs(S.tok-D.tok)<.5&&Math.abs(S.usd-D.usd)<5e-5&&Math.abs(kept()-D.kept)<.5){D.tok=S.tok;D.usd=S.usd;D.kept=kept();raf=0}else raf=requestAnimationFrame(ease);
   show()}
 function paint(){
-  if(REDUCED){D.tok=S.tok;D.usd=S.usd;D.kept=kept();show()}else if(!raf)raf=requestAnimationFrame(ease);
+  if(!raf)raf=requestAnimationFrame(ease);
   $('calls').textContent=S.calls;$('alpha').textContent=S.acount?(S.asum/S.acount).toFixed(2):'–';
   $('progtxt').textContent=`${pad(S.low)} / ${pad(S.calls)}`;
   const p=S.calls?Math.round(S.low/S.calls*100):0;$('progfill').style.width=p+'%';$('progbar').setAttribute('aria-valuenow',p);
