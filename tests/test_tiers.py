@@ -86,7 +86,7 @@ def test_same_family_rule():
 def test_example_config_loads():
     from chimera_core.config import ROOT, load_config
     names = [t.name for t in load_config(ROOT / "chimera.example.toml").tiers]
-    assert names == ["phone-3b", "mac-3b", "gpu-small", "gpu-large", "cloud-mid", "cloud-top"]
+    assert names == ["phone-3b", "mac-3b", "gpu-small", "gpu-large", "cloud-mid", "cloud-top", "cloud-largest"]
 
 
 def test_router_uses_pool_behind_flag(tmp_path):

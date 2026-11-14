@@ -111,3 +111,16 @@ cost_per_1k_in = 0.00005
 cost_per_1k_out = 0.00025
 timeout_s = 180
 template_kwargs = { reasoning_effort = "low" }
+
+[[tiers]]
+name = "cloud-largest"       # biggest model on the account (763B per Crusoe /v1/models), thinking off
+device = "cloud"
+backend = "openai"
+url = "https://api.inference.crusoecloud.com"
+model = "deepseek-ai/DeepSeek-V4.1-Flash"
+family = "deepseek"
+max_complexity = 1.0
+cost_per_1k_in = 0.00029
+cost_per_1k_out = 0.0012
+timeout_s = 240
+template_kwargs = { thinking = false }
