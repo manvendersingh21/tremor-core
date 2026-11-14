@@ -116,6 +116,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path.split("?")[0] in ("/", "/index.html"):  # ?theme=standard is read by the page
             self._send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
+        elif self.path in ("/evals.js", "/evals.css"):  # the Evals tab's own files, so it can be mounted elsewhere
+            self._send(200, (HERE / self.path[1:]).read_bytes(), "text/javascript; charset=utf-8" if self.path.endswith("js") else "text/css; charset=utf-8")
         elif self.path == "/gate-bg.webp":
             self._send(200, (HERE / "gate-bg.webp").read_bytes(), "image/webp")
         elif self.path == "/api/bench":
