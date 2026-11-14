@@ -1,0 +1,31 @@
+id,task,mode,passed,tiers,final_tier,calls,repair_rounds,tokens,dollars,baseline_dollars,kept_tokens,cache_hits,agent_ms,wall_s,reached_big
+1,fizzbuzz + tests,auto,True,gpu-small,gpu-small,1,0,397,0.0,0.000341,397,0,114628,118.0,False
+2,off-by-one,auto,True,gpu-small,gpu-small,1,0,496,0.0,0.000194,496,0,81379,85.4,False
+3,add CLI flag,auto,True,gpu-small,gpu-small,1,0,256,0.0,0.000161,256,0,70394,72.8,False
+4,regex validator,auto,True,gpu-small>cloud-deepseek,cloud-deepseek,2,1,777,0.000234,0.000392,235,0,83965,86.9,True
+5,SQL helper,auto,True,gpu-small,gpu-small,1,0,238,0.0,0.000153,238,0,123399,126.3,False
+6,refactor,auto,True,gpu-small,gpu-small,1,0,414,0.0,0.000292,414,0,91724,94.4,False
+7,type hints,auto,True,gpu-small,gpu-small,1,0,270,0.0,0.000177,270,0,45077,47.8,False
+8,docstrings,auto,True,gpu-small>cloud-deepseek>cloud-deepseek>cloud-deepseek,cloud-deepseek,4,3,1705,0.000782,0.000969,281,0,90972,95.1,True
+9,fix failing test,auto,True,gpu-small,gpu-small,1,0,543,0.0,0.000198,543,0,148266,151.6,False
+10,word counts,auto,True,gpu-small,gpu-small,1,0,276,0.0,0.000195,276,0,128150,130.7,False
+11,rename across 2 files,auto,True,gpu-small,gpu-small,1,0,235,0.0,0.000143,235,0,59135,61.9,False
+12,config loader,auto,True,gpu-small,gpu-small,1,0,202,0.0,0.000118,202,0,71575,74.1,False
+13,HARD: todo done command (2 files),auto,True,gpu-small,gpu-small,1,0,825,0.0,0.000651,825,0,115980,119.2,False
+14,HARD: LRU cache class,auto,True,gpu-small,gpu-small,1,0,302,0.0,0.000224,302,0,94443,97.1,False
+15,HARD: report --format (2 files),auto,True,gpu-small,gpu-small,1,0,427,0.0,0.000278,427,0,110725,115.2,False
+1,fizzbuzz + tests,cloud,True,cloud-deepseek>cloud-deepseek,cloud-deepseek,2,1,939,0.000815,0.000816,0,0,29900,33.4,True
+2,off-by-one,cloud,True,cloud-deepseek,cloud-deepseek,1,0,494,0.000177,0.000177,0,0,5771,8.7,True
+3,add CLI flag,cloud,True,cloud-deepseek,cloud-deepseek,1,0,307,0.000215,0.000215,0,0,5516,8.1,True
+4,regex validator,cloud,True,cloud-deepseek,cloud-deepseek,1,0,212,0.000122,0.000122,0,0,5504,8.3,True
+5,SQL helper,cloud,True,cloud-deepseek,cloud-deepseek,1,0,247,0.000155,0.000155,0,0,5274,7.6,True
+6,refactor,cloud,True,cloud-deepseek,cloud-deepseek,1,0,438,0.000313,0.000313,0,0,5508,8.1,True
+7,type hints,cloud,True,cloud-deepseek,cloud-deepseek,1,0,294,0.000198,0.000198,0,0,5273,7.7,True
+8,docstrings,cloud,True,cloud-deepseek>cloud-deepseek,cloud-deepseek,2,1,852,0.000348,0.000348,0,0,22244,29.1,True
+9,fix failing test,cloud,True,cloud-deepseek,cloud-deepseek,1,0,555,0.000199,0.000199,0,0,5383,10.0,True
+10,word counts,cloud,True,cloud-deepseek,cloud-deepseek,1,0,228,0.000132,0.000132,0,0,4754,7.0,True
+11,rename across 2 files,cloud,True,cloud-deepseek,cloud-deepseek,1,0,248,0.000152,0.000152,0,0,4827,8.1,True
+12,config loader,cloud,True,cloud-deepseek,cloud-deepseek,1,0,232,0.000149,0.000149,0,0,4748,7.1,True
+13,HARD: todo done command (2 files),cloud,True,cloud-deepseek,cloud-deepseek,1,0,632,0.000406,0.000406,0,0,5497,7.9,True
+14,HARD: LRU cache class,cloud,True,cloud-deepseek,cloud-deepseek,1,0,378,0.000312,0.000312,0,0,4969,7.2,True
+15,HARD: report --format (2 files),cloud,True,cloud-deepseek,cloud-deepseek,1,0,585,0.000454,0.000454,0,0,5644,8.0,True

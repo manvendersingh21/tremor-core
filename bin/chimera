@@ -1,2 +1,8 @@
 #!/bin/sh
-exec python3 "$(dirname "$0")/../apps/kiro-trimmer/cli.py" "$@"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "$1" = "code" ]; then
+  shift
+  PY="$ROOT/.venv/bin/python"; [ -x "$PY" ] || PY=python3
+  PYTHONPATH="$ROOT" exec "$PY" -m apps.terminal "$@"
+fi
+exec python3 "$ROOT/apps/kiro-trimmer/cli.py" "$@"
