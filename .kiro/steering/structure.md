@@ -12,14 +12,17 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 ├── Makefile                        # setup, test, serve-local, bench, demo
 ├── pyproject.toml
 ├── README.md, LICENSE
+├── docs/research.md                # Papers, feasibility table, measured builds
 ├── docs/architecture.md            # Tiers, KV cache rule, brief vs verify, telemetry, firewall
 ├── packages/chimera-core/
 │   ├── router.py                   # SpeculativeCascadeRouter (cache -> local -> cloud)
+│   ├── learned_router.py           # Logistic router (prompt + 3B token stats); off by default, not better than the confidence gate
 │   ├── ladder.py                   # LadderRouter: local -> GPU -> Crusoe top, escalate on failed check
 │   ├── config.py                   # Loads chimera.toml
 │   ├── cache/
 │   │   ├── exact_cache.py          # SHA-256 normalized prompt cache
-│   │   └── semantic_cache.py       # Cosine cache, threshold 0.97 from config
+│   │   ├── semantic_cache.py       # Cosine cache, threshold 0.97 from config
+│   │   └── guard.py                # False-hit guard (numbers, negation, entities); off by default
 │   ├── inference/
 │   │   ├── local_draft.py          # llama.cpp backend, logprob confidence gate
 │   │   ├── cloud_verifier.py       # Crusoe / Ollama backends, verify call
@@ -42,6 +45,7 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │   ├── run_bench.py, results.md    # Mac cascade vs Crusoe only
 │   ├── run_bench_gpu.py, results_gpu.md   # Mac cascade vs GPU only
 │   ├── run_ladder.py               # Ladder run
+│   ├── run_research_collect.py, train_router.py, run_research_cache.py   # research measurements (docs/research.md)
 │   ├── run_spec.py, verify_server.py, start_verifier.sh   # Speculative verify (results pending)
 │   └── serve_local.sh              # Start the Mac llama-server
 └── tests/                          # Offline pytest: router, backends, ladder, app, HUD

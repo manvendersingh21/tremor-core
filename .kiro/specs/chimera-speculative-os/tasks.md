@@ -45,5 +45,12 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
 - [x] 13. CI: `.github/workflows/ci.yml` runs pytest on Python 3.11 and 3.12. Evidence: file exists; a green run is not yet confirmed.
   - [ ] 13a. Confirm a green run on `dev`.
 
+## Research (docs/research.md)
+- [x] 15. Paper sweep and feasibility table. Evidence: `docs/research.md`.
+- [x] 16. Semantic-cache false-hit guard (`cache/guard.py`, config `cache.guard`, off). Evidence: `tests/test_cache_guard.py`, `bench/results_research_cache.md` (wrong hits 4 -> 2 of 34 at 0.97, 800 QQP pairs).
+- [x] 17. Learned router (`learned_router.py`, `bench/train_router.py`, config `thresholds.learned_router`, off). Evidence: `tests/test_learned_router.py`, `bench/results_research_router.md`. Measured: no gain over the confidence gate, stays off.
+  - [ ] 17a. Retrain on 1,000+ graded real calls including the GPU tier.
+  - [ ] 17b. Measure `thresholds.confidence` 0.95 on the full ladder.
+
 ## Next
 - [ ] 14. Measure the ladder, the short brief, and speculative verify; update `bench/` and `.kiro/steering/product.md`.

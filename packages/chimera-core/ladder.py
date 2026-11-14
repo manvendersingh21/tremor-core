@@ -31,8 +31,10 @@ class TextBackend(Protocol):
 
 
 class LadderConfig(RouterConfig):
-    use_brief: bool = True
+    use_brief: bool = False  # bench: a 30B brief was slower and no better; cap 200 tokens when on
+    min_cache_confidence: float = 0.95  # 3B answers below this are served but not cached
     brief_max_tokens: int = 200
+    learned_router: str = ""  # path to router_weights.json (bench/train_router.py); "" = keyword complexity_score + confidence gate
     max_mid_tokens: int = 1500
     max_top_tokens: int = 2500
     top_usd_per_m_in: float = 0.05  # gpt-oss-120b list price on Crusoe; used for dollars_saved
@@ -47,11 +49,11 @@ class TopBackend(CrusoeBackend):
         self.template_kwargs = template_kwargs or {}
 
     def complete(self, prompt: str, max_tokens: int = 2500) -> str:
-        data = self._post(
-            "/v1/chat/completions",
-            {"model": self.model, "max_tokens": max_tokens, "chat_template_kwargs": self.template_kwargs,
-             "messages": [{"role": "user", "content": prompt}]},
-        )
+        body = {"model": self.model, "max_tokens": max_tokens, "chat_template_kwargs": self.template_kwargs,
+                "messages": [{"role": "user", "content": prompt}]}
+        if "reasoning_effort" in self.template_kwargs:  # vLLM gpt-oss reads it top-level, not from the template
+            body["reasoning_effort"] = self.template_kwargs["reasoning_effort"]
+        data = self._post("/v1/chat/completions", body)
         u = data.get("usage", {})
         self.last_usage = {
             "prompt_tokens": u.get("prompt_tokens", 0), "completion_tokens": u.get("completion_tokens", 0),
@@ -66,6 +68,10 @@ class LadderRouter(SpeculativeCascadeRouter):
     def __init__(self, local, mid: TextBackend, top: TextBackend, config: LadderConfig | None = None, **kw):
         super().__init__(local, cloud=None, config=config or LadderConfig(), **kw)
         self.mid, self.top = mid, top
+        self.learned = None
+        if self.cfg.learned_router:
+            from .learned_router import LearnedRouter
+            self.learned = LearnedRouter.load(self.cfg.learned_router)
 
     def generate(self, prompt: str, context: str = "", check: Callable[[str], bool] | None = None) -> GenerateResult:
         t0 = time.perf_counter()
@@ -77,27 +83,48 @@ class LadderRouter(SpeculativeCascadeRouter):
         if self.semantic is not None and (sem := self.semantic.get(prompt, ns)) is not None:
             return self._emit(prompt, "semantic_cache", sem[0], t0)
 
-        local_tokens = 0
-        if complexity_score(prompt) < cfg.heavy_threshold:
+        local_tokens, ms, mid_ok = 0, {}, True
+        if (not self.learned.skip_local(prompt)) if self.learned else complexity_score(prompt) < cfg.heavy_threshold:
+            t = time.perf_counter()
             draft = self.local.complete(prompt, cfg.max_local_tokens)
+            ms["local"] = (time.perf_counter() - t) * 1000
             local_tokens = draft.n_tokens
-            if not should_escalate(draft, cfg.min_confidence) and (check is None or check(draft.text)):
-                return self._emit(prompt, "local", draft.text, t0, local_tokens=local_tokens)
-            mid_text = self.mid.complete(prompt, cfg.max_mid_tokens)
-            if check(mid_text) if check else not self._mid_says_escalate(prompt, mid_text):
-                return self._emit(prompt, "gpu", mid_text, t0, local_tokens=local_tokens)
+            keep = (self.learned.keep_local(prompt, draft.logprobs, draft.mean_confidence, draft.mean_entropy)
+                    if self.learned else not should_escalate(draft, cfg.min_confidence))
+            if keep and (check is None or check(draft.text)):
+                return self._emit(prompt, "local", draft.text, t0, local_tokens=local_tokens, ms=ms,
+                                  cache=draft.mean_confidence >= cfg.min_cache_confidence)
+            t = time.perf_counter()
+            try:
+                mid_text = self.mid.complete(prompt, cfg.max_mid_tokens)
+                ms["mid"] = (time.perf_counter() - t) * 1000
+                if check(mid_text) if check else not self._mid_says_escalate(prompt, mid_text):
+                    return self._emit(prompt, "gpu", mid_text, t0, local_tokens=local_tokens, ms=ms)
+            except OSError:  # timeout / tunnel down: skip the mid tier for this call
+                mid_ok = False
+                ms["mid"] = (time.perf_counter() - t) * 1000
 
-        brief = self.mid.complete(BRIEF_PROMPT.format(task=prompt), cfg.brief_max_tokens) if cfg.use_brief else ""
+        brief = ""
+        if cfg.use_brief and mid_ok:
+            try:
+                t = time.perf_counter()
+                brief = self.mid.complete(BRIEF_PROMPT.format(task=prompt), cfg.brief_max_tokens)
+                ms["brief"] = (time.perf_counter() - t) * 1000
+            except OSError:
+                pass
         top_prompt = f"Brief from an assistant:\n{brief}\n\nTask:\n{prompt}" if brief else prompt
+        t = time.perf_counter()
         text = self.top.complete(top_prompt, cfg.max_top_tokens)
-        return self._emit(prompt, "top", text, t0, local_tokens=local_tokens)
+        ms["top"] = (time.perf_counter() - t) * 1000
+        return self._emit(prompt, "top", text, t0, local_tokens=local_tokens, ms=ms)
 
     def _mid_says_escalate(self, prompt: str, answer: str) -> bool:
         return "ESCALATE" in self.mid.complete(CHECK_PROMPT.format(task=prompt, answer=answer), 8).upper()
 
-    def _emit(self, prompt: str, tier: str, text: str, t0: float, local_tokens: int = 0) -> GenerateResult:
+    def _emit(self, prompt: str, tier: str, text: str, t0: float, local_tokens: int = 0,
+              ms: dict | None = None, cache: bool = True) -> GenerateResult:
         """tokens_saved/dollars_saved = top-model tokens this call did not use (estimated, len/4)."""
-        if not tier.endswith("_cache"):
+        if cache and not tier.endswith("_cache"):
             self._remember(prompt, text)
         est_out = len(text) // 4
         saved_in, saved_out = (max(len(prompt) // 4, 1), est_out) if tier != "top" else (0, 0)
@@ -106,7 +133,7 @@ class LadderRouter(SpeculativeCascadeRouter):
             latency_ms=(time.perf_counter() - t0) * 1000,
             dollars_saved=(saved_in * self.cfg.top_usd_per_m_in + saved_out * self.cfg.top_usd_per_m_out) / 1e6,
             local_tokens=local_tokens, gpu_tokens=est_out if tier == "gpu" else 0,
-            cloud_tokens=est_out if tier == "top" else 0,
+            cloud_tokens=est_out if tier == "top" else 0, tier_ms=ms or {},
         )
         self.tracker.emit(tel)
         return GenerateResult(text=text, telemetry=tel)
