@@ -1,0 +1,14 @@
+html, body { margin: 0; height: 100%; background: #0b0510; overflow: hidden; }
+#game { position: fixed; inset: 0; color: #f1e6da; font-family: "Cormorant Garamond", Georgia, serif; }
+#g-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+.g-bar { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: .8rem; align-items: center; padding: .7rem 1rem; pointer-events: none; }
+#g-where { font: 700 1rem Cinzel, Georgia, serif; letter-spacing: .08em; color: #f4d58d; text-shadow: 0 1px 8px #000; margin-right: auto; }
+.g-fps { font: 600 .78rem Inter, sans-serif; color: #6ee7a0; background: #0b0510b0; padding: .15rem .5rem; border-radius: 6px; }
+.g-prompt { position: absolute; left: 50%; bottom: 25%; transform: translateX(-50%); font: 600 1rem Inter, system-ui, sans-serif; background: #1d0a22e8; border: 1px solid #e9c46a; color: #fff; padding: .5rem 1rem; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.g-prompt.on { opacity: 1; }
+.g-prompt kbd, .g-help kbd { font: 700 .8em Inter, sans-serif; background: #e9c46a; color: #1a0d1e; border-radius: 4px; padding: 0 .35em; }
+.g-say { position: absolute; left: 1.2rem; bottom: 38vh; max-width: 330px; background: #f3e9dcf0; color: #2a1230; border-radius: 14px; padding: .7rem .9rem; font: 600 1.1rem/1.35 "Cormorant Garamond", Georgia, serif; box-shadow: 0 8px 30px #000a; }
+.g-say b { display: block; font: 700 .72rem Cinzel, serif; letter-spacing: .12em; color: #8a1a3a; margin-bottom: .2rem; }
+.g-say::after { content: ""; position: absolute; left: 60px; bottom: -11px; border: 11px solid transparent; border-bottom: 0; border-top-color: #f3e9dcf0; }
+#g-mini { position: absolute; right: .9rem; bottom: .9rem; width: 170px; height: 130px; border: 1px solid #8f5aa8; border-radius: 8px; }
+.g-help { position: absolute; left: 50%; transform: translateX(-50%); bottom: .8rem; font: 500 .8rem Inter, sans-serif; background: #0b0510c0; padding: .35rem .7rem; border-radius: 6px; white-space: nowrap; }
