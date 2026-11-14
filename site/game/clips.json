@@ -1,0 +1,31 @@
+{
+ "a-approach": {
+  "first": "site/art/gate.webp", "seconds": 8, "resolution": "1080p",
+  "prompt": "First-person cinematic walk, smooth steady forward dolly at walking pace toward the closed ornate wrought-iron gates of a moonlit gothic castle. The huge castle with many lit spires stands on a cliff under a giant glowing orange full moon, purple and wine-red clouds, bats flying, fog drifting, candles flickering on the gate posts. The gates stay closed and grow larger until they fill the frame. Painterly gothic style exactly like the first frame. No people, no text, no cuts."
+ },
+ "b-gates": {
+  "from": "a-approach", "seconds": 8, "resolution": "1080p",
+  "prompt": "The two ornate wrought-iron gate leaves slowly swing open away from the camera, revealing a stone path lined with lanterns leading toward the huge moonlit gothic castle on the cliff. The camera then walks forward smoothly through the open gates. Bats, fog, candlelight, orange moon. Same painterly gothic style. First-person steady camera, no people, no text, no cuts."
+ },
+ "c-drive": {
+  "from": "b-gates", "seconds": 10, "resolution": "1080p",
+  "prompt": "First-person steady walk up a long cobbled drive lined with glowing candle lanterns and dark trees, fog on the ground, toward an enormous gothic castle that grows huge and towers over the camera, dozens of spires and lit windows, the giant orange moon behind it. The walk ends in front of a tall arched castle door with a shining glowing gold rim, several stories high. Painterly gothic style, no people, no text, no cuts."
+ },
+ "d-door": {
+  "from": "c-drive", "last": "site/art/hall.webp", "seconds": 8, "resolution": "1080p",
+  "prompt": "The tall arched castle door with the glowing gold rim slowly opens inward with warm golden light pouring out, and the camera walks forward through the doorway into a grand candlelit gothic great hall with tall arched windows, a long red carpet, iron chandeliers and massive stone pillars. First-person, steady, painterly gothic style, no people, no text, no cuts."
+ },
+ "e-hall": {
+  "from": "d-door", "seconds": 10, "resolution": "1080p",
+  "prompt": "A slow first-person walk down the long red carpet of the grand candlelit gothic great hall, past massive stone pillars and gold-plated arched doors set into the stone walls on both sides, iron chandeliers with candles overhead, moonlight through tall stained glass windows. Steady dolly forward, painterly gothic style, no people, no text, no cuts."
+ },
+ "room-observatory": {"first": "site/art/door.webp", "last": "site/art/room-tower.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks through into a candlelit gothic observatory tower room with a great telescope, star charts and a huge moon in the window. First-person, steady, painterly gothic style, no people, no text."},
+ "room-crypt": {"first": "site/art/door.webp", "last": "site/art/room-crypt.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks down into a candlelit stone crypt with vaulted arches, old chests and glowing candles. First-person, steady, painterly gothic style, no people, no text."},
+ "room-ladder": {"first": "site/art/door.webp", "last": "site/art/room-ladder.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks into a tall gothic library room with a great rolling ladder against towering bookshelves, candlelight. First-person, steady, painterly gothic style, no people, no text."},
+ "room-familiar": {"first": "site/art/door.webp", "last": "site/art/room-familiar.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks into a cozy candlelit gothic study of a familiar, with perches, small glowing trinkets and a moonlit window. First-person, steady, painterly gothic style, no people, no text."},
+ "room-gpus": {"first": "site/art/door.webp", "last": "site/art/room-manor.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks into a grand gothic manor workshop glowing with warm machinery light. First-person, steady, painterly gothic style, no people, no text."},
+ "room-tower": {"first": "site/art/door.webp", "last": "site/art/room-castle.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks into the high tower chamber of the gothic castle, vast windows onto the night sky and the orange moon. First-person, steady, painterly gothic style, no people, no text."},
+ "room-ledger": {"first": "site/art/door.webp", "last": "site/art/room-ledger.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks into a candlelit gothic counting room with great open ledgers, scales and quills on a long desk. First-person, steady, painterly gothic style, no people, no text."},
+ "room-guild": {"first": "site/art/door.webp", "last": "site/art/room-guild.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens inward and the camera walks into a gothic guild hall with banners, a long table and candle chandeliers. First-person, steady, painterly gothic style, no people, no text."},
+ "room-gate": {"first": "site/art/door.webp", "last": "site/art/gate.webp", "seconds": 6, "resolution": "720p", "prompt": "The ornate arched door opens and the camera walks back out under the night sky toward the moonlit castle gates and the giant orange moon. First-person, steady, painterly gothic style, no people, no text."}
+}

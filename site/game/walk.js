@@ -1,0 +1,316 @@
+/* CHIMERA, the walk-in movie game. YOU are the camera.
+   The walk is a chain of painted video clips (site/game/clips/*.mp4, made by scripts/gen_video.py; each starts on the
+   last frame of the one before). W plays it forward under your feet, S walks it back, Shift runs. A/D and the mouse
+   turn your head (the frame is wider than the screen). E opens gates and doors. Live layers on top: a 120-bat flock,
+   fog, fireflies, candle glow, the Count's bubble, door signs as real text, and the minimap. Never paused.
+   If a clip is missing, that stretch is a slow painted dolly over its keyframe instead. */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+
+  /* The walk, in order. lock: what must be opened (E) before you can walk this stretch. */
+  const SEGS = [
+    { id: 'a-approach', where: 'Before the iron gates', key: 'art/gate.webp', say: 'Good evening. Hold W to walk up to the gates.' },
+    { id: 'b-gates', where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', lock: 'gates', say: 'The gates know me. Keep walking.' },
+    { id: 'c-drive', where: 'The lantern drive', key: 'game/clips/a-approach-last.jpg', say: 'Follow the lanterns. The door is at the top.' },
+    { id: 'd-door', where: 'The great door', key: 'art/hall.webp', lock: 'door', say: 'Welcome inside. Hold W to walk the hall.' },
+    { id: 'e-hall', where: 'The Great Hall', key: 'art/hall.webp', say: 'Every door is a room. Pick one with A and D, then press E.' },
+  ];
+  const LOCK_AT = { gates: 'Open the iron gates', door: 'Open the great door' };
+
+  async function start(root, opts = {}) {
+    const site = opts.site || '';
+    const ROOMS = window.ROOMS || [];
+    const doors = ROOMS.map((r) => ({ id: r.id, title: r.title, sub: r.door, art: r.art || 'room-' + r.id }));
+
+    root.innerHTML = `
+      <div class="m-stage" id="m-stage"><video id="m-v0" muted playsinline preload="auto"></video><video id="m-v1" muted playsinline preload="auto"></video><img id="m-img" alt=""></div>
+      <canvas id="m-fx" aria-hidden="true"></canvas>
+      <div class="m-doors" id="m-doors" hidden></div>
+      <div class="m-bar"><span id="m-where"></span><span id="m-fps" class="m-fps"></span>
+        <button class="m-btn" id="m-mapbtn" type="button">Map (M)</button><button class="m-btn" id="m-talkbtn" type="button">Talk to the Count (T)</button></div>
+      <div class="m-prompt" id="m-prompt"></div>
+      <div class="m-say" id="m-say"><b>Count Cuspid</b><span id="m-saytext"></span><small>Press <kbd>T</kbd> to talk to me</small></div>
+      <canvas id="m-mini" width="180" height="130" aria-hidden="true"></canvas>
+      <div class="m-help"><kbd>W</kbd> walk · <kbd>S</kbd> back · <kbd>Shift</kbd> run · <kbd>A</kbd><kbd>D</kbd>/mouse look · <kbd>E</kbd> open · <kbd>T</kbd> talk · <kbd>M</kbd> map · <kbd>Esc</kbd> leave</div>
+      <div class="m-joy" id="m-joy"><i></i></div><button class="m-act" id="m-act" type="button" aria-label="Open">E</button>
+      <section class="m-panel" id="m-panel" role="dialog" aria-modal="true" aria-labelledby="m-ptitle" hidden>
+        <div class="m-ph"><h2 id="m-ptitle"></h2><button class="m-btn" id="m-pclose" type="button">Leave (Esc)</button></div>
+        <div class="m-pb" id="m-pbody"></div></section>
+      <div class="m-map" id="m-map" hidden><div role="dialog" aria-modal="true" aria-labelledby="m-mtitle"><h2 id="m-mtitle">The way in</h2><ol id="m-mlist"></ol><button class="m-btn" id="m-mclose" type="button">Close (Esc)</button></div></div>
+      <div class="m-fade" id="m-fade"></div>`;
+    const vids = [$('m-v0'), $('m-v1')], still = $('m-img'), stage = $('m-stage');
+    const fx = $('m-fx'), g = fx.getContext('2d'), mini = $('m-mini').getContext('2d');
+
+    /* ---------- clips: which exist ---------- */
+    const have = {};
+    await Promise.all(SEGS.map(async (s) => { try { const r = await fetch(`${site}game/clips/${s.id}.mp4`, { method: 'HEAD' }); have[s.id] = r.ok; } catch (e) { have[s.id] = false; } }));
+
+    const S = { seg: 0, t: 0, open: {}, keys: new Set(), yaw: 0, pitch: 0, look: { x: 0, y: 0 }, room: null, panel: null, map: false,
+      hall: false, door: 0, time: 0, fps: [], walking: 0, joy: { x: 0, y: 0 } };
+    let active = 0;
+    function vidFor(i) { return vids[i % 2]; }
+    function load(i) {
+      const s = SEGS[i]; if (!s) return;
+      const v = vidFor(i);
+      if (have[s.id] && !v.src.endsWith(`${s.id}.mp4`)) { v.src = `${site}game/clips/${s.id}.mp4`; v.load(); }
+    }
+    function show(i) {
+      const s = SEGS[i]; active = i;
+      vids.forEach((v, k) => v.classList.toggle('on', have[s.id] && k === i % 2));
+      still.classList.toggle('on', !have[s.id]);
+      if (!have[s.id]) still.src = site + s.key;
+      load(i + 1);                                   // preload the next stretch
+      say(s.say); $('m-where').textContent = s.where;
+    }
+    load(0); show(0);
+
+    const dur = (i) => { const v = vidFor(i); return have[SEGS[i].id] && v.duration ? v.duration : 8; };
+    function setTime(i, t) {
+      if (have[SEGS[i].id]) { const v = vidFor(i); if (Math.abs(v.currentTime - t) > 0.02 && !v.seeking) v.currentTime = t; }
+      S.t = t;
+    }
+
+    /* ---------- walking: W plays the clip under your feet, S walks it back ---------- */
+    function walk(dt, dir, run) {
+      if (S.panel || S.map || S.room) return;
+      const i = S.seg, s = SEGS[i];
+      if (s.lock && !S.open[s.lock]) return;        // a closed gate or door: press E
+      const d = dur(i), rate = run ? 2 : 1;
+      let t = S.t + dir * dt * rate;
+      if (dir > 0 && have[s.id]) {                  // forward: let the decoder play (smooth), keep our clock in step
+        const v = vidFor(i); v.playbackRate = rate; if (v.paused) v.play().catch(() => {}); t = v.currentTime;
+      } else if (have[s.id]) { vidFor(i).pause(); }
+      if (t >= d - 0.04 && dir > 0) {
+        const nx = SEGS[i + 1];
+        if (!nx) { setTime(i, d); vidFor(i).pause(); enterHall(); return; }
+        if (nx.lock && !S.open[nx.lock]) { setTime(i, d - 0.04); vidFor(i).pause(); return; } // stop at the gate or door
+        S.seg = i + 1; S.t = 0; setTime(S.seg, 0); show(S.seg); return;
+      }
+      if (t <= 0 && dir < 0) {
+        if (i === 0) { setTime(0, 0); return; }
+        S.seg = i - 1; show(S.seg); setTime(S.seg, dur(S.seg) - 0.05); return;
+      }
+      if (dir < 0) setTime(i, clamp(t, 0, d)); else S.t = t;
+      S.walking = dir;
+    }
+    function stopWalk() { const s = SEGS[S.seg]; if (have[s.id]) vidFor(S.seg).pause(); S.walking = 0; }
+
+    /* ---------- E: gates, the door, a room ---------- */
+    function pendingLock() {
+      const i = S.seg, s = SEGS[i], nx = SEGS[i + 1];
+      if (s.lock && !S.open[s.lock] && S.t < 0.1) return s.lock;
+      if (nx && nx.lock && !S.open[nx.lock] && S.t >= dur(i) - 0.5) return nx.lock;
+      return null;
+    }
+    function use() {
+      if (S.panel || S.map) return;
+      if (S.hall) { openRoom(doors[S.door]); return; }
+      const l = pendingLock(); if (!l) return;
+      S.open[l] = true; creak();
+      if (S.seg < SEGS.length - 1 && SEGS[S.seg + 1].lock === l) { S.seg++; S.t = 0; setTime(S.seg, 0); show(S.seg); }
+      say(l === 'gates' ? 'The gates swing open. Hold W to walk through.' : 'The door opens. Hold W to step inside.');
+    }
+
+    /* ---------- the hall: gold-plated doors with real signs ---------- */
+    function enterHall() {
+      if (S.hall) return; S.hall = true; S.door = 0;
+      const box = $('m-doors');
+      box.innerHTML = doors.map((d, k) => `<button class="m-door" data-k="${k}" type="button"><span class="m-plaque"><strong>${esc(d.title)}</strong><span>${esc(d.sub || '')}</span></span></button>`).join('');
+      box.hidden = false; markDoor();
+      say('Every door is a room. Pick one with A and D, then press E.');
+    }
+    function leaveHall() { S.hall = false; $('m-doors').hidden = true; }
+    function markDoor() { $('m-doors').querySelectorAll('.m-door').forEach((b, k) => b.classList.toggle('sel', k === S.door)); }
+    $('m-doors').addEventListener('click', (e) => { const b = e.target.closest('.m-door'); if (b) { S.door = +b.dataset.k; markDoor(); use(); } });
+
+    /* ---------- rooms: the door-opening clip, then the painted room with its data ---------- */
+    async function openRoom(d) {
+      if (!d || S.panel) return;
+      leaveHall(); creak();
+      const clip = `${site}game/clips/room-${d.id}.mp4`;
+      let ok = false; try { ok = (await fetch(clip, { method: 'HEAD' })).ok; } catch (e) { ok = false; }
+      const v = vidFor(active + 1);
+      if (ok) {
+        v.src = clip; v.load(); vids.forEach((x) => x.classList.remove('on')); still.classList.remove('on'); v.classList.add('on');
+        v.playbackRate = 1; await v.play().catch(() => {});
+        await new Promise((r) => { v.onended = r; setTimeout(r, 9000); });
+      } else { fade(); still.src = `${site}art/${d.art}.webp`; still.classList.add('on'); vids.forEach((x) => x.classList.remove('on')); }
+      S.room = d;
+      $('m-where').textContent = d.title;
+      openPanel(d.title, (pb) => window.MoviePanels.room(pb, d, { site }));
+    }
+    function leaveRoom() {
+      if (!S.room) return; S.room = null; fade();
+      SEGS.forEach((s, k) => { if (k === SEGS.length - 1) { load(k); } });
+      S.seg = SEGS.length - 1; show(S.seg); setTime(S.seg, dur(S.seg) - 0.05); enterHall();
+    }
+
+    /* ---------- panels and the map ---------- */
+    let closeHook = null;
+    function openPanel(title, fill) {
+      S.panel = true; S.keys.clear(); stopWalk();
+      $('m-ptitle').textContent = title; const pb = $('m-pbody'); pb.textContent = ''; pb.removeAttribute('style');
+      $('m-panel').hidden = false; closeHook = fill(pb) || null; $('m-pclose').focus();
+    }
+    function closePanel() {
+      if (!S.panel) return; if (typeof closeHook === 'function') closeHook(); closeHook = null;
+      $('m-pbody').textContent = ''; $('m-panel').hidden = true; S.panel = false;
+      if (S.room) leaveRoom();
+    }
+    $('m-pclose').addEventListener('click', closePanel);
+    function talk() { if (!S.panel) openPanel('Talk to Count Cuspid', (pb) => window.MoviePanels.chat(pb)); }
+    $('m-talkbtn').addEventListener('click', talk);
+    function openMap() {
+      if (S.panel) return; S.map = true;
+      const here = S.room ? -1 : S.seg;
+      $('m-mlist').innerHTML = SEGS.map((s, k) => `<li class="${k === here ? 'here' : ''}"><button type="button" data-seg="${k}">${esc(s.where)}</button></li>`).join('') +
+        doors.map((d, k) => `<li class="${S.room && S.room.id === d.id ? 'here' : ''}"><button type="button" data-door="${k}">Door: ${esc(d.title)}</button></li>`).join('');
+      $('m-map').hidden = false; $('m-mlist').querySelector('button').focus();
+    }
+    function closeMap() { S.map = false; $('m-map').hidden = true; }
+    $('m-mapbtn').addEventListener('click', openMap); $('m-mclose').addEventListener('click', closeMap);
+    $('m-mlist').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return; closeMap();
+      if (b.dataset.door != null) { jump(SEGS.length - 1, true); enterHall(); S.door = +b.dataset.door; markDoor(); use(); return; }
+      jump(+b.dataset.seg, false);
+    });
+    function jump(i, end) {
+      fade(); if (S.room) { S.room = null; } leaveHall();
+      for (let k = 1; k <= i; k++) if (SEGS[k].lock) S.open[SEGS[k].lock] = true;
+      S.seg = i; show(i); setTime(i, end ? dur(i) - 0.05 : 0);
+      if (end && i === SEGS.length - 1) enterHall();
+    }
+    function fade() { const f = $('m-fade'); f.classList.add('on'); setTimeout(() => f.classList.remove('on'), 350); }
+
+    /* ---------- input ---------- */
+    const typing = (t) => t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+    addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'escape') { if (S.map) closeMap(); else if (S.panel) closePanel(); else if (S.hall) { leaveHall(); } return; }
+      if (typing(e.target) || S.panel || S.map) return;
+      if (k === 'm') { openMap(); return; }
+      if (k === 't') { e.preventDefault(); talk(); return; }
+      if ((k === 'e' || k === 'enter') && !e.repeat && !(k === 'enter' && /^(BUTTON|A)$/.test(e.target.tagName))) { e.preventDefault(); use(); return; }
+      if (S.hall && (k === 'a' || k === 'arrowleft' || k === 'd' || k === 'arrowright') && !e.repeat) { S.door = (S.door + (k === 'a' || k === 'arrowleft' ? -1 : 1) + doors.length) % doors.length; markDoor(); e.preventDefault(); return; }
+      if (S.hall && (k === 's' || k === 'arrowdown')) leaveHall();
+      if ('wasd'.includes(k) || k.startsWith('arrow') || k === 'shift') { S.keys.add(k); e.preventDefault(); }
+    });
+    addEventListener('keyup', (e) => { S.keys.delete(e.key.toLowerCase()); });
+    addEventListener('blur', () => S.keys.clear());
+    addEventListener('mousemove', (e) => { if (S.panel) return; S.look.x = (e.clientX / innerWidth - 0.5) * 2; S.look.y = (e.clientY / innerHeight - 0.5) * 2; });
+    const joy = $('m-joy'); let jid = null;
+    const jm = (e) => { const r = joy.getBoundingClientRect(), dx = e.clientX - (r.left + 60), dy = e.clientY - (r.top + 60), d = Math.min(1, Math.hypot(dx, dy) / 50), a = Math.atan2(dy, dx); S.joy.x = d < 0.2 ? 0 : Math.cos(a) * d; S.joy.y = d < 0.2 ? 0 : Math.sin(a) * d; joy.firstElementChild.style.transform = `translate(${Math.cos(a) * d * 40}px,${Math.sin(a) * d * 40}px)`; };
+    joy.addEventListener('pointerdown', (e) => { jid = e.pointerId; joy.setPointerCapture(jid); jm(e); });
+    joy.addEventListener('pointermove', (e) => { if (e.pointerId === jid) jm(e); });
+    const je = () => { jid = null; S.joy.x = S.joy.y = 0; joy.firstElementChild.style.transform = ''; };
+    joy.addEventListener('pointerup', je); joy.addEventListener('pointercancel', je);
+    $('m-act').addEventListener('click', use);
+
+    /* ---------- sound ---------- */
+    let ac = null;
+    function creak() {
+      try {
+        ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+        const o = ac.createOscillator(), f = ac.createBiquadFilter(), v = ac.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(70, ac.currentTime); o.frequency.linearRampToValueAtTime(140, ac.currentTime + 0.6); o.frequency.linearRampToValueAtTime(55, ac.currentTime + 1.6);
+        f.type = 'bandpass'; f.frequency.value = 600; f.Q.value = 8;
+        v.gain.setValueAtTime(0.0001, ac.currentTime); v.gain.exponentialRampToValueAtTime(0.1, ac.currentTime + 0.2); v.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 1.8);
+        o.connect(f); f.connect(v); v.connect(ac.destination); o.start(); o.stop(ac.currentTime + 1.9);
+      } catch (e) { /* sound waits for a key press */ }
+    }
+    function say(t) { $('m-saytext').textContent = t; }
+
+    /* ---------- live layers: bats, fog, fireflies ---------- */
+    let W = 0, H = 0;
+    function resize() { const k = Math.min(devicePixelRatio || 1, 1.25); W = fx.width = Math.round(innerWidth * k); H = fx.height = Math.round(innerHeight * k); }
+    addEventListener('resize', resize); resize();
+    const bats = Array.from({ length: 120 }, (_, i) => {
+      const depth = i < 78 ? 0 : i < 108 ? 1 : 2;
+      return { depth, size: [5 + rnd() * 4, 11 + rnd() * 7, 24 + rnd() * 22][depth], r: [0.05 + rnd() * 0.2, 0.1 + rnd() * 0.3, 0.2 + rnd() * 0.45][depth], a: rnd() * 6.3,
+        w: (rnd() > 0.5 ? 1 : -1) * [0.18 + rnd() * 0.25, 0.12 + rnd() * 0.18, 0.08 + rnd() * 0.1][depth], e: 0.35 + rnd() * 0.5, wob: rnd() * 6.3, flap: 9 + rnd() * 7, ph: rnd() * 6.3,
+        cx: (rnd() - 0.5) * [0.3, 0.7, 1.2][depth], cy: (rnd() - 0.5) * [0.18, 0.3, 0.4][depth] };
+    });
+    const glow = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const r = x.createRadialGradient(64, 64, 0, 64, 64, 64); r.addColorStop(0, 'rgba(255,214,140,1)'); r.addColorStop(0.25, 'rgba(255,160,70,.55)'); r.addColorStop(1, 'rgba(255,120,40,0)'); x.fillStyle = r; x.fillRect(0, 0, 128, 128); return c; })();
+    const fog = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); const r = x.createRadialGradient(128, 128, 0, 128, 128, 128); r.addColorStop(0, 'rgba(190,160,220,.26)'); r.addColorStop(1, 'rgba(190,160,220,0)'); x.fillStyle = r; x.fillRect(0, 0, 256, 256); return c; })();
+    const fogs = Array.from({ length: 8 }, (_, i) => ({ u: rnd(), v: 0.7 + rnd() * 0.25, s: 0.5 + rnd() * 0.7, sp: (0.004 + rnd() * 0.01) * (i % 2 ? 1 : -1) }));
+    const flies = Array.from({ length: 50 }, () => ({ u: rnd(), v: 0.55 + rnd() * 0.4, ph: rnd() * 6.3, sp: 0.4 + rnd() }));
+    function bat(x, y, s, flap, alpha, tilt) {
+      const up = Math.sin(flap) * 0.9;
+      g.save(); g.translate(x, y); g.rotate(tilt); g.scale(s / 30, s / 30); g.globalAlpha = alpha; g.fillStyle = '#0c0410';
+      g.beginPath(); g.moveTo(0, -2); g.quadraticCurveTo(-8, -10 - up * 12, -30, -6 - up * 16); g.quadraticCurveTo(-22, -1, -20, 4); g.quadraticCurveTo(-14, 0, -11, 6); g.quadraticCurveTo(-6, 2, -3, 7);
+      g.lineTo(3, 7); g.quadraticCurveTo(6, 2, 11, 6); g.quadraticCurveTo(14, 0, 20, 4); g.quadraticCurveTo(22, -1, 30, -6 - up * 16); g.quadraticCurveTo(8, -10 - up * 12, 0, -2); g.fill();
+      g.beginPath(); g.ellipse(0, 1, 3.4, 6, 0, 0, 7); g.fill(); g.restore(); g.globalAlpha = 1;
+    }
+    function drawFx(dt) {
+      g.clearRect(0, 0, W, H);
+      const outside = !S.room && S.seg <= 2, R = Math.min(W, H), lx = -S.yaw * W * 0.06;
+      if (outside) {                                 // the flock circles the moon: upper right of the painting
+        const mx = W * 0.6 + lx * 0.5, my = H * 0.24 - S.pitch * H * 0.04;
+        for (const b of bats) {
+          const a = b.a + S.time * b.w, wob = Math.sin(S.time * 0.7 + b.wob), par = [0.3, 0.7, 1.4][b.depth];
+          const x = mx + (b.cx + Math.cos(a) * b.r * (1 + 0.25 * wob)) * R * 1.1 + lx * par, y = my + (b.cy + Math.sin(a) * b.r * b.e + Math.sin(S.time * 1.3 + b.ph) * 0.02) * R;
+          bat(x, y, b.size * (R / 900) * (1 + S.seg * 0.15), S.time * b.flap + b.ph, [0.55, 0.8, 0.95][b.depth], Math.cos(a) * 0.3 * Math.sign(b.w));
+        }
+        fogs.forEach((o) => { o.u = (o.u + o.sp * dt + 1.4) % 1.4 - 0.2; const r = W * 0.35 * o.s; g.drawImage(fog, o.u * W - r + lx, o.v * H - r * 0.4, r * 2, r * 0.8); });
+      } else if (!S.room) {                          // inside: a few bats under the vault, candle motes
+        for (const b of bats.slice(0, 10)) { const a = b.a + S.time * b.w * 0.6; bat(W * 0.5 + Math.cos(a) * W * 0.3 + lx, H * 0.18 + Math.sin(a) * H * 0.06, b.size * 0.8 * (R / 900), S.time * b.flap + b.ph, 0.7, 0); }
+      }
+      g.globalCompositeOperation = 'lighter';
+      flies.forEach((o) => { const x = (o.u + Math.sin(S.time * 0.3 * o.sp + o.ph) * 0.03) * W + lx * 1.2, y = (o.v + Math.cos(S.time * 0.4 * o.sp + o.ph) * 0.02) * H; const a = 0.35 + 0.6 * Math.max(0, Math.sin(S.time * 2 * o.sp + o.ph)), r = 5 * (H / 900); g.globalAlpha = a * (S.room ? 0.4 : 1); g.drawImage(glow, x - r, y - r, r * 2, r * 2); });
+      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      const vg = g.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,2,12,.45)'); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    }
+
+    /* ---------- minimap: the way in as a path, you as a dot ---------- */
+    function drawMini() {
+      const m = mini, w = 180, h = 130;
+      m.clearRect(0, 0, w, h); m.fillStyle = 'rgba(11,5,16,.86)'; m.fillRect(0, 0, w, h);
+      m.fillStyle = '#e9c46a'; m.font = '600 10px Inter, sans-serif'; m.fillText(S.room ? S.room.title : SEGS[S.seg].where, 8, 14);
+      const pts = [[30, 118], [30, 96], [30, 74], [30, 46], [30, 30], [150, 30]];   // gates, drive, door, hall
+      m.strokeStyle = '#6a5a78'; m.lineWidth = 8; m.lineJoin = 'round'; m.beginPath(); pts.forEach(([x, y], k) => (k ? m.lineTo(x, y) : m.moveTo(x, y))); m.stroke();
+      m.fillStyle = S.open.gates ? '#6a5a78' : '#c08a3a'; m.fillRect(20, 95, 20, 3);
+      m.fillStyle = S.open.door ? '#6a5a78' : '#ffd27a'; m.fillRect(22, 45, 16, 3);
+      m.fillStyle = '#d9c9e0'; m.font = '9px Inter, sans-serif'; m.fillText('gates', 44, 99); m.fillText('drive', 44, 76); m.fillText('door', 44, 49); m.fillText('Great Hall', 70, 24);
+      doors.forEach((d, k) => { const x = 44 + k * (100 / Math.max(1, doors.length - 1)); m.fillStyle = S.room && S.room.id === d.id ? '#ff6a8a' : (S.hall && k === S.door ? '#ffd27a' : '#8a6a3a'); m.fillRect(x - 3, 36, 6, 6); });
+      let x, y;
+      if (S.room) { const k = doors.findIndex((d) => d.id === S.room.id); x = 44 + k * (100 / Math.max(1, doors.length - 1)); y = 39; }
+      else { const p = clamp(S.t / dur(S.seg), 0, 1), a = pts[S.seg], b = pts[S.seg + 1]; x = a[0] + (b[0] - a[0]) * p; y = a[1] + (b[1] - a[1]) * p; if (S.hall) { x = 44 + S.door * (100 / Math.max(1, doors.length - 1)); y = 30; } }
+      m.fillStyle = '#6ee7a0'; m.beginPath(); m.arc(x, y, 4.5 + Math.sin(S.time * 6) * 0.8, 0, 7); m.fill();
+    }
+
+    /* ---------- the loop ---------- */
+    let last = performance.now(), fN = 0, fT = 0;
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now; S.time += dt;
+      const k = S.keys, f = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0) - S.joy.y;
+      const turn = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0) + S.joy.x;
+      if (!S.hall && Math.abs(f) > 0.3) walk(dt, Math.sign(f), k.has('shift')); else if (S.walking) stopWalk();
+      if (!S.hall) S.yaw = clamp(S.yaw + turn * dt * 1.4, -1, 1);
+      S.yaw += ((S.hall ? 0 : S.yaw) * 0.97 + S.look.x * 0.5 - S.yaw) * Math.min(1, dt * 3) * (turn ? 0 : 1);
+      S.pitch += (S.look.y * 0.6 - S.pitch) * Math.min(1, dt * 3);
+      // turning your head: the frame is 12% wider than the screen
+      const bob = S.walking ? Math.sin(S.time * (k.has('shift') ? 14 : 9)) * 0.004 : 0;
+      stage.style.transform = `translate(${(-S.yaw * 5.2).toFixed(2)}%, ${(-S.pitch * 3 + bob * 100).toFixed(2)}%) scale(1.12)`;
+      if (!have[SEGS[S.seg].id] && !S.room) { const p = clamp(S.t / dur(S.seg), 0, 1); still.style.transform = `scale(${1 + (S.seg * 0.25 + p * 0.25)})`; }
+      else still.style.transform = '';
+      drawFx(dt); drawMini();
+      const pr = $('m-prompt'), l = !S.panel && !S.map && !S.hall && pendingLock();
+      if (l) { pr.innerHTML = `<kbd>E</kbd> ${LOCK_AT[l]}`; pr.classList.add('on'); }
+      else if (S.hall && !S.panel) { pr.innerHTML = `<kbd>A</kbd><kbd>D</kbd> choose a door · <kbd>E</kbd> enter ${esc(doors[S.door] ? doors[S.door].title : '')}`; pr.classList.add('on'); }
+      else if (!S.panel && !S.map && !S.walking && S.seg === 0 && S.t < 0.1) { pr.innerHTML = 'Hold <kbd>W</kbd> to walk to the castle'; pr.classList.add('on'); }
+      else pr.classList.remove('on');
+      fN++; fT += dt; if (fT >= 1) { S.fps.push(fN / fT); if (S.fps.length > 120) S.fps.shift(); $('m-fps').textContent = Math.round(fN / fT) + ' fps'; fN = 0; fT = 0; }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    const api = { state: S, have, segs: SEGS, use, talk, openMap, jump, enterHall, closePanel, fps: () => S.fps.slice() };
+    window.MovieGame = api;
+    return api;
+  }
+  window.MovieGameStart = start;
+})();

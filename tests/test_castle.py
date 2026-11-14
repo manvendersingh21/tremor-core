@@ -26,12 +26,23 @@ def test_three_is_vendored_with_licence():
     assert "MIT" in (SITE / "vendor" / "three.LICENSE.txt").read_text()
 
 
-def test_page_loads_the_castle_and_keeps_a_plain_fallback():
+def test_page_loads_the_walk_in_game_and_keeps_a_plain_fallback():
     html = (SITE / "index.html").read_text()
-    assert "castle/castle.js" in html and "castle/physics.js" in html and "castle/panels.js" in html
-    assert "webgl" in html and 'id="static-rooms"' in html  # no WebGL: the plain sections show
-    assert "world/world.js" not in html  # the 2D castle is off the main path
+    assert "game/walk.js" in html and "game/panels.js" in html and "game/walk.css" in html
+    assert 'id="static-rooms"' in html  # if the game cannot start, the plain sections show
+    assert "world/world.js" not in html and "castle/castle.js" not in html  # older castles are off the main path
     assert "https://unpkg" not in html and "cdn" not in html.lower()
+
+
+def test_walk_clip_plan():
+    plan = json.loads((SITE / "game" / "clips.json").read_text())
+    walk = (SITE / "game" / "walk.js").read_text()
+    for k, v in plan.items():
+        assert v.get("first") or v.get("from") in plan, k  # each clip starts on a keyframe or on the clip before
+        for f in (v.get("first"), v.get("last")):
+            assert f is None or (SITE.parent / f).is_file(), f
+    for seg in ("a-approach", "b-gates", "c-drive", "d-door", "e-hall"):
+        assert seg in plan and f"'{seg}'" in walk
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")

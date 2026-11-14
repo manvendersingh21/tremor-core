@@ -90,5 +90,89 @@
   "height": 864,
   "n": 1,
   "prompt": "A blank aged parchment poster with no writing, stained warm cream paper, within a carved dark wood frame with small gold corner details, front view, flat, centered, plain dark background. No text, no letters, no symbols."
+ },
+ "tex-stone": {
+  "aspect": "1:1",
+  "width": 1024,
+  "height": 1024,
+  "n": 1,
+  "prompt": "Seamless tileable texture, flat orthographic front view of a gothic castle interior wall made of large carved grey-violet stone blocks with thin dark mortar lines, subtle moss and wear, soft even candlelight, painterly but detailed, evenly lit with no strong shadows or vignette so it tiles."
+ },
+ "tex-floor": {
+  "aspect": "1:1",
+  "width": 1024,
+  "height": 1024,
+  "n": 1,
+  "prompt": "Seamless tileable texture, top-down orthographic view of a polished gothic castle floor: large diagonal checker tiles of cream marble and deep wine-red marble with thin gold inlay borders, soft reflections, evenly lit, no vignette, tiles cleanly."
+ },
+ "tex-vault": {
+  "aspect": "1:1",
+  "width": 1024,
+  "height": 1024,
+  "n": 1,
+  "prompt": "Seamless tileable texture, looking straight up at a ribbed gothic stone vault ceiling panel: pale violet-grey stone cells between carved ribs, faint painted gold stars on deep indigo in the cells, soft candlelight from below, evenly lit, tiles cleanly."
+ },
+ "glass-lancet": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 1,
+  "prompt": "A tall pointed gothic lancet stained-glass window seen straight on, glowing with moonlight from behind: deep purple, wine red, midnight blue and amber glass, a red rose and crescent moon motif with bats in the border, lead lines, stone tracery frame, vivid luminous colours, centered, the window fills the frame."
+ },
+ "glass-rose": {
+  "aspect": "1:1",
+  "width": 1024,
+  "height": 1024,
+  "n": 1,
+  "prompt": "A great circular gothic rose window of stained glass seen straight on, glowing with moonlight from behind: radiating petals of purple, wine red, blue and amber glass around a central red rose, stone tracery, luminous, centered, the window fills the frame on a dark stone wall."
+ },
+ "banner": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 1,
+  "prompt": "A long heraldic castle banner hanging straight down, seen straight on: deep wine-red velvet with gold embroidered border and tassels, a gold rose and crescent moon emblem in the middle, soft candlelight, rich fabric folds, dark background."
+ },
+ "door-dashboard": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 1,
+  "prompt": "A tall ornate pointed-arch gothic double door seen straight on, dark carved oak with brass astrolabe and star-chart ornaments, iron hinges, a glowing gold rim of candlelight around the arch, carved stone frame, painterly, centered, fills the frame."
+ },
+ "door-chat": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 1,
+  "prompt": "A tall ornate pointed-arch gothic door seen straight on, black lacquered wood with carved bat wings, a red rose and a brass candle sconce on each side, iron studs, warm gold light glowing through the edges, carved stone frame, painterly, centered, fills the frame."
+ },
+ "door-evals": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 1,
+  "prompt": "A tall ornate pointed-arch gothic door seen straight on, dark walnut carved with open ledger books, quills and brass balance scales, iron hinges, glowing gold rim light around the arch, carved stone frame, painterly, centered, fills the frame."
+ },
+ "sky-pano": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Wide panoramic night sky seen from a castle window: a giant glowing orange full moon low on the right, layered purple and wine-red clouds, distant gothic spires and misty mountains on the horizon, bats, stars, cinematic, no foreground frame."
+ },
+ "tex-path": {
+  "aspect": "1:1",
+  "width": 1024,
+  "height": 1024,
+  "n": 1,
+  "prompt": "Seamless tileable texture, top-down orthographic view of an old cobbled castle drive: rounded dark grey-violet flagstones with moss in the joints and a few fallen autumn leaves, damp moonlit sheen, evenly lit, no vignette, tiles cleanly."
+ },
+ "tex-wall-out": {
+  "aspect": "1:1",
+  "width": 1024,
+  "height": 1024,
+  "n": 1,
+  "prompt": "Seamless tileable texture, flat front view of a weathered gothic castle outer wall: big dark slate-grey and violet stone blocks, ivy traces, rain streaks, cool moonlight with a faint warm candle tint, evenly lit, no vignette, tiles cleanly."
  }
 }
