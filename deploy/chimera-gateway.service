@@ -1,0 +1,24 @@
+# Sample unit. Assumes: repo at /opt/chimera with a .venv (pip install ".[gateway]"),
+# config at /etc/chimera/chimera.toml, secrets in /etc/chimera/env (mode 600, owner root).
+[Unit]
+Description=CHIMERA gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=chimera
+Group=chimera
+WorkingDirectory=/opt/chimera
+EnvironmentFile=/etc/chimera/env
+Environment=CHIMERA_CONFIG=/etc/chimera/chimera.toml
+ExecStart=/opt/chimera/.venv/bin/python -m apps.gateway --host 127.0.0.1 --port 8088
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/chimera
+
+[Install]
+WantedBy=multi-user.target

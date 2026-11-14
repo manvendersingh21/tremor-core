@@ -1,0 +1,37 @@
+# Copy to chimera.toml. No secrets here: CRUSOE_API_KEY comes from the environment or .env only.
+
+[local]                      # tier 1: llama.cpp llama-server on this machine
+url = "http://127.0.0.1:8080"
+chatml = true
+
+[gpu]                        # tier 2: Ollama on the GPU box, via `ssh -L LOCAL_PORT:127.0.0.1:11434 <gpu-host>`
+enabled = true               # false: Crusoe mid model takes this tier
+url = "http://127.0.0.1:11435"
+model = "qwen3:30b-instruct"
+
+[crusoe]                     # tier 3 (and tier 2 when gpu.enabled = false)
+base_url = "https://api.inference.crusoecloud.com"
+mid_model = "Qwen/Qwen3.8-27B"
+top_model = "openai/gpt-oss-120b"
+top_template_kwargs = { reasoning_effort = "low" }
+
+[thresholds]
+semantic = 0.97              # cosine similarity for a semantic cache hit
+confidence = 0.85            # local mean token probability needed to answer locally
+heavy = 0.6                  # complexity score that skips the small models
+
+[cache]
+path = "~/.chimera/cache.db" # exact + semantic caches, persistent
+semantic = true              # false skips the embedding model (exact cache only)
+
+[telemetry]
+path = "~/.chimera/telemetry.jsonl"   # CHIMERA_TELEMETRY overrides
+
+[gateway]                    # apps/gateway: OpenAI-compatible service. python -m apps.gateway
+db = "~/.chimera/gateway.db" # tenant logins (hashed) + audit log; CHIMERA_GATEWAY_DB overrides
+rate_per_min = 120           # per login
+burst = 30
+max_body_bytes = 1000000
+timeout_s = 90               # per backend call
+log_prompts = false          # true puts prompt text in request logs
+actions = false              # true enables POST /v1/actions/score

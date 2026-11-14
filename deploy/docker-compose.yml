@@ -1,0 +1,45 @@
+# cp .env.example .env   (then edit)   docker compose up -d
+# Local llama.cpp tier as well:  docker compose --profile local up -d
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    env_file: .env
+    ports:
+      - "127.0.0.1:8088:8088"      # put a TLS reverse proxy in front; see README
+    volumes:
+      - chimera-data:/data
+      - ./chimera.docker.toml:/etc/chimera/chimera.toml:ro
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  hud:                              # live telemetry page, reads the gateway's telemetry file
+    image: python:3.12-slim
+    command: ["python", "/hud/server.py"]
+    environment:
+      HUD_HOST: 0.0.0.0              # inside the container only
+      HUD_TELEMETRY: /data/telemetry.jsonl
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ../apps/phantom-phone/hud-web:/hud:ro
+      - chimera-data:/data:ro
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    depends_on: [gateway]
+    restart: unless-stopped
+
+  llama:                            # optional tier 1
+    profiles: ["local"]
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: ["-m", "/models/model.gguf", "--host", "0.0.0.0", "--port", "8080", "-c", "4096"]
+    volumes:
+      - ${MODELS_DIR:-./models}:/models:ro   # put Qwen2.5-3B-Instruct q4_k_m here as model.gguf
+    restart: unless-stopped
+
+volumes:
+  chimera-data:
