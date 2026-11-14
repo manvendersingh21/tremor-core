@@ -10,7 +10,7 @@ Passes over 60 prompts (30 from prompts.jsonl, 30 from datasets/suite.jsonl):
     pairs   offline: labeled Quora pairs (cache_eval.jsonl) through the real embedder, guard on/off, threshold 0.97/0.94
 
     .venv/bin/python bench/run_backend.py run [BASE COLD WARM SECOND GATE85] | pairs | report
-Rows go to $KIROCREW_SCRATCH/backend_rows.jsonl as they finish (a rerun skips finished passes' ids).
+Rows go to bench/.scratch/backend/backend_rows.jsonl, one per item as it finishes; a rerun skips done ids.
 Needs CHIMERA_GPU_URL (the local end of an SSH tunnel to your GPU box), CRUSOE_API_KEY and CHIMERA_DB_URL in .env.
 No key or DSN is written anywhere.
 """
@@ -36,7 +36,8 @@ from chimera_core.cache.semantic_cache import OnnxMiniLMEmbedder, SemanticCache 
 from chimera_core.config import CacheCfg, ChimeraConfig, Thresholds, build_router, load_env  # noqa: E402
 from chimera_core.tiers import TierCfg  # noqa: E402
 
-STORE = pathlib.Path(os.environ.get("KIROCREW_SCRATCH") or ROOT / "bench")
+STORE = ROOT / "bench/.scratch/backend"  # in the repo, git-ignored: $KIROCREW_SCRATCH is lost on a gateway restart
+STORE.mkdir(parents=True, exist_ok=True)
 ROWS = STORE / "backend_rows.jsonl"
 PAIRS = STORE / "backend_pairs.json"
 VERDICT_FILE = ROOT / "bench/results_backend_verdict.md"  # hand-written verdict, kept across report reruns
