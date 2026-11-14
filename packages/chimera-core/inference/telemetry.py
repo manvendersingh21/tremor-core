@@ -44,6 +44,12 @@ class Telemetry(BaseModel):
     cache_source: str | None = None       # "exact" | "local" | "shared" when a cache answered
     events: list[dict] | None = None      # step events of this call (router.generate on_event), in order
     dollars_spent: float | None = None    # list price of every tier this call touched
+    ts: float | None = None               # unix time the call finished
+    tokens_in: int | None = None          # input + output tokens every tier of this call used (0 on a cache hit)
+    tokens_out: int | None = None
+    task: str | None = None               # caller's task kind ("chat", "code", ...), for per-task totals
+    conversation_id: str | None = None    # caller's conversation, for per-conversation totals
+    prompt_preview: str | None = None     # first 80 characters, scrubbed (recent-calls list)
 
     @model_validator(mode="after")
     def _cache_avoids_gpu(self) -> "Telemetry":

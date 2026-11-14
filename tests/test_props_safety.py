@@ -151,7 +151,9 @@ tel = st.builds(
 @given(st.lists(tel, max_size=12))
 def test_stats_summary_shape(rows):
     s = summarize(rows)
-    assert set(s) == STATS_KEYS and set(s["cache_hits"]) == {"exact", "local", "shared"}
+    assert set(s) >= STATS_KEYS and set(s["cache_hits"]) == {"exact", "local", "shared"}  # fields may be added
+    assert s["tokens_today"] <= s["tokens"] and s["cache"]["all_time"]["exact"] + s["cache"]["all_time"]["cosine"] == sum(
+        r.get("tier_used") in ("exact_cache", "semantic_cache") for r in rows)
     assert s["calls"] == len(rows) and 0 <= s["hit_rate"] <= 1
     assert s["tokens_kept_off_big"] >= 0 and s["dollars_saved"] >= 0 and s["dollars_spent"] >= 0
     assert sum(s["by_tier"].values()) == len(rows)

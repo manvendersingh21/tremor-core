@@ -79,14 +79,86 @@ class IpLimiter:
             return (1 - tokens) / self.rate if self.rate > 0 else 60.0
 
 
-def summarize(rows: list[dict]) -> dict:
+CACHE_TIERS = ("exact_cache", "semantic_cache")
+OUR_TABLES = ("prompts", "cache_events", "routing_signals", "eval_runs", "teacher_pairs", "mem_nodes", "mem_edges")
+ID_RE = re.compile(r"^[\w.:-]{1,64}$")  # conversation_id and task: plain ids only
+
+
+def _tokens(r: dict) -> int:
+    return (r.get("tokens_in") or 0) + (r.get("tokens_out") or 0)
+
+
+def _cache_split(rows: list[dict]) -> dict:
+    """Cache answers split by how they matched: exact hash or cosine. false_hits = cache answers reported wrong."""
+    return {"exact": sum(r.get("tier_used") == "exact_cache" for r in rows),
+            "cosine": sum(r.get("tier_used") == "semantic_cache" for r in rows),
+            "false_hits": sum(bool(r.get("false_hit")) for r in rows)}
+
+
+def _group(rows: list[dict], key: str, default: str | None, limit: int) -> dict:
+    out: dict[str, dict] = {}
+    for r in rows:
+        k = r.get(key) or default
+        if k is None:
+            continue
+        g = out.setdefault(k, {"calls": 0, "tokens": 0, "cache_hits": 0, "tokens_saved": 0, "dollars_saved": 0.0,
+                               "last_ts": None})
+        g["calls"] += 1
+        g["tokens"] += _tokens(r)
+        g["cache_hits"] += r.get("tier_used") in CACHE_TIERS
+        g["tokens_saved"] += r.get("tokens_saved") or 0
+        g["dollars_saved"] = round(g["dollars_saved"] + (r.get("dollars_saved") or 0), 6)
+        g["last_ts"] = r.get("ts") or g["last_ts"]
+    newest = sorted(out, key=lambda k: out[k]["last_ts"] or 0, reverse=True)[:limit]
+    return {k: out[k] for k in newest}
+
+
+def _series(rows: list[dict], fmt: str, start: float) -> list[dict]:
+    """Calls, tokens and dollars saved per bucket (local time), oldest first. Rows with no ts are left out."""
+    b: dict[str, dict] = {}
+    for r in rows:
+        ts = r.get("ts")
+        if not ts or ts < start:
+            continue
+        t = time.strftime(fmt, time.localtime(ts))
+        x = b.setdefault(t, {"t": t, "calls": 0, "tokens": 0, "tokens_saved": 0, "dollars_saved": 0.0,
+                             "dollars_spent": 0.0})
+        x["calls"] += 1
+        x["tokens"] += _tokens(r)
+        x["tokens_saved"] += r.get("tokens_saved") or 0
+        x["dollars_saved"] = round(x["dollars_saved"] + (r.get("dollars_saved") or 0), 6)
+        x["dollars_spent"] = round(x["dollars_spent"] + (r.get("dollars_spent") or 0), 6)
+    return [b[k] for k in sorted(b)]
+
+
+def recent_calls(rows: list[dict], n: int = 20) -> list[dict]:
+    """The last n calls, newest first, each with its step trace. Prompt text is a scrubbed 80-character preview."""
+    out = []
+    for r in reversed(rows[-n:]):
+        steps = r.get("events") or []
+        sh = next((e for e in steps if e.get("step") == "cache_shared"), {})
+        fin = next((e for e in steps if e.get("step") == "final"), {})
+        out.append({"ts": r.get("ts"), "prompt": r.get("prompt_preview") or "", "task": r.get("task"),
+                    "conversation_id": r.get("conversation_id"), "tier": r.get("tier_name") or r.get("tier_used"),
+                    "model": fin.get("model") or "", "cache": r.get("cache_source"), "score": sh.get("score"),
+                    "tokens_in": r.get("tokens_in") or 0, "tokens_out": r.get("tokens_out") or 0,
+                    "ms": round(r.get("latency_ms") or 0, 1), "dollars": r.get("dollars_spent") or 0.0,
+                    "dollars_saved": r.get("dollars_saved") or 0.0, "steps": steps})
+    return out
+
+
+def summarize(rows: list[dict], now: float | None = None) -> dict:
     """Totals over telemetry rows (Telemetry.model_dump() dicts). Old rows without cache_source count as local."""
+    now = time.time() if now is None else now
+    lt = time.localtime(now)
+    midnight = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    today = [r for r in rows if (r.get("ts") or 0) >= midnight]
     n = len(rows)
     src = {"exact": 0, "local": 0, "shared": 0}
     tiers: dict[str, int] = {}
     for r in rows:
         tiers[r.get("tier_used", "?")] = tiers.get(r.get("tier_used", "?"), 0) + 1
-        if r.get("tier_used") in ("exact_cache", "semantic_cache"):
+        if r.get("tier_used") in CACHE_TIERS:
             src[r.get("cache_source") or ("exact" if r["tier_used"] == "exact_cache" else "local")] += 1
     hits = sum(src.values())
     return {
@@ -97,6 +169,13 @@ def summarize(rows: list[dict]) -> dict:
         "dollars_spent": round(sum(r.get("dollars_spent") or 0 for r in rows), 6),
         "tokens_kept_off_big": sum(r.get("tokens_saved") or 0 for r in rows),
         "false_hits": sum(bool(r.get("false_hit")) for r in rows), "by_tier": tiers,
+        "tokens": sum(_tokens(r) for r in rows), "tokens_today": sum(_tokens(r) for r in today),
+        "calls_today": len(today),
+        "cache": {"today": _cache_split(today), "all_time": _cache_split(rows)},
+        "by_task": _group(rows, "task", "other", 50),
+        "by_conversation": _group(rows, "conversation_id", None, 50),
+        "series": {"hourly": _series(rows, "%Y-%m-%dT%H:00", now - 48 * 3600),
+                   "daily": _series(rows, "%Y-%m-%d", now - 30 * 86400)},
     }
 
 
@@ -179,6 +258,12 @@ class Service:
             if verdict.needs_approval:
                 raise ApiError(403, "approval_required", f"Risk {verdict.score}/100 ({', '.join(verdict.reasons)}). "
                                f"Held for approval; token {verdict.approval_token}.")
+        tags = {}
+        for k in ("conversation_id", "task"):
+            v = body.get(k)
+            if v is not None and not (isinstance(v, str) and ID_RE.match(v)):
+                raise ApiError(400, "invalid_request", f'"{k}" must be 1-64 letters, digits, ".", "_", ":" or "-".')
+            tags[k] = v
         wait = self.limiter.acquire(ip)
         if wait:
             raise ApiError(429, "rate_limited", "Too many requests from this address.", int(wait) + 1)
@@ -188,7 +273,8 @@ class Service:
 
         def work() -> None:
             try:
-                res = self.router.generate(prompt, on_event=lambda s, d: q.put((s, d)))
+                res = self.router.generate(prompt, on_event=lambda s, d: q.put((s, d)), task=tags["task"] or "chat",
+                                           conversation_id=tags["conversation_id"])
                 self._count(res.telemetry)
                 q.put(("answer", {"text": res.text}))
             except Exception as e:  # noqa: BLE001  type name only: messages can carry URLs
@@ -225,16 +311,61 @@ class Service:
 
     def _count(self, tel) -> None:
         with self._lock:
-            self._rows.append(tel.model_dump(exclude={"events", "per_tier"}))
-            del self._rows[:-20_000]
+            self._rows.append(tel.model_dump(exclude={"per_tier"}))
+            del self._rows[:-5_000]  # rows carry their step traces; keep memory bounded
+            self._memo.pop("stats", None)  # the next /api/stats shows this call at once
 
     # ---- GET /api/stats ---------------------------------------------------------------------------
     def stats(self) -> dict:
         def build() -> dict:
             with self._lock:
                 rows = list(self._rows)
-            return {"session": summarize(rows), "global": summarize(self._read_global())}
+            glob = self._read_global()
+            return {"session": summarize(rows), "global": summarize(glob), "recent": recent_calls(glob or rows),
+                    "storage": self.storage()}
         return self._cached("stats", 2.0, build)
+
+    # ---- storage counts (cached 60 s) -----------------------------------------------------------------
+    def storage(self) -> dict:
+        return self._cached("storage", 60.0, self._storage)
+
+    def _storage(self) -> dict:
+        jobs = {"supabase": self._supabase_sizes, "neo4j": self._neo4j_counts}
+        with cf.ThreadPoolExecutor(max_workers=2) as ex:
+            futs = {k: ex.submit(fn) for k, fn in jobs.items()}
+            out = {}
+            for k, f in futs.items():
+                try:
+                    out[k] = {"up": True, **f.result(timeout=8)}
+                except Exception as e:  # noqa: BLE001  counts are optional; never fail /api/stats
+                    out[k] = {"up": False, "error": type(e).__name__}
+        out["ts"] = int(time.time())
+        return out
+
+    def _supabase_sizes(self) -> dict:
+        """Rows and bytes of the tables this project created (deploy/sql/001-005). Counts only, no text."""
+        shared = getattr(self.router, "shared", None)
+        if shared is None:
+            raise RuntimeError("no shared cache")
+        st = shared._store_ready()
+        tenant = shared.tenant
+        tables = {}
+        for t in OUR_TABLES:
+            rows = st._tx(tenant, f"select count(*), pg_total_relation_size('{t}'::regclass), "  # noqa: S608 fixed names
+                                  f"(select reltuples::bigint from pg_class where oid = '{t}'::regclass) from {t}",
+                          (), "one")
+            tables[t] = {"tenant_rows": rows[0], "bytes": rows[1], "rows_estimate": max(rows[2], 0)}
+        return {"tenant": tenant, "tables": tables,
+                "bytes_total": sum(v["bytes"] for v in tables.values())}
+
+    def _neo4j_counts(self) -> dict:
+        from .memory.neo4j_store import Neo4jGraphStore
+        g = getattr(getattr(self.router, "memory", None), "graph", None)
+        if not isinstance(g, Neo4jGraphStore):
+            g = self._neo4j = getattr(self, "_neo4j", None) or Neo4jGraphStore()
+        nodes = g._run("MATCH (n:Mem) RETURN count(n) AS c")[0]["c"]
+        edges = g._run("MATCH (:Mem)-[r]->() RETURN count(r) AS c")[0]["c"]
+        return {"nodes": nodes, "edges": edges}
 
     def _read_global(self, max_bytes: int = 20_000_000) -> list[dict]:
         p = self._telemetry
