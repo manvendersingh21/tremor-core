@@ -43,11 +43,11 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │   │   ├── common.py
 │   │   └── github_autopatcher.py   # (planned) issue webhook -> patch -> PR
 │   └── phantom-phone/
-│       ├── hud-web/                # index.html, server.py (SSE), demo.py
+│       ├── hud-web/                # server.py (the one server: site/, SSE, /api/*), demo.py; index.html redirects
 │       ├── supervisor_graph.py     # (planned)
 │       └── modules/                # (planned) unknown_caller, marketplace_bot, mobile_hotfix, ride_arbitrage
 ├── deploy/                         # Gateway Docker files, sql/ (shared cache), modal/ (H200 app)
-├── site/                           # Castle website: rooms.js posters, build.py (no-JS page)
+├── site/                           # The web page: world/ (walkable castle, bat chat), dashboard.js, rooms.js posters, build.py (no-JS page)
 ├── scripts/                        # android_setup.sh, phone_check.sh
 ├── bench/                          # Prompts, runners, results
 │   ├── prompts.jsonl               # 30 prompts
@@ -55,7 +55,7 @@ Built items are listed as they exist. Items marked **(planned)** are not built.
 │   ├── run_bench_gpu.py, results_gpu.md   # Mac cascade vs GPU only
 │   ├── run_ladder.py, results_ladder.md   # Ladder run
 │   ├── run_specplus.py, results_specplus.md   # Spec+ vs plain spec (stand-in target)
-│   ├── results_modal.md            # Modal H200: never served a request
+│   ├── results_modal.md            # Modal H200: gpt-oss-120b pair run (lost on cost and speed); Qwen3.5-122B never served
 │   ├── run_research_collect.py, train_router.py, run_research_cache.py   # research measurements (docs/research.md)
 │   ├── run_spec.py, verify_server.py, start_verifier.sh, spec_results.md   # Plain speculative verify (4.5x to 7x slower)
 │   └── serve_local.sh              # Start the Mac llama-server

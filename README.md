@@ -2,41 +2,41 @@
 
 # CHIMERA
 
-CHIMERA is a router for LLM calls. It tries the cheapest tier that can answer: an exact and semantic cache, then a small model on your own machine (Qwen2.5-3B on a Mac), then a 30B model on a GPU box, then a large cloud model. A tier pool lets a company list its own hardware, and a gateway serves the router to other apps. Each answer is logged with the tier used, tokens, latency and dollars. A separate firewall scores risky actions (pay, delete, merge) from 0 to 100 and asks for approval above 70. It is an experiment. The measured results below are mixed.
+CHIMERA is a router for LLM calls. It tries the cheapest tier that can answer: a shared Supabase cache (exact, then cosine >= 0.97), then a 30B model on your own GPU (Ollama `qwen3:30b-instruct`), optionally a 120B model on a Modal H200, then the largest cloud model (Crusoe DeepSeek-V4.1-Flash, 763B). When a big model solves a problem, the answer is stored as teacher data (N+1 memory), so the 30B can use solved examples next time ([docs/memory.md](docs/memory.md)). The first benchmarks below also used a Mac Qwen2.5-3B as the lowest tier; it is now an experiment tier, off by default. A tier pool lets a company list its own hardware, and a gateway serves the router to other apps. Each answer is logged with the tier used, tokens, latency and dollars. A separate firewall scores risky actions (pay, delete, merge) from 0 to 100 and asks for approval above 70. It is an experiment. The measured results below are mixed.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    Q[Prompt] --> C{Cache: exact, then semantic >= 0.97}
+    Q[Prompt] --> C{Supabase cache: exact, then cosine >= 0.97}
     C -- hit --> A[Answer]
-    C -- miss --> H{Heavy task?}
-    H -- no --> L[Mac: Qwen2.5-3B + logprobs]
-    L -- confidence >= 0.85 and check passes --> A
-    L -- low confidence --> G[GPU: Qwen3-30B]
-    H -- yes, no brief --> G
-    G -- answers --> A
-    G -- heavy, ESCALATE or timeout --> T[Crusoe top model]
+    C -- miss --> M[N+1 memory: solved examples]
+    M --> G[GPU 30B, self-hosted: qwen3:30b-instruct]
+    G -- confidence >= 0.95, or self-check OK --> A
+    G -- low confidence, timeout or error --> H[Modal H200 120B, optional, off]
+    H --> T[Crusoe DeepSeek-V4.1-Flash 763B]
+    G -- heavy --> T
     T --> A
-    L -. draft token ids + logprobs .-> V[Verifier: same-family target]
-    V -. accepted ids + correction .-> L
+    T -. checked answer: teacher data .-> M
 ```
 
-Dotted lines are the speculative-verify path: the small model drafts tokens, the larger model of the same family accepts or corrects them. Only token ids and log probabilities cross the network. See [docs/architecture.md](docs/architecture.md).
+The 30B's gate uses Ollama token logprobs when it returns them, else the 30B's own self-check. Speculative verify (a small model drafts, a same-family large model checks token ids) was measured and lost; it stays in the benches only. See [docs/architecture.md](docs/architecture.md).
 
 Parts, with their status:
 
 | Part | Status | Where |
 |---|---|---|
-| Ladder router: cache, Mac 3B, GPU 30B, Crusoe top model | Built, measured ([results_ladder.md](bench/results_ladder.md)) | `packages/chimera-core/ladder.py` |
-| Tier pool: hardware listed as `[[tiers]]` in `chimera.toml` | Built | `packages/chimera-core/tiers.py` |
+| Tier pool (the product path): Supabase cache, GPU 30B, optional H200 120B, Crusoe 763B | Built | `packages/chimera-core/tiers.py`, `chimera.example.toml` |
+| Ladder router with the Mac 3B (first benchmarks) | Built, measured ([results_ladder.md](bench/results_ladder.md)). The 3B is now an experiment tier, off | `packages/chimera-core/ladder.py` |
+| N+1 memory: big-model answers stored as teacher data, retrieved as few-shot context for the 30B | Built, not measured yet ([docs/memory.md](docs/memory.md)) | `packages/chimera-core/memory/` |
+| Web page: walkable castle with the live dashboard, evals and a chat with the router | Built ([site/README.md](site/README.md)) | `site/`, `apps/phantom-phone/hud-web/server.py` |
 | Gateway: OpenAI-compatible HTTP service, keys per tenant, `/metrics` | Built | `apps/gateway/`, [deploy/README.md](deploy/README.md) |
 | Shared Supabase cache (Postgres + pgvector) | Built, one run ([vector-store.md](docs/vector-store.md)) | `cache/pgvector_cache.py` |
 | Spec+ (adaptive K, token tree, pipelining, free drafts, compact wire) | Built. Measured only against a stand-in target ([results_specplus.md](bench/results_specplus.md)) | `inference/specplus.py` |
 | Cross-device speculative verify (plain) | Measured: slower than no speculation ([spec_results.md](bench/spec_results.md)) | `bench/verify_server.py` |
 | Cache false-hit guard | Built, off by default ([results_research_cache.md](bench/results_research_cache.md)) | `cache/guard.py` |
 | Learned router | Built, off by default. No better than the confidence gate ([results_research_router.md](bench/results_research_router.md)) | `learned_router.py` |
-| Modal H200 tier (`gpu-large`) | Deployed twice, never served a request. Retry pending ([results_modal.md](bench/results_modal.md)) | `deploy/modal/vllm_server.py` |
+| Modal H200 tier (`gpu-large`, gpt-oss-120b) | One pair of runs: took all calls off the 763B but cost about 20x more and was slower ([results_modal.md](bench/results_modal.md)). Off by default | `deploy/modal/vllm_server.py` |
 | Android phone tier | Setup written, not tested on a phone yet ([docs/android.md](docs/android.md)) | `scripts/android_setup.sh` |
 | Action firewall (score 0 to 100, approval at 70) | Built, rule list | `firewall/risk_scorer.py` |
 
@@ -135,7 +135,14 @@ On 180 graded prompts (gsm8k, humaneval, mbpp, mmlu) the 3B alone was 69.4% corr
 
 ## Modal H200
 
-Not measured. The H200 never served a request in two cold starts, so there are no ladder, spec or cache numbers from it. A retry is pending ([results_modal.md](bench/results_modal.md)).
+Qwen3.5-122B never served a request in two cold starts. `openai/gpt-oss-120b` served after a 376 s cold start. Single run, 30 prompts ([results_modal.md](bench/results_modal.md)):
+
+| Run | 763B calls | 763B $ | H200 $ | Median ms | p90 ms | Asserts |
+|---|---|---|---|---|---|---|
+| A: 763B only | 25 | $0.0058 | $0 | 728 | 2,799 | 24/24 |
+| D: H200 120B, then 763B | 0 | $0 | about $0.11 | 1,352 | 8,125 | 24/24 |
+
+The 763B alone won on cost and speed. The H200 pays only if it is already busy with other traffic, or the data must stay off Crusoe.
 
 ## Android
 

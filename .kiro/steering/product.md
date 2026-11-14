@@ -1,7 +1,7 @@
 # Product Overview: CHIMERA (Speculative Edge-to-Cloud Router)
 
 ## Vision
-Answer each LLM call at the cheapest tier that can do it. Order: cache (local or shared), small model on the user's machine, 30B model on a GPU box, large cloud model. Log tier, tokens, latency and dollars for every call. Score risky actions (pay, delete, merge) from 0 to 100 and hold them for approval at 70 or more.
+Answer each LLM call at the cheapest tier that can do it. Order: shared Supabase cache, a self-hosted 30B on the user's GPU, optionally a 120B on a Modal H200, then the largest cloud model (Crusoe 763B). Big-model answers are stored as teacher data (N+1 memory) so the 30B can retrieve solved examples next time. The Mac 3B of the first benchmarks is an experiment tier, off. Log tier, tokens, latency and dollars for every call. Score risky actions (pay, delete, merge) from 0 to 100 and hold them for approval at 70 or more.
 
 ## Measured results (single runs, 30 prompts, no repeats)
 The earlier "60-80% token savings" target is **mostly not met**: only the 763B top model in the ladder run reached it (65.6%). Real numbers:
@@ -16,7 +16,7 @@ The earlier "60-80% token savings" target is **mostly not met**: only the 763B t
 | Spec+ vs best plain spec | 1.14x to 1.22x, against a stand-in target, not a real big model. Still below the big model alone. | `bench/results_specplus.md` |
 | Shared Supabase cache, second machine | Hit rate 0.80, 48 of 60 GPU calls avoided, 0 false hits. Lookup 121 ms vs 8.9 ms local. | `docs/vector-store.md` |
 | Learned router, 180 graded prompts | 70.0%, same as the confidence gate. Off. | `bench/results_research_router.md` |
-| Modal H200 | Never served a request. Retry pending. | `bench/results_modal.md` |
+| Modal H200 gpt-oss-120b vs 763B only | 763B calls 25 -> 0, asserts 24/24 both. But about $0.11 of H200 time vs $0.0058 of 763B tokens, median 1,352 ms vs 728 ms. Off by default. Qwen3.5-122B never served. | `bench/results_modal.md` |
 
 What worked: cache hits cost $0 and answer in under 130 ms. 14 of 30 prompts were answered locally.
 What failed: long briefs raised input tokens on heavy tasks. Cache threshold 0.94 served wrong answers. The ladder and plain spec are slower than calling the top model. The GPU handoff tail is unexplained, and the ladder's slow calls came from a shared GPU box.
@@ -24,7 +24,7 @@ Fixes in code: semantic threshold 0.97, heavy tasks skip the 3B, no brief by def
 
 ## Surfaces
 1. **Kiro (built):** CLI, MCP server and hook interceptor in `apps/kiro-trimmer/`.
-2. **HUD (built):** live telemetry page in `apps/phantom-phone/hud-web/`.
+2. **Web page (built):** one page on 127.0.0.1:8765 (`make web`): walk the castle with WASD, the live dashboard in the Observatory, evals in the Ledger, and a chat with the bat agent that shows each routing step (`site/`).
 3. **Gateway (built):** OpenAI-compatible service for companies, keys per tenant.
 4. **Android tier (written, not tested on a phone).**
 5. **Phone agent (planned):** DND call handling, Marketplace, ride prices, mobile hotfix. Not built.
