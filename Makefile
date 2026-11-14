@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 HUD = apps/phantom-phone/hud-web
 
-.PHONY: setup test demo web bench serve-local site loop modal-up modal-down
+.PHONY: setup test demo web bench serve-local site loop modal-up modal-down web-keep
 
 setup:
 	python3 -m venv .venv
@@ -13,6 +13,9 @@ test:
 web:  # one page, one port: castle, dashboard and API on http://127.0.0.1:8765 (CHIMERA_PORT to change)
 	python3 site/build.py --check || python3 site/build.py
 	$(PY) $(HUD)/server.py
+
+web-keep:  # make web under a restart loop (2 s after any exit); log: bench/.scratch/web.log
+	scripts/web_keep.sh
 
 demo:  # the same page fed by invented demo telemetry (labelled demo) instead of the real log
 	HUD_TELEMETRY=$(HUD)/telemetry.jsonl $(PY) $(HUD)/demo.py & HUD_TELEMETRY=$(HUD)/telemetry.jsonl $(PY) $(HUD)/server.py

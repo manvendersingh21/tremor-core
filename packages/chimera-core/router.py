@@ -49,8 +49,8 @@ class NoMemory:
 class Events:
     """Collects the step events of one call and forwards each to the caller's on_event(step, data)."""
 
-    def __init__(self, cb: OnEvent | None = None) -> None:
-        self.cb, self.log = cb, []
+    def __init__(self, cb: OnEvent | None = None, tags: dict | None = None) -> None:
+        self.cb, self.log, self.tags = cb, [], tags or {}  # tags: task, conversation_id, prompt_preview
 
     def __call__(self, step: str, data: dict) -> None:
         self.log.append({"step": step, **data})
@@ -59,6 +59,11 @@ class Events:
                 self.cb(step, data)
             except Exception as e:  # noqa: BLE001  a broken listener must never break the call
                 log.warning("on_event failed: %s", type(e).__name__)
+
+
+def _tags(prompt: str, task: str | None, conversation_id: str | None) -> dict:
+    from .memory.safety import scrub
+    return {"task": task, "conversation_id": conversation_id, "prompt_preview": scrub(prompt[:200])[:80]}
 
 
 HEAVY_HINTS = re.compile(
@@ -129,13 +134,14 @@ class SpeculativeCascadeRouter:
 
     # ---- public API -------------------------------------------------------
     def generate(self, prompt: str, context: str = "", on_event: OnEvent | None = None,
-                 check: Callable[[str], bool] | None = None) -> GenerateResult:
+                 check: Callable[[str], bool] | None = None, task: str | None = None,
+                 conversation_id: str | None = None) -> GenerateResult:
         """on_event(step, data) is optional. Steps: embed, cache_shared, memory, decide, call, draft, final.
 
         check(answer) -> bool (e.g. unit tests): a failing answer is served but never cached or stored as memory.
         """
         t0 = time.perf_counter()
-        ev = Events(on_event)
+        ev = Events(on_event, _tags(prompt, task, conversation_id))
 
         hit = self._lookup(prompt, ev)
         if hit is not None:
@@ -311,7 +317,7 @@ class SpeculativeCascadeRouter:
             tier_used=tier, tokens_saved=tokens_saved, acceptance_rate_alpha=alpha, latency_ms=ms,
             dollars_saved=dollars_saved, local_tokens=local_tokens, cloud_tokens=cloud_tokens,
             per_tier=per_tier, tier_name=tier_name, cache_source=cache_source, events=ev.log,
-            dollars_spent=dollars_spent,
+            dollars_spent=dollars_spent, ts=time.time(), tokens_in=tokens_in, tokens_out=tokens_out, **ev.tags,
         )
         self.tracker.emit(tel)
         return GenerateResult(text=text, telemetry=tel)

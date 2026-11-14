@@ -103,6 +103,9 @@ def report(verdict: str = "") -> None:
         L.append(f"| {path} | {len(lat)} | {pct(lat, .5):.0f} | {pct(lat, .9):.0f} |")
     if verdict:
         L += ["", "## Verdict", "", verdict]
+    check = ROOT / "bench/results_backend_check.md"
+    if check.exists():
+        L += ["", check.read_text().rstrip()]
     L += ["", "## Rerun", "", "```",
           "# .env: CHIMERA_GPU_URL, CRUSOE_API_KEY, CHIMERA_DB_URL (app role); the tunnel to your GPU box is open",
           "BENCH_NS=bench-$(date +%s) .venv/bin/python bench/run_backend.py run",

@@ -188,3 +188,77 @@ def test_modal_state_reads_the_newest_gpu_large_app():
     assert modal_state_of(apps) == "deployed"
     assert modal_state_of(apps[:1]) == "stopped"
     assert modal_state_of(apps[2:]) == "not_deployed"
+
+
+def test_summarize_ui_fields():
+    import time as _t
+
+    from chimera_core.service import recent_calls, summarize
+
+    now = _t.time()
+    old = now - 3 * 86400
+    rows = [
+        {"tier_used": "gpu", "ts": now, "tokens_in": 10, "tokens_out": 5, "tokens_saved": 15, "dollars_saved": 0.01,
+         "task": "chat", "conversation_id": "c1"},
+        {"tier_used": "exact_cache", "cache_source": "shared", "ts": now, "tokens_saved": 7, "task": "chat",
+         "conversation_id": "c1", "events": [{"step": "cache_shared", "score": 1.0}, {"step": "final", "model": "cache"}]},
+        {"tier_used": "semantic_cache", "cache_source": "shared", "ts": old, "false_hit": True, "task": "code"},
+        {"tier_used": "top", "ts": old, "tokens_in": 100, "tokens_out": 50, "dollars_spent": 0.002},
+        {"tier_used": "local"},  # an old row with no ts: in totals, not in today or the series
+    ]
+    s = summarize(rows, now)
+    assert s["tokens"] == 165 and s["tokens_today"] == 15 and s["calls_today"] == 2
+    assert s["cache"]["today"] == {"exact": 1, "cosine": 0, "false_hits": 0}
+    assert s["cache"]["all_time"] == {"exact": 1, "cosine": 1, "false_hits": 1}
+    assert s["by_task"]["chat"]["calls"] == 2 and s["by_task"]["chat"]["cache_hits"] == 1
+    assert s["by_task"]["other"]["calls"] == 2 and s["by_task"]["code"]["calls"] == 1
+    assert s["by_conversation"] == {"c1": {"calls": 2, "tokens": 15, "cache_hits": 1, "tokens_saved": 22,
+                                           "dollars_saved": 0.01, "last_ts": now}}
+    daily = s["series"]["daily"]
+    assert [d["calls"] for d in daily] == [2, 2] and daily[-1]["tokens_saved"] == 22
+    assert sum(h["calls"] for h in s["series"]["hourly"]) == 2
+    rc = recent_calls(rows, 3)
+    assert [r["tier"] for r in rc] == ["local", "top", "semantic_cache"] and len(recent_calls(rows)) == 5
+    assert recent_calls(rows)[3]["score"] == 1.0 and recent_calls(rows)[3]["steps"][0]["step"] == "cache_shared"
+
+
+def test_chat_tags_reach_stats_and_bad_ids_are_refused(tmp_path):
+    svc = Service(router(), ChimeraConfig(), rate_per_min=600, burst=50, telemetry_path=tmp_path / "none.jsonl")
+    svc._storage = lambda: {"supabase": {"up": False}, "neo4j": {"up": False}}
+    list(svc.chat({"prompt": "tagged question one", "conversation_id": "conv-1", "task": "code"}, "5.5.5.5"))
+    st = svc.stats()
+    assert st["session"]["by_conversation"]["conv-1"]["calls"] == 1
+    assert st["session"]["by_task"]["code"]["tokens"] == 15 and st["session"]["tokens_today"] == 15
+    assert st["recent"][0]["conversation_id"] == "conv-1" and st["recent"][0]["prompt"] == "tagged question one"
+    assert [s["step"] for s in st["recent"][0]["steps"]][-1] == "final"
+    list(svc.chat({"prompt": "untagged"}, "5.5.5.5"))
+    assert svc.stats()["session"]["by_task"]["chat"]["calls"] == 1  # stats are not stale after a call
+    for bad in ({"conversation_id": "a b"}, {"task": "x" * 65}, {"task": 3}):
+        with pytest.raises(Exception) as e:
+            svc.chat({"prompt": "hi", **bad}, "5.5.5.5")
+        assert e.value.status == 400
+
+
+def test_storage_counts_with_fakes_and_neo4j_down(monkeypatch, tmp_path):
+    class Store:
+        def _tx(self, tenant, sql, params, fetch):
+            assert tenant == "default" and fetch == "one"
+            return (3, 8192, 10)
+
+    class Shared:
+        tenant = "default"
+
+        def _store_ready(self):
+            return Store()
+
+    r = router()
+    r.shared = Shared()
+    svc = Service(r, ChimeraConfig(), telemetry_path=tmp_path / "none.jsonl")
+    monkeypatch.setattr(svc, "_neo4j_counts", lambda: (_ for _ in ()).throw(ConnectionError("down")))
+    st = svc.storage()
+    sb = st["supabase"]
+    assert sb["up"] and set(sb["tables"]) >= {"prompts", "teacher_pairs", "mem_nodes", "mem_edges"}
+    assert sb["tables"]["prompts"] == {"tenant_rows": 3, "bytes": 8192, "rows_estimate": 10}
+    assert sb["bytes_total"] == 8192 * len(sb["tables"])
+    assert st["neo4j"] == {"up": False, "error": "ConnectionError"}
+    assert svc.storage() is st  # cached 60 s
