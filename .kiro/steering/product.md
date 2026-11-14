@@ -31,7 +31,7 @@ Fixes in code: semantic threshold 0.97, heavy tasks skip the 3B, no brief by def
 ## Surfaces
 1. **Kiro (built):** CLI, MCP server and hook interceptor in `apps/kiro-trimmer/`, plus the `.kiro/` setup (steering, specs, hooks, custom agents, MCP, a Power).
 1b. **Terminal agent `chimera code` (written, in review):** `apps/terminal/`, edits files and runs tests through the ladder.
-2. **Web page (built, one URL):** one page on 127.0.0.1:8765 (`make web`): a 3D castle you walk with WASD. Outside the gate, the Great Hall with a guide at the front desk (chat through the router, live trace) and a savings board, the stairs, then three doors: Dashboard, Chat, Evals (`site/castle/`). A 2D minimap and an M map. Plain HTML without WebGL.
+2. **Web page (built, one URL):** one page on 127.0.0.1:8765 (`make web`): you walk into the painted castle as the camera (W), through the iron gates and the great door, along the Great Hall to its gold-plated doors. Rooms show real numbers; the Observatory is the Halloween dashboard; the Count answers through the router.
 3. **Gateway (built):** OpenAI-compatible service for companies, keys per tenant.
 4. **Android tier (written, not tested on a phone).**
 5. **Phone agent (planned):** DND call handling, Marketplace, ride prices, mobile hotfix. Not built.
