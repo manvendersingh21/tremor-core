@@ -1,0 +1,38 @@
+# Gateway config used inside the container (copied to /etc/chimera/chimera.toml). No secrets here.
+# CRUSOE_API_KEY comes from the environment (deploy/.env). Override this file by mounting your own.
+
+[local]                      # tier 1: the optional llama.cpp service (compose profile "local")
+url = "http://llama:8080"
+chatml = true
+
+[gpu]                        # tier 2: set enabled = true and a reachable Ollama URL to use a GPU box
+enabled = false
+url = "http://host.docker.internal:11434"
+model = "qwen3:30b-instruct"
+
+[crusoe]                     # tier 3 (and tier 2 while gpu.enabled = false)
+base_url = "https://api.inference.crusoecloud.com"
+mid_model = "Qwen/Qwen3.8-27B"
+top_model = "openai/gpt-oss-120b"
+top_template_kwargs = { reasoning_effort = "low" }
+
+[thresholds]
+semantic = 0.97
+confidence = 0.85
+heavy = 0.6
+
+[cache]
+path = "/data/cache.db"
+semantic = false             # true needs the "embed" build arg
+
+[telemetry]
+path = "/data/telemetry.jsonl"
+
+[gateway]
+db = "/data/gateway.db"      # API key hashes and audit log
+rate_per_min = 120
+burst = 30
+max_body_bytes = 1000000
+timeout_s = 90
+log_prompts = false
+actions = false              # true enables POST /v1/actions/score

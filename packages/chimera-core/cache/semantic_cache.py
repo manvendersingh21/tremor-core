@@ -53,6 +53,12 @@ class SemanticCache:
             )
             self._db.commit()
 
+    def purge(self, namespace: str) -> int:
+        with self._lock:
+            n = self._db.execute("DELETE FROM entries WHERE namespace = ?", (namespace,)).rowcount
+            self._db.commit()
+            return n
+
     def get(self, prompt: str, namespace: str = "") -> tuple[str, float] | None:
         """Return (response, similarity) for the best match at or above the threshold."""
         query = _norm(self._embedder.embed(prompt))
