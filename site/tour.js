@@ -2,7 +2,7 @@
 (() => {
   const ROOMS = window.ROOMS || [];
   const BASE = 'https://github.com/manvendersingh21/tremor-core/blob/dev/';
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduce = false; // motion runs for everyone
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const body = document.body, drac = $('dracula'), bt = $('bubble-text'), live = $('bubble-live');

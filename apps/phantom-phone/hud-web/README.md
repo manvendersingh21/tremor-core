@@ -14,7 +14,7 @@ This replaces the Next.js HUD in the spec. The Mac has too little free disk for 
 
 ## Theme toggle
 
-Three buttons in the top bar. The choice is saved in `localStorage` (`chimera-theme`: `gothic`, `hollowkeep`, `standard`; an old `halloween` value maps to Hollowkeep). `?theme=standard` forces a theme for one load. All motion (fog, bats, petals, candle flames, counter easing) stops under `prefers-reduced-motion`. Tiers show a themed name beside the real one (Standard shows the real name only):
+Three buttons in the top bar. The choice is saved in `localStorage` (`chimera-theme`: `gothic`, `hollowkeep`, `standard`; an old `halloween` value maps to Hollowkeep). `?theme=standard` forces a theme for one load. Motion (fog, bats, petals, candle flames, counter easing) always runs; there is no pause control. Tiers show a themed name beside the real one (Standard shows the real name only):
 
 | Tier | Themed label |
 |---|---|

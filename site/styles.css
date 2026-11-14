@@ -88,11 +88,6 @@ button{font:600 .95rem var(--body);cursor:pointer;min-height:44px;padding:0 16px
 @keyframes roll{to{transform:translateX(-50%)}}
 @keyframes rollr{from{transform:translateX(-50%)}to{transform:translateX(0)}}
 
-/* pause toggle, tab hidden, and reduced motion */
-.motion-toggle{position:fixed;top:10px;right:10px;z-index:30;background:rgba(20,6,10,.82);color:var(--ivory);border:2px solid var(--gold);min-height:44px}
-.motion-toggle:hover{background:var(--gold);color:var(--night)}
-.motion-off .sky *,.motion-off .sky,.motion-off .poster,.motion-off .dracula,.motion-off .cb svg,.tab-hidden .sky *,.tab-hidden .poster,.tab-hidden .dracula,.tab-hidden .cb svg{animation-play-state:paused!important}
-.motion-off .sky-zoom,.motion-off .clouds,.motion-off .bats{transition:none}
 
 .layout{position:relative;z-index:1;display:grid;grid-template-columns:minmax(300px,360px) 1fr;min-height:100vh}
 .host{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:16px 16px 0;gap:6px}
@@ -216,10 +211,4 @@ h2{font-size:clamp(1.7rem,4vw,2.6rem);color:var(--gold)}
   .poster-grid{grid-template-columns:1fr;gap:54px}
 }
 @media (max-width:360px){.cb svg{width:34px}.poster{padding:12px}}
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  *,*::before,*::after{animation:none!important;transition:none!important}
-  .bats,.orbit,.ember,.wisp,.motion-toggle{display:none}
-  .moon{opacity:.85}
-}
-@media (max-width:820px){.motion-toggle{top:6px;right:6px;min-height:40px;padding:0 12px}.stage{padding-top:60px}.bx.x,.orbit,.ember.x{display:none}.sky-zoom,.clouds,.bats{translate:none}}
+@media (max-width:820px){.stage{padding-top:60px}.bx.x,.orbit,.ember.x{display:none}.sky-zoom,.clouds,.bats{translate:none}}
