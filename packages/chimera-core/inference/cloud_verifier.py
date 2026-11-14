@@ -67,7 +67,7 @@ class VllmBackend:
         self.timeout = timeout
 
     def _post(self, path: str, payload: dict) -> dict:
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", "User-Agent": "chimera/0.1"}  # GMI 403s the default urllib agent
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         req = urllib.request.Request(
