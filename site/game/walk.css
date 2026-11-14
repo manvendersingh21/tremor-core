@@ -1,0 +1,63 @@
+/* The walk-in movie. The video frame is a little wider than the screen, so turning your head pans it. */
+.m-root { position: fixed; inset: 0; z-index: 50; background: #0b0510; color: #f1e6da; overflow: hidden; font-family: "Cormorant Garamond", Georgia, serif; }
+.m-stage { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
+.m-stage video, .m-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s; }
+.m-stage video.on, .m-stage img.on { opacity: 1; }
+.m-stage img { transform-origin: 50% 58%; transition: opacity .25s, transform .2s linear; }
+#m-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.m-bar { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: .6rem; align-items: center; padding: .7rem 1rem; background: linear-gradient(#0b0510b0, #0b051000); }
+#m-where { font: 700 1.05rem Cinzel, Georgia, serif; letter-spacing: .08em; color: #f4d58d; text-shadow: 0 1px 8px #000; margin-right: auto; }
+.m-fps { font: 600 .78rem Inter, sans-serif; color: #6ee7a0; background: #0b0510b0; padding: .15rem .5rem; border-radius: 6px; }
+.m-btn { font: 600 .85rem Inter, system-ui, sans-serif; color: #f1e6da; background: #2a0f2fcc; border: 1px solid #c99a3a; border-radius: 999px; padding: .42rem .9rem; cursor: pointer; }
+.m-btn:hover, .m-btn:focus-visible { background: #4a1850; outline: 2px solid #e9c46a; outline-offset: 2px; }
+.m-prompt { position: absolute; left: 50%; bottom: 13%; transform: translateX(-50%); font: 600 1rem Inter, system-ui, sans-serif; background: #1d0a22e8; border: 1px solid #e9c46a; color: #fff; padding: .5rem 1rem; border-radius: 999px; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+.m-prompt.on { opacity: 1; }
+.m-root kbd { font: 700 .8em Inter, sans-serif; background: #e9c46a; color: #1a0d1e; border-radius: 4px; padding: 0 .35em; }
+.m-say { position: absolute; left: 1.2rem; top: 4.2rem; max-width: 340px; background: #f3e9dcf0; color: #2a1230; border-radius: 14px; padding: .7rem .9rem; font: 600 1.12rem/1.35 "Cormorant Garamond", Georgia, serif; box-shadow: 0 8px 30px #000a; }
+.m-say b { display: block; font: 700 .72rem Cinzel, serif; letter-spacing: .12em; color: #8a1a3a; margin-bottom: .2rem; }
+.m-say small { display: block; margin-top: .3rem; font: 500 .75rem Inter, sans-serif; color: #5a3a60; }
+#m-mini { position: absolute; right: .9rem; bottom: .9rem; width: 180px; height: 130px; border: 1px solid #8f5aa8; border-radius: 8px; }
+.m-help { position: absolute; left: .9rem; bottom: .9rem; font: 500 .8rem Inter, sans-serif; background: #0b0510c0; padding: .35rem .7rem; border-radius: 6px; }
+.m-fade { position: absolute; inset: 0; background: #05020a; opacity: 0; pointer-events: none; transition: opacity .3s; }
+.m-fade.on { opacity: 1; }
+/* the gold-plated doors of the Great Hall, signs as real text (same look as the painted site) */
+.m-doors { position: absolute; left: 50%; bottom: 17%; transform: translateX(-50%); display: flex; gap: 1vw; align-items: flex-end; }
+.m-doors[hidden] { display: none; }
+.m-door { position: relative; width: min(9.2vw, 130px); aspect-ratio: 3 / 4.6; border: 0; padding: 0; cursor: pointer; border-radius: 50% 50% 4px 4px / 32% 32% 4px 4px;
+  background: url(../art/door.webp) center / cover no-repeat; box-shadow: 0 0 0 3px #b8862e, 0 0 0 5px #3a220c, 0 10px 30px #000c; transition: transform .2s, box-shadow .2s; }
+.m-door.sel, .m-door:hover, .m-door:focus-visible { transform: translateY(-8px) scale(1.06); box-shadow: 0 0 0 3px #ffd27a, 0 0 0 5px #6a420c, 0 0 36px 8px #ffb44a99; outline: none; }
+.m-plaque { position: absolute; left: 50%; bottom: 106%; transform: translateX(-50%); width: max-content; max-width: 13vw; background: linear-gradient(#e9c46a, #b8862e); color: #2a1206; border-radius: 6px; padding: .25rem .5rem; box-shadow: 0 4px 12px #000a; text-align: center; }
+.m-plaque strong { display: block; font: 700 .78rem Cinzel, serif; letter-spacing: .04em; }
+.m-plaque span { display: none; font: 500 .7rem Inter, sans-serif; }
+.m-door.sel .m-plaque span { display: block; max-width: 12vw; white-space: normal; }
+/* panels */
+.m-panel { position: absolute; inset: 7vh 6vw 6vh; display: flex; flex-direction: column; background: #170a1ce8; border: 1px solid #c99a3a; border-radius: 14px; box-shadow: 0 20px 80px #000c; overflow: hidden; backdrop-filter: blur(4px); }
+.m-panel[hidden] { display: none; }
+.m-ph { display: flex; align-items: center; gap: .8rem; padding: .7rem 1rem; border-bottom: 1px solid #5b2a6a; background: linear-gradient(90deg, #3a0f2a, #1d0a22); }
+.m-ph h2 { margin: 0 auto 0 0; font: 700 1.3rem Cinzel, serif; letter-spacing: .06em; color: #f4d58d; }
+.m-pb { flex: 1; overflow: auto; padding: 1rem 1.2rem 1.4rem; }
+.m-lead { font-size: 1.25rem; line-height: 1.4; max-width: 72ch; margin: 0 0 1rem; }
+.m-dash { width: 100%; height: 72vh; border: 1px solid #3a2a30; border-radius: 10px; margin-bottom: 1rem; background: #0d1512; }
+.m-posters { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: .9rem; }
+.m-poster { background: #f1e6dae6; color: #2a1230; border-radius: 6px; padding: .85rem 1rem; box-shadow: 0 4px 16px #0008; animation: m-sway 7s ease-in-out infinite alternate; }
+.m-poster:nth-child(2n) { animation-delay: -2s; } .m-poster:nth-child(3n) { animation-delay: -4s; }
+@keyframes m-sway { from { transform: rotate(-.5deg); } to { transform: rotate(.5deg); } }
+.m-poster h3 { margin: 0 0 .2rem; font: 700 1rem Cinzel, serif; color: #6e1426; }
+.m-poster .big { font: 700 2rem Cinzel, serif; margin: .1rem 0 .3rem; }
+.m-poster p { margin: .25rem 0; font-size: 1.05rem; line-height: 1.3; }
+.m-poster ol { margin: .2rem 0 .3rem 1.2rem; padding: 0; }
+.m-poster .fn { font: 500 .78rem Inter, sans-serif; } .m-poster .fn a { color: #6e1426; }
+.m-pb.m-chat { padding: .8rem; display: flex; } .m-chatbox { flex: 1; min-height: 0; display: flex; }
+.m-chatbox .c-wrap { flex: 1; }
+/* map */
+.m-map { position: absolute; inset: 0; display: grid; place-items: center; background: #05020acc; }
+.m-map[hidden] { display: none; }
+.m-map > div { width: min(480px, 92vw); max-height: 86vh; overflow: auto; background: #170a1c; border: 1px solid #c99a3a; border-radius: 14px; padding: 1rem 1.2rem; }
+.m-map h2 { margin: 0 0 .6rem; font: 700 1.2rem Cinzel, serif; color: #f4d58d; }
+.m-map ol { margin: 0 0 .8rem; padding: 0 0 0 1.2rem; display: grid; gap: .3rem; }
+.m-map li button { width: 100%; text-align: left; font: 600 .95rem Inter, sans-serif; color: #fff; background: #2a0f2f; border: 1px solid #5b2a6a; border-radius: 8px; padding: .45rem .7rem; cursor: pointer; }
+.m-map li.here button { border-color: #6ee7a0; }
+.m-joy { position: absolute; left: 1rem; bottom: 3.4rem; width: 120px; height: 120px; border-radius: 50%; background: #2a0f2f66; border: 2px solid #8f5aa8aa; display: none; touch-action: none; }
+.m-joy i { position: absolute; left: 36px; top: 36px; width: 48px; height: 48px; border-radius: 50%; background: #e9c46acc; }
+.m-act { position: absolute; right: 1rem; bottom: 9.5rem; width: 64px; height: 64px; border-radius: 50%; background: #8a1a3acc; color: #fff; font: 700 1.2rem Inter, sans-serif; border: 2px solid #e9c46a; display: none; }
+@media (pointer: coarse) { .m-joy, .m-act { display: block; } .m-help { display: none; } }

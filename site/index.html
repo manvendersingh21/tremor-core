@@ -13,11 +13,11 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="dashboard.css">
 <link rel="stylesheet" href="world/world.css">
-<link rel="stylesheet" href="castle/castle.css">
+<link rel="stylesheet" href="game/walk.css">
 </head>
 <body data-view="entrance">
 <a class="skip-link" href="#stage">Skip to content</a>
-<div id="world" class="js-world" aria-label="The castle in 3D. Walk with W A S D or the arrow keys. Press M for the map and a list of rooms."></div>
+<div id="world" class="js-world" aria-label="The castle. Hold W to walk in, A and D or the mouse to look, E to open, M for the map."></div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
@@ -275,15 +275,13 @@
 <script src="rooms.js"></script>
 <script src="dashboard.js"></script>
 <script src="world/chat.js"></script>
-<script src="castle/physics.js"></script>
-<script src="castle/panels.js"></script>
-<script type="module">
-// The 3D castle is the page. Without WebGL the plain HTML version below shows instead (all rooms as sections).
+<script src="game/panels.js"></script>
+<script src="game/walk.js"></script>
+<script>
+// The walk-in movie is the page. If it cannot start, the plain HTML version below shows instead (every room as a section).
 const root = document.getElementById('world');
-const gl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })();
-const plain = () => { root.remove(); document.documentElement.classList.remove('js'); };
-if (!gl) plain();
-else import('./castle/castle.js').then((m) => m.start(root, { base: 'castle/' })).catch((e) => { console.error(e); plain(); });
+root.classList.add('m-root');
+MovieGameStart(root, { site: '' }).catch((e) => { console.error(e); root.remove(); document.documentElement.classList.remove('js'); });
 </script>
 </body>
 </html>

@@ -18,7 +18,7 @@ MAX_BYTES = 400_000
 GMI_QUEUE = "https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests"
 GMI_CHAT = "https://api.gmi-serving.com/v1/chat/completions"
 MINIMAX = "https://api.minimax.io/v1/image_generation"
-SEEDREAM = {"16:9": "2688x1512", "3:4": "1800x2400", "4:3": "2400x1800"}  # >= 3.6M px
+SEEDREAM = {"16:9": "2688x1512", "3:4": "1800x2400", "4:3": "2400x1800", "1:1": "2048x2048"}  # >= 3.6M px
 calls = {"m3": 0, "image": 0}
 
 
