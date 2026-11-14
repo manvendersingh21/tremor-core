@@ -217,7 +217,7 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
   <div class="hero">
     <div class="hero-grid">
       <div>
-        <div class="eyebrow acc"><span class="g">The candles are lit</span><span class="ng">The house is awake</span></div>
+        <div class="eyebrow acc"><span class="g">The candles are lit</span><span class="ng">Live ledger</span></div>
         <h1><span class="g">Not every word needs to reach the <em>castle.</em></span><span class="ng">Every token <em>counts.</em></span></h1>
         <p>CHIMERA answers each call at the cheapest tier that can do it, and logs which model spent every token.</p>
       </div>
@@ -303,14 +303,14 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 
 <section id="how" hidden>
   <div class="sec-head"><div class="eyebrow acc">Four rungs</div><h2 class="serif">Climb only <em>when needed</em></h2><div class="fili" aria-hidden="true"><svg width="90" height="18"><use href="#orn"/></svg></div></div>
-  <div class="card">Each call tries the cheapest rung first and climbs only when needed.</div>
-  <div class="rung" style="border-left-color:var(--cache)"><div class="eyebrow">Tier 0</div><b class="how" data-k="cache"></b><br><span class="lbl">Exact hash, then meaning match (cosine ≥ 0.97). No model runs.</span></div>
+  <div class="card">Each call tries the cheapest rung first and climbs only when needed. In the ladder run this cut top-model tokens 45.1% (gpt-oss-120b) and 65.6% (763B), and made the median call slower. Speculative decoding over the internet was slower than plain Ollama. Figures are in bench/results_ladder.md and bench/spec_results.md.</div>
+  <div class="rung" style="border-left-color:var(--cache)"><div class="eyebrow">Tier 0</div><b class="how" data-k="cache"></b><br><span class="lbl">Exact hash, then meaning match (cosine ≥ 0.97). No model runs. The cache can be shared through Supabase: 48 of 60 GPU calls avoided on a second machine, 0 false hits (docs/vector-store.md).</span></div>
   <div class="arrow">miss ↓</div>
   <div class="rung" style="border-left-color:var(--phone)"><div class="eyebrow">Tier I</div><b class="how" data-k="phone_3b"></b> or <b class="how" data-k="mac_3b"></b><br><span class="lbl">A small model on the phone or the Mac. Answers if its own token confidence ≥ 0.85. Heavy tasks skip this rung.</span></div>
   <div class="arrow">unsure or heavy ↓</div>
-  <div class="rung" style="border-left-color:var(--gpus)"><div class="eyebrow">Tier II</div><b class="how" data-k="gpu_small"></b> or <b class="how" data-k="gpu_large"></b><br><span class="lbl">A 30B model on a GPU box. A larger GPU model is planned.</span></div>
+  <div class="rung" style="border-left-color:var(--gpus)"><div class="eyebrow">Tier II</div><b class="how" data-k="gpu_small"></b> or <b class="how" data-k="gpu_large"></b><br><span class="lbl">A 30B model on a GPU box. Ladder calls took 25 to 90 s when the box was shared. A larger H200 tier exists but has not served a request yet.</span></div>
   <div class="arrow">tests fail or too hard ↓</div>
-  <div class="rung" style="border-left-color:var(--crusoe)"><div class="eyebrow">Tier III</div><b class="how" data-k="crusoe"></b>, the largest model on the key<br><span class="lbl">Gets a short brief from a small model plus the original task.</span></div>
+  <div class="rung" style="border-left-color:var(--crusoe)"><div class="eyebrow">Tier III</div><b class="how" data-k="crusoe"></b>, the largest model on the key<br><span class="lbl">Gets the original task. A brief is off by default: a 30B brief cost the same and was 4.4x slower.</span></div>
   <div class="card lbl" style="margin-top:12px">Tokens kept off the big model = tokens that never reached Crusoe, as a share of all tokens plus tokens a cache hit avoided. Alpha = share of local draft tokens the big model accepted (verified path only).</div>
 </section>
 </main>

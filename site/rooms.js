@@ -6,7 +6,7 @@ window.ROOMS = [
     "say": [
       "Welcome to the Crypt. Here we keep every answer we have given before.",
       "A call that matches an old one costs nothing and comes back in a blink.",
-      "One lesson was learned the hard way. Read the last poster."
+      "Two lessons came the hard way. Read the last posters."
     ],
     "posters": [
       {
@@ -33,7 +33,7 @@ window.ROOMS = [
         ],
         "lines": [
           "Exact match first, then cosine similarity of 0.97 or more.",
-          "One SQLite file on disk. Exact-only mode needs no embedding model."
+          "One SQLite file on disk, or one shared Supabase table. Exact-only mode needs no embedding model."
         ],
         "src": [
           "docs/architecture.md",
@@ -46,12 +46,40 @@ window.ROOMS = [
         "title": "A lesson",
         "big": "0.94",
         "lines": [
-          "At this threshold the cache served wrong answers (r2 and p4).",
-          "The threshold is now 0.97. That fix is not yet measured."
+          "At 0.94 the cache served wrong answers (r2 and p4).",
+          "At 0.97 the ladder run served no wrong cached answer, and p4 missed the cache and was answered correctly."
         ],
         "src": [
-          "bench/results_gpu.md",
-          "bench/results_gpu.md"
+          "bench/results_ladder.md",
+          "bench/results_ladder.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 2,
+        "title": "Shared cache",
+        "big": "48/60",
+        "lines": [
+          "A second machine avoided 48 of 60 GPU calls: hit rate 0.80, 0 false hits.",
+          "The cost: a lookup took a median 121 ms against 8.9 ms local. At a 150 ms budget it fell back 59 of 60 times."
+        ],
+        "src": [
+          "docs/vector-store.md",
+          "docs/vector-store.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 3,
+        "title": "Cache guard",
+        "big": "4 \u2192 2",
+        "lines": [
+          "Wrong hits at 0.97 fell from 4 to 2 on 800 QQP pairs. Recall of duplicates also fell, from 10.1% to 9.1%.",
+          "Off by default. Counts are small."
+        ],
+        "src": [
+          "bench/results_research_cache.md",
+          "bench/results_research_cache.md"
         ]
       }
     ]
@@ -63,7 +91,7 @@ window.ROOMS = [
     "say": [
       "This is the Ladder. Every call starts on the lowest rung.",
       "When a draft is not good enough, it climbs one rung. Never more.",
-      "Big and small models of one family can also check each other. I will tell you what is proven, and what is not."
+      "Big and small models of one family can also check each other. I will tell you what is proven, and what is not. Mostly it lost."
     ],
     "posters": [
       {
@@ -79,7 +107,7 @@ window.ROOMS = [
           "cloud tower"
         ],
         "lines": [
-          "The phone rung is planned, not built.",
+          "The phone rung is written but not tested on a phone.",
           "Thinking is off on every tier."
         ],
         "src": [
@@ -126,11 +154,25 @@ window.ROOMS = [
         ],
         "lines": [
           "Only token ids and log probabilities cross the wire. Same model family. The verifier must be a llama.cpp server.",
-          "Not measured yet, so no speedup is claimed."
+          "Over the internet this was 4.5x to 7x slower than plain Ollama. The round trip alone is about 0.6 s."
         ],
         "src": [
-          "docs/architecture.md",
-          "docs/architecture.md"
+          "bench/spec_results.md",
+          "bench/spec_results.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 3,
+        "title": "Spec+",
+        "big": "1.14\u20131.22x",
+        "lines": [
+          "1.14x to 1.22x over the best plain spec at a simulated round trip of 0 to 300 ms.",
+          "Against a stand-in target, not a real big model. It still did not beat the big model alone (13.36 against 19.27 tok/s at 150 ms)."
+        ],
+        "src": [
+          "bench/results_specplus.md",
+          "bench/results_specplus.md"
         ]
       }
     ]
@@ -140,22 +182,22 @@ window.ROOMS = [
     "title": "The Familiar",
     "door": "Phone, Android: a small helper in your pocket.",
     "say": [
-      "The Familiar is a small model that would live on your phone.",
-      "I must be honest. It is planned, and none of it is built yet."
+      "The Familiar is a small model for your phone.",
+      "I must be honest. The setup is written, but no phone has run it yet."
     ],
     "posters": [
       {
         "at": 0,
         "bats": 1,
         "title": "Phone rung",
-        "big": "planned",
+        "big": "untested",
         "lines": [
-          "A Gemma 3 1B or 4B model on Android is the plan.",
-          "No phone code is built."
+          "A Qwen2.5 3B (1.5B on a small phone) through Termux, reached over USB.",
+          "Not tested on a phone. There are no phone numbers."
         ],
         "src": [
-          "docs/architecture.md",
-          "docs/architecture.md"
+          "docs/android.md",
+          "docs/android.md"
         ]
       },
       {
@@ -181,7 +223,7 @@ window.ROOMS = [
     "door": "GPUs: your own box first, then a rented one.",
     "say": [
       "The Manor is your own GPU box. The Castle is the big rented one.",
-      "On the GPU the cascade saved calls and time. But it did not save tokens, and it lost some quality.",
+      "On the Manor's GPU the cascade saved calls and time. But it did not save tokens, and it lost some quality. The Castle's H200 never answered.",
       "Look at the red numbers. They are the truth."
     ],
     "posters": [
@@ -240,6 +282,34 @@ window.ROOMS = [
           "bench/results_gpu.md",
           "bench/results_gpu.md"
         ]
+      },
+      {
+        "at": 2,
+        "bats": 2,
+        "title": "The Manor's box",
+        "big": "V100",
+        "lines": [
+          "Qwen3-30B on one rented Tesla V100 (Akash), reached through an SSH tunnel.",
+          "It is shared. Ladder calls took 25 to 90 s while they queued, and a lone call took 1.5 s."
+        ],
+        "src": [
+          "bench/results_ladder.md",
+          "bench/results_ladder.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 3,
+        "title": "The Castle's H200",
+        "big": "0 requests",
+        "lines": [
+          "The Modal H200 never served a request in two cold starts.",
+          "No speed or savings numbers exist. A retry is pending."
+        ],
+        "src": [
+          "bench/results_modal.md",
+          "bench/results_modal.md"
+        ]
       }
     ]
   },
@@ -250,7 +320,7 @@ window.ROOMS = [
     "say": [
       "The Tower holds the largest model. It is strong, and it is priced by the token.",
       "The cascade sent far fewer calls up here. Whether that made things better depends on what you value.",
-      "Then came the ladder run. Only four heavy prompts climbed this high."
+      "Then came the ladder run. Only 6 prompts climbed to the 120B model, and 4 to the 763B model."
     ],
     "posters": [
       {
@@ -299,10 +369,10 @@ window.ROOMS = [
         "at": 2,
         "bats": 2,
         "title": "Top tokens, ladder",
-        "big": "69.7%",
+        "big": "45.1%",
         "lines": [
-          "Fewer top-model tokens: 16,484 down to 4,990.",
-          "Only 4 of 30 prompts reached gpt-oss-120b."
+          "Fewer gpt-oss-120b tokens: 14,741 down to 8,087.",
+          "6 of 30 prompts reached it."
         ],
         "src": [
           "bench/results_ladder.md",
@@ -313,10 +383,10 @@ window.ROOMS = [
         "at": 2,
         "bats": 3,
         "title": "Top dollars",
-        "big": "73.5%",
+        "big": "40.8%",
         "lines": [
-          "Lower: $0.00350 down to $0.00093.",
-          "That is only $0.0026 on 30 prompts, because the model is cheap."
+          "Lower: $0.00307 down to $0.00181.",
+          "That is only $0.0013 on 30 prompts, because the model is cheap."
         ],
         "src": [
           "bench/results_ladder.md",
@@ -329,8 +399,8 @@ window.ROOMS = [
         "title": "The largest model",
         "big": "763B",
         "lines": [
-          "DeepSeek-V4.1-Flash is the biggest on the key.",
-          "As top it spent $0.00301 on 3,560 tokens. Its price differs, so it is not comparable."
+          "DeepSeek-V4.1-Flash is the biggest on the key. The ladder cut its tokens 65.6% (6,365 to 2,192) and dollars 67.3% ($0.00652 to $0.00213).",
+          "Only 4 of 30 prompts reached it. The ladder median was 1.9 s against 0.7 s."
         ],
         "src": [
           "bench/results_ladder.md",
@@ -345,8 +415,8 @@ window.ROOMS = [
     "door": "Results and token savings, with every loss.",
     "say": [
       "The Ledger keeps the true count. Single runs, 30 prompts, no repeats.",
-      "We hoped to save 60 to 80% of tokens. Only one count got there, in one run.",
-      "What we did save is calls and money on easy and repeated prompts."
+      "We hoped to save 60 to 80% of tokens. Only one count got there, in one run: top-model tokens for the 763B model.",
+      "What we did save is calls and money on easy and repeated prompts. Speculation lost."
     ],
     "posters": [
       {
@@ -356,11 +426,11 @@ window.ROOMS = [
         "big": "MIXED",
         "lines": [
           "The goal was 60 to 80% fewer tokens.",
-          "Missed on the GPU run (+37%). Met only for top-model tokens in the ladder run."
+          "Missed on the GPU run (+37%) and for the 120B top model (45.1%). Met only for the 763B top model (65.6%)."
         ],
         "src": [
-          "bench/results_gpu.md",
-          "bench/results_gpu.md"
+          "bench/results_ladder.md",
+          "bench/results_ladder.md"
         ]
       },
       {
@@ -392,27 +462,13 @@ window.ROOMS = [
         ]
       },
       {
-        "at": 2,
-        "bats": 1,
-        "title": "Still unmeasured",
-        "big": "2 GAPS",
-        "lines": [
-          "No speculative-verify speedup. bench/spec_results.md does not exist yet.",
-          "No cold-load time for the GPU model."
-        ],
-        "src": [
-          "bench/run_spec.py",
-          "bench/run_spec.py"
-        ]
-      },
-      {
         "at": 1,
         "bats": 2,
         "title": "Ladder run",
-        "big": "69.7%",
+        "big": "65.6%",
         "lines": [
-          "Fewer top-model tokens, 16,484 to 4,990.",
-          "Quality held on every checkable prompt: easy, repeat, paraphrase and small code."
+          "Fewer 763B top-model tokens, 6,365 to 2,192. For the 120B model: 45.1%, 14,741 to 8,087.",
+          "Code checks passed 6/6 in every mode. Heavy-code grades were 3.83 (top only) and 4.00 (ladder), one noisy grader."
         ],
         "src": [
           "bench/results_ladder.md",
@@ -423,14 +479,70 @@ window.ROOMS = [
         "at": 2,
         "bats": 2,
         "title": "Ladder is slower",
-        "big": "1.7 s",
+        "big": "2.2 s",
         "lines": [
-          "Median latency, against 0.84 s calling the top model directly.",
-          "p90 was 59.7 s while the GPU box was shared. One pass, 4 heavy prompts reached the top."
+          "Median latency, against 0.88 s calling the 120B model directly. p90 was 46 s against 3.9 s.",
+          "The slow calls are the shared GPU 30B. A 30B brief cost the same and was 4.4x slower."
         ],
         "src": [
           "bench/results_ladder.md",
           "bench/results_ladder.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 3,
+        "title": "Spec over the net",
+        "big": "0.15x",
+        "lines": [
+          "Plain speculative decoding, 3B drafts and a GPU 30B checks, was 4.5x to 7x slower than plain Ollama (alpha 0.68 at K=4).",
+          "The round trip alone was about 0.6 s."
+        ],
+        "src": [
+          "bench/spec_results.md",
+          "bench/spec_results.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 2,
+        "title": "Spec+ stand-in",
+        "big": "1.2x",
+        "lines": [
+          "1.14x to 1.22x over the best plain spec, measured against a stand-in target. Not a real big model.",
+          "Big model alone: 19.27 tok/s. Spec+: 13.36 tok/s."
+        ],
+        "src": [
+          "bench/results_specplus.md",
+          "bench/results_specplus.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 2,
+        "title": "Shared cache",
+        "big": "0.80",
+        "lines": [
+          "48 of 60 GPU calls avoided on a second machine, 0 false hits. Hit rate 0.80.",
+          "Lookup median 121 ms against 8.9 ms local. One run."
+        ],
+        "src": [
+          "docs/vector-store.md",
+          "docs/vector-store.md"
+        ]
+      },
+      {
+        "at": 2,
+        "bats": 1,
+        "title": "Still unmeasured",
+        "big": "GAPS",
+        "lines": [
+          "Modal H200: never served a request. Android phone: not tested.",
+          "Real Qwen-family Spec+, the short brief, and the GPU tail latency are not measured."
+        ],
+        "src": [
+          "bench/results_modal.md",
+          "bench/results_modal.md"
         ]
       }
     ]
