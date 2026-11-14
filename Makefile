@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 HUD = apps/phantom-phone/hud-web
 
-.PHONY: setup test demo bench serve-local site loop
+.PHONY: setup test demo bench serve-local site loop modal-up modal-down
 
 setup:
 	python3 -m venv .venv
@@ -30,3 +30,10 @@ site:
 	python3 site/build.py --check || python3 site/build.py
 	@echo "Open http://127.0.0.1:8765  (Ctrl-C to stop)"
 	python3 -m http.server 8765 --bind 127.0.0.1 --directory site
+
+modal-up:  # deploy the H200 tier (scales to zero by itself). First call after this cold-starts it.
+	.venv/bin/modal deploy deploy/modal/vllm_server.py
+
+modal-down:  # stop the app so nothing can start again, then show what is left
+	.venv/bin/modal app stop -y chimera-gpu-large
+	.venv/bin/modal app list
