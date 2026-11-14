@@ -102,6 +102,11 @@
     const art = 'art/' + (r.art || 'room-' + r.id), bg = $('room-bg');
     bg.srcset = `${art}-1024.webp 1024w, ${art}.webp 2048w`; bg.src = `${art}-1024.webp`;
     grid.textContent = '';
+    // dashboard blocks (dashboard.js) that belong to this room sit under the posters
+    const dashes = document.querySelectorAll('[data-dash]');
+    dashes.forEach((d) => { d.hidden = d.dataset.dash !== r.id; });
+    $('dash-bar').hidden = ![...dashes].some((d) => !d.hidden);
+    if (window.Dash) window.Dash.enter(r.id);
     const hungN = new Set();
     const upTo = (i) => r.posters.forEach((p, k) => {
       if (p.at <= i && !hungN.has(k)) { hungN.add(k); hang(p, hungN.size > 1 ? 0 : 200); }
@@ -118,7 +123,9 @@
   let first = true;
   function route() {
     const h = location.hash.replace(/^#/, '');
-    const id = h.startsWith('room/') ? h.slice(5) : h.startsWith('r-') ? h.slice(2) : null;
+    // old HUD links (#live, #bench, #evals, #how) land in the matching room
+    const OLD = { live: 'observatory', bench: 'ledger', evals: 'ledger', how: 'ladder' };
+    const id = h.startsWith('room/') ? h.slice(5) : h.startsWith('r-') ? h.slice(2) : OLD[h] || (ROOMS.some((r) => r.id === h) ? h : null);
     const room = id && ROOMS.find((r) => r.id === id);
     if (id && !room) { location.replace('#hall'); return; }
     const view = room ? 'room' : h === 'hall' ? 'hall' : 'entrance';

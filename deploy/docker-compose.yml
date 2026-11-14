@@ -16,17 +16,21 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
-  hud:                              # live telemetry page, reads the gateway's telemetry file
+  web:                              # one page: castle site + dashboard, reads the gateway's telemetry file
     image: python:3.12-slim
-    command: ["python", "/hud/server.py"]
+    command: ["python", "/app/apps/phantom-phone/hud-web/server.py"]
     environment:
-      HUD_HOST: 0.0.0.0              # inside the container only
+      CHIMERA_HOST: 0.0.0.0          # inside the container only
       HUD_TELEMETRY: /data/telemetry.jsonl
     ports:
       - "127.0.0.1:8765:8765"
-    volumes:
-      - ../apps/phantom-phone/hud-web:/hud:ro
+    volumes:                         # same layout as the repo: server.py finds site/ and bench/ next to apps/
+      - ../apps/phantom-phone/hud-web:/app/apps/phantom-phone/hud-web:ro
+      - ../site:/app/site:ro
+      - ../bench:/app/bench:ro
       - chimera-data:/data:ro
+    # shortcut: this slim image has no chimera_core dependencies, so /api/chat, /api/health and /api/stats fail here;
+    # the page, /events, /api/bench and /api/evals work. Build from the gateway image when chat is needed in Docker.
     user: "10001:10001"
     read_only: true
     cap_drop: [ALL]

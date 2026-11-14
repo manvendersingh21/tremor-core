@@ -47,3 +47,35 @@ def test_telemetry_per_tier_optional():
         "crusoe": TierUsage(model="Qwen/Qwen3.8-27B", device="cloud", input_tokens=90, output_tokens=200, dollars=0.0005)})
     back = Telemetry.model_validate(json.loads(json.dumps(new.model_dump())))
     assert back.per_tier["crusoe"].model == "Qwen/Qwen3.8-27B" and back.per_tier["mac_3b"].output_tokens == 60
+
+
+def test_static_files_stay_inside_site():
+    assert hud.static_file("/").name == "index.html"
+    for ok in ("/dashboard.js", "/world/map.json", "/art/hall-1024.webp", "/rooms.js"):
+        assert hud.static_file(ok) is not None, ok
+    for bad in ("/../.env", "/../chimera.toml", "/.env", "/world/../../.env", "/art/.hidden", "/nope.js"):
+        assert hud.static_file(bad) is None, bad
+
+
+def test_one_page_served_on_one_port():
+    import threading
+    import urllib.error
+    import urllib.request
+    from http.server import ThreadingHTTPServer
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), hud.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        page = urllib.request.urlopen(base + "/").read().decode()
+        assert 'id="world"' in page and 'data-dash="observatory"' in page and 'data-dash="ledger"' in page
+        r = urllib.request.urlopen(base + "/world/world.js")
+        assert r.headers["Content-Type"].startswith("text/javascript")
+        assert urllib.request.urlopen(base + "/art/hall-1024.webp").headers["Content-Type"] == "image/webp"
+        try:
+            urllib.request.urlopen(base + "/%2e%2e/.env")
+            raise AssertionError("traversal served")
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
+    finally:
+        srv.shutdown()

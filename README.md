@@ -47,7 +47,8 @@ make setup        # venv + install (add the embed extra for real semantic cache)
 make test         # offline, no models or keys needed
 make serve-local  # start the local llama.cpp server on 127.0.0.1:8080
 make bench        # print the commands to rerun each benchmark
-make demo         # HUD demo, if built
+make web          # the castle site, dashboard and API on http://127.0.0.1:8765
+make demo         # same, with demo telemetry so the dashboard moves
 ```
 
 Cloud keys go in `.env` (copy `.env.example`). Models are not in the repo.

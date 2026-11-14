@@ -1,7 +1,9 @@
-"""HUD server: SSE telemetry tail, merged bench summary, static page. Stdlib only, 127.0.0.1 only."""
+"""The one server: the castle site (site/) with the dashboard inside it, SSE telemetry, bench and evals data,
+and the backend API (/api/chat, /api/health, /api/stats from chimera_core.service). Stdlib only, 127.0.0.1 by default."""
 from __future__ import annotations
 
 import csv
+import mimetypes
 import json
 import os
 import pathlib
@@ -12,6 +14,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = pathlib.Path(__file__).resolve().parent
 BENCH = HERE.parent.parent.parent / "bench"
+SITE = HERE.parent.parent.parent / "site"
+TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8",
+         ".json": "application/json", ".webp": "image/webp", ".png": "image/png", ".gif": "image/gif", ".svg": "image/svg+xml"}
 sys.path.insert(0, str(BENCH))
 import evallog  # noqa: E402  the one eval log (bench/evallog.py)
 TELEMETRY = pathlib.Path(os.environ.get("HUD_TELEMETRY", HERE / "telemetry.jsonl"))
@@ -109,6 +114,15 @@ def _api(h, method: str) -> bool:
     return handle_http(h, method)
 
 
+def static_file(path: str) -> pathlib.Path | None:
+    """A file under site/ for a URL path, or None. "/" is index.html; nothing outside site/ and no dotfiles."""
+    rel = "index.html" if path in ("/", "") else path.lstrip("/")
+    if any(part.startswith(".") for part in rel.split("/")):
+        return None
+    f = (SITE / rel).resolve()
+    return f if f.is_file() and SITE.resolve() in f.parents else None
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):  # quiet
         pass
@@ -128,13 +142,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path.split("?")[0] in ("/api/chat", "/api/health", "/api/stats") and _api(self, "GET"):
             return  # backend API: chimera_core.service (docs/api.md)
-        if self.path.split("?")[0] in ("/", "/index.html"):  # ?theme=standard is read by the page
-            self._send(200, (HERE / "index.html").read_bytes(), "text/html; charset=utf-8")
-        elif self.path in ("/evals.js", "/evals.css"):  # the Evals tab's own files, so it can be mounted elsewhere
-            self._send(200, (HERE / self.path[1:]).read_bytes(), "text/javascript; charset=utf-8" if self.path.endswith("js") else "text/css; charset=utf-8")
-        elif self.path == "/gate-bg.webp":
-            self._send(200, (HERE / "gate-bg.webp").read_bytes(), "image/webp")
-        elif self.path == "/api/bench":
+        path = self.path.split("?")[0]
+        if path == "/api/bench":
             self._send(200, json.dumps(bench_summary()).encode(), "application/json")
         elif self.path == "/api/evals":
             try:
@@ -143,6 +152,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, json.dumps({"error": type(e).__name__}).encode(), "application/json")
         elif self.path == "/events":
             self._events()
+        elif (f := static_file(path)) is not None:
+            self._send(200, f.read_bytes(), TYPES.get(f.suffix, mimetypes.guess_type(f.name)[0] or "application/octet-stream"))
         else:
             self._send(404, b"not found", "text/plain")
 
@@ -167,11 +178,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    port = int(os.environ.get("HUD_PORT", "8765"))
+    port = int(os.environ.get("CHIMERA_PORT") or os.environ.get("HUD_PORT") or "8765")
     ThreadingHTTPServer.request_queue_size = 64  # the default 5 resets bursts of parallel /api/chat calls
-    srv = ThreadingHTTPServer((os.environ.get("HUD_HOST", "127.0.0.1"), port), Handler)  # HUD_HOST=0.0.0.0 only in a container
+    host = os.environ.get("CHIMERA_HOST") or os.environ.get("HUD_HOST") or "127.0.0.1"  # 0.0.0.0 only in a container
+    srv = ThreadingHTTPServer((host, port), Handler)
     srv.daemon_threads = True
-    print(f"HUD on http://127.0.0.1:{port}  (telemetry: {TELEMETRY})")
+    print(f"CHIMERA on http://127.0.0.1:{port}  (castle, dashboard and API; telemetry: {TELEMETRY})")
     srv.serve_forever()
 
 

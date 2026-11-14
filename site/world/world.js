@@ -238,7 +238,8 @@
       el('w-ptitle').textContent = r.title; el('w-panel').hidden = false; blip(200, 0.15, 0.06, 'sine');
       history.replaceState(null, '', '#walk/' + id);
       if (r.kind === 'posters') postersPanel(pb, r.ref || id);
-      else if (r.kind === 'dashboard') dashboardPanel(pb);
+      else if (r.kind === 'dashboard') dashboardPanel(pb, id);
+      if (r.kind !== 'dashboard') mountDash(pb, r.ref || id);
       else if (r.kind === 'chat') { pb.classList.add('flush'); pb.style.padding = '.8rem'; closeHook = window.CastleChat ? window.CastleChat.mount(pb, opts.chat || {}) : null; if (!closeHook) pb.textContent = 'Chat module not loaded.'; }
       S.leave = door; S.cooldown = 0.7;
       el('w-pclose').focus();
@@ -246,6 +247,7 @@
     function closePanel() {
       if (!S.panel) return;
       if (typeof closeHook === 'function') closeHook(); closeHook = null;
+      unmountDash();
       el('w-pbody').textContent = ''; el('w-panel').hidden = true; S.panel = null; S.cooldown = 0.7;
       const d = S.leave; S.leave = null;
       if (d) { S.p.x = d.stand[0] + .5; S.p.y = d.stand[1] + .5; }
@@ -258,9 +260,24 @@
         `<article class="w-poster"><h3>${esc(p.title)}</h3>${p.big ? `<p class="big">${esc(p.big)}</p>` : ''}${p.steps ? `<ol>${p.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}` +
         p.lines.map((t) => `<p>${esc(t)}</p>`).join('') + `<p class="fn"><a href="${BASE}${esc(p.src[1])}">${esc(p.src[0])}</a></p></article>`).join('') + '</div>';
     }
-    function dashboardPanel(pb) {
+    /* Dashboard blocks (site/dashboard.js) live in #dash-store; a room borrows its block while open. */
+    let borrowed = [];
+    function mountDash(pb, id) {
+      const store = document.getElementById('dash-store'), blk = store && store.querySelector(`[data-dash="${id}"]`);
+      if (!blk) return false;
+      const bar = document.getElementById('dash-bar'), wrap = document.createElement('div');
+      wrap.className = 'w-dash'; pb.appendChild(wrap);
+      [bar, blk].forEach((n) => { if (n) { borrowed.push(n); wrap.appendChild(n); n.hidden = false; } });
+      if (window.Dash) window.Dash.enter(id);
+      return true;
+    }
+    function unmountDash() {
+      const store = document.getElementById('dash-store');
+      borrowed.forEach((n) => { n.hidden = true; if (store) store.appendChild(n); }); borrowed = [];
+    }
+    function dashboardPanel(pb, id) {
       pb.classList.add('flush');
-      if (typeof window.mountDashboard === 'function') { window.mountDashboard(pb); return; }
+      if (mountDash(pb, id)) return;
       const url = new URLSearchParams(location.search).get('hud') || (map.dashboard && map.dashboard.url);
       if (!url) { pb.innerHTML = '<p class="lead" style="padding:1rem">The dashboard is not connected on this page.</p>'; return; }
       pb.innerHTML = `<iframe title="Live dashboard" src="${esc(url)}"></iframe>`;
@@ -470,8 +487,11 @@
       hold(key, on) { on ? S.keys.add(key) : S.keys.delete(key); },
     };
     window.CastleWorld = api;
-    const m = location.hash.match(/^#walk\/(\w+)/);
-    if (m && rooms[m[1]]) setTimeout(() => { const r = rooms[m[1]], d = map.doors.find((q) => q.room === m[1]); const st = d ? d.stand : r.stand; api.teleport(r.floor, st[0], st[1]); openRoom(m[1], d); }, 400);
+    // deep links: #walk/<room>, bare room ids, and the old HUD and tour links
+    const OLD = { live: 'observatory', bench: 'ledger', evals: 'ledger', how: 'ladder' };
+    const hid = location.hash.replace(/^#(walk\/|room\/|r-)?/, '');
+    const m = [null, OLD[hid] || hid];
+    if (m[1] && rooms[m[1]]) setTimeout(() => { const r = rooms[m[1]], d = map.doors.find((q) => q.room === m[1]); const st = d ? d.stand : r.stand; api.teleport(r.floor, st[0], st[1]); openRoom(m[1], d); }, 400);
     return api;
   }
   window.CastleStart = start;
