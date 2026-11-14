@@ -36,6 +36,7 @@ class TierCfg(BaseModel):
     enabled: bool = True
     template_kwargs: dict = Field(default_factory=dict)  # openai backend: chat_template_kwargs
     api_key_env: str = "CRUSOE_API_KEY"  # openai backend: env var holding the key (never the key itself)
+    teacher: bool = False  # a big model: its checked answers are stored as N+1 memory (the top tier counts if none is set)
 
     @field_validator("url")
     @classmethod
@@ -91,7 +92,12 @@ def build_backend(t: TierCfg):
 
         def run(prompt: str, n: int):
             text = ob.complete(prompt, n)
-            return text, ob.last_usage["prompt_tokens"], ob.last_usage["completion_tokens"], None
+            conf, u = ob.last_confidence, dict(ob.last_usage)
+            if conf is None:  # this Ollama sent no logprobs: the 30B checks its own answer (one short extra call)
+                from .ladder import CHECK_PROMPT
+                conf = 0.0 if "ESCALATE" in ob.complete(CHECK_PROMPT.format(task=prompt, answer=text), 8).upper() else 1.0
+                ob.last_usage = u
+            return text, u["prompt_tokens"], u["completion_tokens"], conf
     else:
         cb = TopBackend(t.model, t.template_kwargs, api_key=os.environ.get(t.api_key_env, ""),
                         base_url=os.path.expandvars(t.url), timeout=t.timeout_s)
@@ -102,7 +108,7 @@ def build_backend(t: TierCfg):
 
     class _B:
         complete = staticmethod(run)
-        raw = cb if t.backend == "openai" else None  # exposes usage_log (cached_tokens) to benches
+        raw = cb if t.backend == "openai" else ob if t.backend == "ollama" else None  # usage (cached_tokens)
 
     return _B()
 
@@ -158,13 +164,20 @@ class TierPool:
             self._open_until[t.name] = self._clock() + self._cooldown
             self._fails[t.name] = 0
 
+    def is_teacher(self, name: str) -> bool:
+        t = next((x for x in self.tiers if x.name == name), None)
+        if t is None:
+            return False
+        return t.teacher or (not any(x.teacher for x in self.tiers) and t is self.top)
+
     @property
     def top(self) -> TierCfg | None:
         """The most expensive tier: what 'kept off the big model' is measured against."""
         return max(self.tiers, key=lambda t: (t.cost_per_1k_in + t.cost_per_1k_out, t.max_complexity), default=None)
 
     def generate(self, prompt: str, complexity: float | None = None,
-                 on_event: Callable[[str, dict], None] | None = None) -> PoolResult:
+                 on_event: Callable[[str, dict], None] | None = None, context: str = "") -> PoolResult:
+        """context: solved examples from memory, prepended for owned (non-cloud) tiers only."""
         ev = on_event or (lambda step, data: None)
         t0 = time.perf_counter()
         score = complexity_score(prompt) if complexity is None else complexity
@@ -183,7 +196,8 @@ class TierPool:
             ta = time.perf_counter()
             try:
                 be = self._backends.get(t.name) or self._backends.setdefault(t.name, self._factory(t))
-                text, tin, tout, conf = be.complete(prompt, self.max_tokens)
+                full = f"{context}\n\n{prompt}" if context and t.device != "cloud" else prompt
+                text, tin, tout, conf = be.complete(full, self.max_tokens)
             except Exception as e:  # timeout, connection or HTTP error: climb
                 ms = (time.perf_counter() - ta) * 1000
                 u.latency_ms += ms

@@ -13,13 +13,17 @@ from chimera_core.router import RouterConfig, SpeculativeCascadeRouter
 from chimera_core.service import Service, handle_http, scrub
 from chimera_core.tiers import TierCfg, TierPool
 
+from chimera_core.cache.pgvector_cache import PgVectorCache
+
 from test_events import Bag, Fake, tier
+from test_pgvector_cache import FakeStore, settle
 
 
 def router(small=None, shared=None):
     fakes = {"small": small or Fake("small", conf=0.99), "big": Fake("big")}
     tiers = [tier("small", 0.5, device="laptop"), tier("big", 1.0, cost=0.001, device="cloud")]
     pool = TierPool(tiers, min_confidence=0.95, probe=lambda t: True, backend_factory=lambda t: fakes[t.name])
+    shared = shared or PgVectorCache(Bag(), FakeStore())  # the only cache, as in production (Supabase stand-in)
     return SpeculativeCascadeRouter(None, pool=pool, embedder=Bag(), shared=shared, config=RouterConfig())
 
 
@@ -69,14 +73,17 @@ def parse(sse):
 
 
 def test_chat_streams_steps_then_answer_then_done(server):
-    port = server(Service(router(), ChimeraConfig(), rate_per_min=600, burst=50))
+    svc = Service(router(), ChimeraConfig(), rate_per_min=600, burst=50)
+    port = server(svc)
     status, headers, body = post(port, {"prompt": "what is two plus two"})
     ev = parse(body)
     assert status == 200 and headers["Content-Type"] == "text/event-stream"
-    assert [e for e, _ in ev] == ["embed", "cache_local", "decide", "call", "draft", "final", "answer", "done"]
+    assert [e for e, _ in ev] == ["embed", "cache_shared", "memory", "decide", "call", "draft", "memory", "final",
+                              "answer", "done"]
     assert dict(ev)["answer"]["text"] == "small-answer"
-    status, _, body = post(port, {"prompt": "what is two plus two"})  # same prompt: exact cache
-    assert dict(parse(body))["final"]["cache"] == "exact"
+    settle(svc.router.shared)
+    status, _, body = post(port, {"prompt": "what is two plus two"})  # same prompt: Supabase exact hit
+    assert dict(parse(body))["final"]["cache"] == "shared" and dict(parse(body))["cache_shared"]["kind"] == "exact"
 
 
 @pytest.mark.parametrize("body,code,status", [
@@ -166,6 +173,7 @@ def test_health_and_stats_shapes_and_caching(tmp_path):
     svc.health()
     assert len(calls) == n  # second call inside 2 s is cached
     list(svc.chat({"prompt": "stats please"}, "4.4.4.4"))
+    settle(svc.router.shared)
     list(svc.chat({"prompt": "stats please"}, "4.4.4.4"))
     s = svc.stats()["session"]
-    assert s["calls"] == 2 and s["cache_hits"]["exact"] == 1 and s["hit_rate"] == 0.5 and s["tokens_kept_off_big"] > 0
+    assert s["calls"] == 2 and s["cache_hits"]["shared"] == 1 and s["hit_rate"] == 0.5 and s["tokens_kept_off_big"] > 0

@@ -40,7 +40,7 @@ class FakeStore:
 
     def find_nearest(self, tenant, ns, emb, k):
         self._chk()
-        sims = [(r["id"], r["answer"], sum(a * b for a, b in zip(emb, r["emb"])), r["verified"])
+        sims = [(r["id"], r["answer"], sum(a * b for a, b in zip(emb, r["emb"])), r["verified"], r["text"])
                 for r in self.rows if (r["tenant"], r["ns"]) == (tenant, ns)]
         return sorted(sims, key=lambda x: -x[2])[:k]
 

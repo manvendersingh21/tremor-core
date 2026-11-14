@@ -136,7 +136,7 @@ def _http_probe(t) -> bool:
 
 class Service:
     def __init__(self, router, cfg=None, *, tenant: str = "web", rate_per_min: float = 20, burst: int = 5,
-                 max_chars: int = 2000, max_inflight: int = 16, timeout_s: float = 240,
+                 max_chars: int = 2000, max_inflight: int = 32, timeout_s: float = 240,
                  telemetry_path: str | os.PathLike | None = None, probe: Callable[[Any], bool] | None = None,
                  modal_state: Callable[[], dict] = _modal_state, clock: Callable[[], float] = time.monotonic) -> None:
         self.cfg, self.max_chars, self.timeout_s, self._clock = cfg, max_chars, timeout_s, clock
@@ -342,12 +342,30 @@ def _send_json(h, code: int, obj: Any, extra: dict | None = None) -> None:
     h.wfile.write(body)
 
 
+def evals() -> dict:
+    """The eval log (bench/evallog.py: every benchmark run, SQLite log plus Supabase eval_runs)."""
+    import sys
+    bench = str(pathlib.Path(__file__).resolve().parents[2] / "bench")
+    if bench not in sys.path:
+        sys.path.insert(0, bench)
+    import evallog  # noqa: PLC0415
+    try:
+        return evallog.api_payload(evallog.load_rows())
+    except Exception as e:  # noqa: BLE001  a bad log must not kill the page
+        raise ApiError(500, "evals_unavailable", type(e).__name__) from None
+
+
 def handle_http(h, method: str, svc: Service | None = None) -> bool:
-    """Serve /api/chat, /api/health, /api/stats on a BaseHTTPRequestHandler. False when the path is not ours."""
+    """Serve /api/chat, /api/health, /api/stats, /api/evals on a BaseHTTPRequestHandler. False when the path is not ours."""
     path = h.path.split("?")[0]
-    if path not in ("/api/chat", "/api/health", "/api/stats"):
+    if path not in ("/api/chat", "/api/health", "/api/stats", "/api/evals"):
         return False
     try:
+        if path == "/api/evals":
+            if method != "GET":
+                raise ApiError(405, "method_not_allowed", "Use GET.")
+            _send_json(h, 200, evals())
+            return True
         svc = svc or default_service()
         if path == "/api/chat":
             if method != "POST":
@@ -374,7 +392,7 @@ def handle_http(h, method: str, svc: Service | None = None) -> bool:
         else:
             if method != "GET":
                 raise ApiError(405, "method_not_allowed", "Use GET.")
-            _send_json(h, 200, svc.health() if path == "/api/health" else svc.stats())
+            _send_json(h, 200, evals() if path == "/api/evals" else svc.health() if path == "/api/health" else svc.stats())
     except ApiError as e:
         _send_json(h, e.status, {"error": {"code": e.code, "message": e.message}},
                    {"Retry-After": str(e.retry_after)} if e.retry_after else None)

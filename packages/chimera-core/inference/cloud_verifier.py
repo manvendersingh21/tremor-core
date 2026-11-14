@@ -192,14 +192,17 @@ class OllamaBackend(VllmBackend):
     def complete(self, prompt: str, max_tokens: int = 4096) -> str:
         data = self._post(
             "/api/chat",
-            {"model": self.model, "stream": False, "think": self.thinking,
+            {"model": self.model, "stream": False, "think": self.thinking, "logprobs": True,
              "options": {"num_predict": max_tokens},
              "messages": [{"role": "user", "content": prompt}]},
         )
+        lps = [x["logprob"] for x in data.get("logprobs") or [] if x.get("logprob") is not None]
+        # Mean token probability, the same gate signal as the llama.cpp tier. None when Ollama sends no logprobs.
+        self.last_confidence = sum(math.exp(x) for x in lps) / len(lps) if lps else None
         self.last_usage = {
             "prompt_tokens": data.get("prompt_eval_count", 0),
             "completion_tokens": data.get("eval_count", 0),
-            "cached_tokens": 0,
+            "cached_tokens": data.get("prompt_eval_cached_count", 0),
             "total_duration_ms": round(data.get("total_duration", 0) / 1e6),
             "load_duration_ms": round(data.get("load_duration", 0) / 1e6),
         }

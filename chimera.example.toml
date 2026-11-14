@@ -1,6 +1,6 @@
 # Copy to chimera.toml. No secrets here: CRUSOE_API_KEY comes from the environment or .env only.
 
-use_pool = false              # true: SpeculativeCascadeRouter routes through [[tiers]] below
+use_pool = true               # production: Supabase cache -> GPU 30B -> (Modal H200 120B) -> Crusoe 763B, from [[tiers]] below
 
 [local]                      # tier 1: llama.cpp llama-server on this machine
 url = "http://127.0.0.1:8080"
@@ -19,21 +19,20 @@ top_template_kwargs = { reasoning_effort = "low" }
 
 [thresholds]
 semantic = 0.97              # cosine similarity for a semantic cache hit
-confidence = 0.85            # local mean token probability needed to answer locally
+confidence = 0.95            # mean token probability the 30B needs to answer (Ollama logprobs; self-check when absent)
 heavy = 0.6                  # complexity score that skips the small models
 learned_router = ""          # path to packages/chimera-core/data/router_weights.json to use the learned router (learned_router.py); off until measured
 
 [cache]
-path = "~/.chimera/cache.db" # exact + semantic caches, persistent
-semantic = true              # false skips the embedding model (exact cache only)
-backend = "sqlite"           # "postgres": shared pgvector cache (docs/vector-store.md); sqlite stays as the fallback
+backend = "supabase"         # the ONLY answer cache: Supabase Postgres + pgvector (docs/vector-store.md). Nothing is cached on this machine.
+                             # "sqlite" = old local caches, offline tests only (path, semantic below apply to it alone)
 dsn_env = "CHIMERA_DB_URL"   # NAME of the env var that holds the DSN. The DSN itself lives in .env only.
 tenant = "default"           # rows are isolated per tenant
-store_text = false           # true keeps prompt text in the shared DB (opt-in)
+store_text = true            # prompt text in the shared DB: the guard and N+1 memory need it
 # ttl_s = 2592000            # row lifetime in seconds; unset = forever
 top_k = 5
-budget_ms = 300              # DB time per lookup (150 was too tight from a laptop; see docs/vector-store.md) before the local cache answers
-guard = false                # true: reject cosine hits whose numbers, negation or entities differ (cache/guard.py)
+budget_ms = 300              # DB time per lookup (measured ~120 ms). Over it, or DB down: no cache, straight to the tiers
+guard = true                 # reject cosine hits whose numbers, negation or entities differ (cache/guard.py); wrong hits 4 -> 2
 
 [telemetry]
 path = "~/.chimera/telemetry.jsonl"   # CHIMERA_TELEMETRY overrides
@@ -65,7 +64,7 @@ timeout_s = 60
 enabled = false              # until the phone is set up
 
 [[tiers]]
-name = "mac-3b"
+name = "mac-3b"              # EXPERIMENT tier (Mac Qwen 3B)
 device = "laptop"
 backend = "llamacpp"
 url = "http://127.0.0.1:8080"
@@ -73,12 +72,13 @@ model = "Qwen2.5-3B-Instruct-q4_k_m"
 family = "qwen"
 max_complexity = 0.4
 timeout_s = 60
+enabled = false              # experiment only: not in the product ladder (speculative-decoding benches use it)
 
 [[tiers]]
-name = "gpu-small"           # V100 box, Ollama via ssh tunnel (-L LOCAL_PORT:127.0.0.1:11434)
+name = "gpu-small"           # GPU 30B (self-hosted): the smallest product tier. V100 box, Ollama via ssh tunnel (-L LOCAL_PORT:127.0.0.1:11434)
 device = "gpu"
 backend = "ollama"
-url = "http://127.0.0.1:11435"
+url = "http://127.0.0.1:11441"
 model = "qwen3:30b-instruct"
 family = "qwen"
 max_complexity = 0.6
@@ -93,10 +93,11 @@ model = "openai/gpt-oss-120b"
 family = "gpt-oss"           # not Qwen: no speculative verify with the Mac 3B (different vocabulary)
 max_complexity = 0.85
 timeout_s = 240
-enabled = true
+enabled = false              # optional: `make modal-up` first; costs $4.54/hr while up
 api_key_env = "MODAL_VLLM_TOKEN"
 template_kwargs = { reasoning_effort = "low" }
 # Cost is GPU-seconds x $4.54/hr, billed by Modal while the container is up, so per-token prices stay 0 here.
+teacher = true               # its checked answers are stored as N+1 memory
 
 [[tiers]]
 name = "cloud-mid"
@@ -110,6 +111,7 @@ cost_per_1k_in = 0.00025
 cost_per_1k_out = 0.002
 timeout_s = 120
 template_kwargs = { enable_thinking = false }
+enabled = false              # experiment: not in the product ladder
 
 [[tiers]]
 name = "cloud-top"           # largest model on the account (checked with /v1/models)
@@ -123,6 +125,7 @@ cost_per_1k_in = 0.00005
 cost_per_1k_out = 0.00025
 timeout_s = 180
 template_kwargs = { reasoning_effort = "low" }
+enabled = false              # experiment: not in the product ladder
 
 [[tiers]]
 name = "cloud-deepseek"      # biggest Crusoe model (763B per /v1/models), thinking off
@@ -136,6 +139,7 @@ cost_per_1k_in = 0.00029
 cost_per_1k_out = 0.0012
 timeout_s = 240
 template_kwargs = { thinking = false }
+teacher = true               # the big model: checked answers become N+1 teacher data
 
 [[tiers]]
 name = "cloud-coder"         # GMI Cloud Qwen3.8-Max. Qwen3-Coder-480B is listed but deprecated
@@ -150,6 +154,7 @@ cost_per_1k_out = 0.006
 template_kwargs = { enable_thinking = false }
 timeout_s = 240
 api_key_env = "GMI_API_KEY"
+enabled = false              # experiment
 
 [[tiers]]
 name = "cloud-largest"       # GMI Cloud, about 1T. Kimi K3 always thinks (thinking=false is rejected): effort low
@@ -164,3 +169,4 @@ cost_per_1k_out = 0.015
 timeout_s = 300
 api_key_env = "GMI_API_KEY"
 template_kwargs = { reasoning_effort = "low" }
+enabled = false              # experiment

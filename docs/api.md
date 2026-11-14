@@ -15,50 +15,54 @@ Request, `Content-Type: application/json`, body at most 16 KB:
 - `prompt`: 1 to 2000 characters. Longer: `413 prompt_too_long`.
 - `action` (optional string): text of a tool-like action. The firewall scores it first. At 70 or more the call is refused: `403 approval_required` (nothing runs).
 - Rate limit: 5 burst, then 20 per minute per client IP. Over it: `429 rate_limited` with `Retry-After`.
-- More than 16 calls running: `503 busy`.
+- More than 32 calls running: `503 busy`.
 
 Response: `200 text/event-stream`. Each message is `event: <step>` and `data: <json>`. Order for a miss:
-`embed`, `cache_local`, `cache_shared`, `decide`, `call`, `draft`, (`decide`, `call` again for each climb), `final`, `answer`, `done`.
-A cache hit skips `decide`, `call`, `draft`. `cache_shared` is absent when no shared cache is configured.
+`embed`, `cache_shared`, `memory` (retrieve), then per tier tried `decide`, `call`, `draft`, then `memory` (store), `final`, `answer`, `done`.
+A cache hit is `embed`, `cache_shared`, `final`, `answer`, `done`. The only cache is Supabase: there is no `cache_local` step.
+`embed` and `cache_shared` are absent when no cache is configured (no `CHIMERA_DB_URL`).
+
+Ladder: Supabase cache, then GPU 30B (self-hosted, `gpu-small`), then optionally Modal H200 120B (`gpu-large`), then Crusoe DeepSeek-V4.1-Flash 763B (`cloud-deepseek`).
 
 ```
 event: embed
 data: {"ms": 11.2, "dim": 384}
 
-event: cache_local
-data: {"hit": false, "kind": null, "score": 0.81, "guard": null, "threshold": 0.97, "ms": 1.4}
-
 event: cache_shared
-data: {"hit": false, "status": "ok", "score": 0.83, "guard": null, "threshold": 0.97, "ms": 118.0}
+data: {"hit": false, "status": "ok", "threshold": 0.97, "kind": null, "score": 0.83, "guard": null, "ms": 118.0}
+
+event: memory
+data: {"op": "retrieve", "chars": 0, "ms": 0.01}
 
 event: decide
-data: {"tier": "mac-3b", "reason": "cheapest healthy tier that covers complexity 0.01"}
+data: {"tier": "gpu-small", "reason": "cheapest healthy tier that covers complexity 0.01"}
 
 event: call
-data: {"tier": "mac-3b", "model": "Qwen2.5-3B-Instruct-q4_k_m", "ok": true, "ms": 640.2, "tokens_in": 12, "tokens_out": 8, "cached_tokens": 0}
+data: {"tier": "gpu-small", "model": "qwen3:30b-instruct", "ok": true, "ms": 640.2, "tokens_in": 15, "tokens_out": 2, "cached_tokens": 3}
 
 event: draft
-data: {"tier": "mac-3b", "model": "Qwen2.5-3B-Instruct-q4_k_m", "confidence": 0.9731, "gate": 0.95}
+data: {"tier": "gpu-small", "model": "qwen3:30b-instruct", "confidence": 0.9999, "gate": 0.95}
 
-event: decide
-data: {"tier": "cloud-top", "reason": "climb: mac-3b confidence 0.810 < gate 0.95"}
+event: memory
+data: {"op": "store", "stored": false, "tier": "gpu-small", "tests_passed": null}
 
 event: final
-data: {"tier": "mac-3b", "model": "Qwen2.5-3B-Instruct-q4_k_m", "tokens_in": 12, "tokens_out": 8, "cached_tokens": 0, "dollars": 0.0, "dollars_saved": 0.00001, "ms": 790.5, "tokens_kept_off_big": 20, "cache": null}
+data: {"tier": "gpu-small", "model": "qwen3:30b-instruct", "tokens_in": 15, "tokens_out": 2, "cached_tokens": 3, "dollars": 0.0, "dollars_saved": 0.00001, "ms": 790.5, "tokens_kept_off_big": 17, "cache": null}
 
 event: answer
-data: {"text": "Paris."}
+data: {"text": "Paris"}
 
 event: done
 data: {}
 ```
 
 Field notes:
-- `cache_local.kind`: `"exact"`, `"semantic"` or `null`. `score` is the best cosine seen (also on a miss). `guard`: `"pass"`, `"rejected"`, `"off"` or `null` (no candidate reached the threshold).
-- `cache_shared.status`: `ok`, `timeout`, `down` (SQLite answered instead), `skipped` (the local cache already hit).
-- `draft` appears only for tiers that report token confidence (the Mac 3B). Below `gate` the call climbs.
+- `cache_shared.kind`: `"exact"` (hash match), `"semantic"` (cosine) or `null`. `score` is the best cosine seen, also on a miss (1.0 on an exact hit). `guard`: `"pass"`, `"rejected"`, `"off"` or `null` (no candidate reached the threshold).
+- `cache_shared.status`: `ok`, or `unavailable` (Supabase down or over the 300 ms budget: the call skips the cache; nothing is cached locally).
+- `memory`: `op: "retrieve"` with `chars` of solved examples given to the 30B as few-shot context (0 = none). `op: "store"` with `stored: true` when this answer was saved as teacher data (only checked answers from a big tier: `cloud-deepseek` or `gpu-large`), and `tests_passed` (`true`/`false`/`null` when no tests ran).
+- `draft`: the answering tier's confidence (mean token probability from Ollama logprobs; 1.0/0.0 from the 30B's self-check when no logprobs). Below `gate` the call climbs.
 - `decide.reason` is a sentence for display. `call.ok=false` carries `error` (an exception class name).
-- `final.cache`: `null`, `"exact"`, `"local"` or `"shared"`. `final.tier` is the answering tier name. `dollars` is what the call cost; `dollars_saved` is what it did not cost against the biggest tier. `tokens_kept_off_big` is the tokens that never reached the biggest tier.
+- `final.cache`: `null` or `"shared"`. `final.tier` is the answering tier name. `dollars` is what the call cost; `dollars_saved` is what it did not cost against the biggest tier. `tokens_kept_off_big` is the tokens that never reached the biggest tier.
 - Failure after the stream started: `event: error` with `{"code": "all_tiers_failed" | "timeout" | "internal", "message": "..."}`, then `done`.
 
 ## GET /api/health
@@ -84,14 +88,14 @@ Cached about 2 s (Modal state 60 s). A part that is not configured is absent.
 
 ```json
 {
-  "session": {"calls": 12, "cache_hits": {"exact": 3, "local": 1, "shared": 2}, "hit_rate": 0.5,
+  "session": {"calls": 12, "cache_hits": {"exact": 0, "local": 0, "shared": 6}, "hit_rate": 0.5,
               "gpu_calls_avoided": 6, "big_calls_avoided": 11, "dollars_saved": 0.0031, "dollars_spent": 0.0004,
-              "tokens_kept_off_big": 5400, "false_hits": 0, "by_tier": {"local": 4, "exact_cache": 3, "top": 1}},
+              "tokens_kept_off_big": 5400, "false_hits": 0, "by_tier": {"gpu": 5, "semantic_cache": 6, "top": 1}},
   "global":  {"calls": 4120, "...": "same keys, from the telemetry log of every process on this machine"}
 }
 ```
 
-`session` counts this server process. `global` reads the telemetry JSONL (last 20 MB).
+`session` counts this server process. `cache_hits.shared` counts Supabase hits; `exact`/`local` stay 0 (kept for old telemetry rows). `global` reads the telemetry JSONL (last 20 MB).
 
 ## Already served by the HUD server
 
