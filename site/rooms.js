@@ -176,6 +176,7 @@ window.ROOMS = [
   },
   {
     "id": "gpus",
+    "art": "room-manor",
     "title": "The Manor and The Castle",
     "door": "GPUs: your own box first, then a rented one.",
     "say": [
@@ -508,6 +509,7 @@ window.ROOMS = [
   },
   {
     "id": "gate",
+    "art": "gate",
     "title": "The Gate",
     "door": "Get started: four commands and you are in.",
     "say": [

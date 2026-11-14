@@ -24,12 +24,15 @@
 </svg>
 
 <div class="sky" aria-hidden="true">
-  <div class="moon"></div>
-  <svg class="castle-far" viewBox="0 0 400 220" preserveAspectRatio="xMaxYMax meet">
-    <path d="M0 220V170l40-18 50 8 40-30 60 10 30-24 40 14 60-8 80 20v78z" fill="#0b0307"/>
-    <g fill="#0b0307"><rect x="250" y="70" width="90" height="100"/><rect x="236" y="40" width="22" height="130"/><rect x="332" y="52" width="22" height="118"/><path d="M232 40l15-34 15 34zM328 52l15-38 15 38z"/><rect x="278" y="30" width="30" height="45"/><path d="M274 30l19-30 19 30z"/></g>
-    <g fill="#d9a35b"><rect x="244" y="72" width="5" height="9"/><rect x="340" y="82" width="5" height="9"/><rect x="290" y="45" width="5" height="9"/></g>
-  </svg>
+  <div class="sky-art">
+    <img class="sky-img" src="art/gate-1024.webp" srcset="art/gate-1024.webp 1024w, art/gate.webp 2048w" sizes="100vw" width="2048" height="1152" alt="" fetchpriority="high">
+    <div class="moon"></div>
+    <div class="flame" style="left:11%;top:68%"></div>
+    <div class="flame f2" style="left:92.5%;top:69%"></div>
+    <svg class="fbat fb1" viewBox="0 0 64 32"><use href="#bat"/></svg>
+    <svg class="fbat fb2" viewBox="0 0 64 32"><use href="#bat"/></svg>
+    <svg class="fbat fb3" viewBox="0 0 64 32"><use href="#bat"/></svg>
+  </div>
   <div class="mist mist-a"></div>
   <div class="mist mist-b"></div>
 </div>
@@ -47,33 +50,7 @@
       </div>
       <p class="keys js-only" id="keys">Keys: Enter opens the gate. Arrows turn the page. Esc goes back.</p>
     </div>
-    <svg class="dracula" id="dracula" viewBox="0 0 220 300" role="img" aria-label="Count Cuspid, a friendly vampire host in a high-collared cape">
-      <g class="cape">
-        <path d="M24 300L40 128Q110 62 180 128L196 300Z" fill="#1b0a10"/>
-        <path d="M44 300L56 140Q110 96 164 140L176 300Z" fill="#9b1b30"/>
-        <path d="M62 140L44 62L96 122ZM158 140L176 62L124 122Z" fill="#1b0a10"/>
-        <path d="M64 134L54 84L92 124ZM156 134L166 84L128 124Z" fill="#9b1b30"/>
-      </g>
-      <path d="M66 300L74 178Q110 200 146 178L154 300Z" fill="#241016"/>
-      <path d="M94 182L110 262L126 182Q110 192 94 182Z" fill="#f3e9dc"/>
-      <path d="M100 184l10 22 10-22-10-6z" fill="#b0233a"/>
-      <circle cx="110" cy="226" r="6" fill="#d9a35b"/><circle cx="110" cy="226" r="2.4" fill="#a3182c"/>
-      <rect x="95" y="150" width="30" height="34" rx="6" fill="#e6d9d6"/>
-      <ellipse cx="72" cy="108" rx="5" ry="10" fill="#e6d9d6"/><ellipse cx="148" cy="108" rx="5" ry="10" fill="#e6d9d6"/>
-      <ellipse cx="110" cy="106" rx="38" ry="46" fill="#f1e7e4"/>
-      <path d="M71 104Q66 48 110 50Q154 48 149 104Q142 80 128 76Q118 92 110 86Q102 92 92 76Q78 80 71 104Z" fill="#0e0508"/>
-      <path d="M86 94q8-6 16-2M118 92q8-4 16 2" stroke="#1b0a10" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-      <g class="eye"><ellipse cx="95" cy="108" rx="6" ry="4.6" fill="#fff"/><circle cx="96" cy="108" r="3" fill="#7a1424"/><circle cx="96" cy="108" r="1.3" fill="#14060a"/></g>
-      <g class="eye"><ellipse cx="125" cy="108" rx="6" ry="4.6" fill="#fff"/><circle cx="126" cy="108" r="3" fill="#7a1424"/><circle cx="126" cy="108" r="1.3" fill="#14060a"/></g>
-      <path d="M110 112q-3 8 1 11" stroke="#c9b4b1" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-      <path d="M97 133Q110 142 123 132" stroke="#7a2030" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-      <path d="M115 134l5-1.4-2.4 8z" fill="#fff" stroke="#c9b4b1" stroke-width=".6"/>
-      <g class="hand">
-        <path d="M150 190Q182 200 190 232L170 240Q166 216 146 208Z" fill="#241016"/>
-        <circle cx="182" cy="240" r="10" fill="#f1e7e4"/>
-        <path d="M176 232l-2-9M182 230l0-10M188 232l3-9" stroke="#f1e7e4" stroke-width="4" stroke-linecap="round"/>
-      </g>
-    </svg>
+    <img class="dracula" id="dracula" src="art/count-3.webp" width="768" height="1024" alt="Count Cuspid, a friendly vampire host in a high-collared cape" decoding="async">
   </aside>
 
   <main class="stage" id="stage" tabindex="-1">
@@ -91,12 +68,14 @@
     </section>
 
     <section class="view" id="v-hall" aria-labelledby="h-hall">
+      <img class="bg" src="art/hall-1024.webp" srcset="art/hall-1024.webp 1024w, art/hall.webp 2048w" sizes="(max-width:1100px) 100vw, 1100px" width="2048" height="1152" alt="" loading="lazy" decoding="async">
       <h2 id="h-hall">The Great Hall</h2>
       <p class="section-lead">Eight doors. Each room holds posters with real numbers from single runs on 30 prompts, with no repeats. The losses are on the walls too.</p>
       <nav class="doors" id="doors" aria-label="Rooms"><!-- BUILD:doors --><a class="door" href="#r-crypt"><span class="plaque"><strong>The Crypt</strong><span>Cache: the cheapest answer is one we already have.</span></span></a><a class="door" href="#r-ladder"><span class="plaque"><strong>The Ladder</strong><span>How routing works: climb only when you must.</span></span></a><a class="door" href="#r-familiar"><span class="plaque"><strong>The Familiar</strong><span>Phone, Android: a small helper in your pocket.</span></span></a><a class="door" href="#r-gpus"><span class="plaque"><strong>The Manor and The Castle</strong><span>GPUs: your own box first, then a rented one.</span></span></a><a class="door" href="#r-tower"><span class="plaque"><strong>The Tower</strong><span>Cloud: the biggest model, called last.</span></span></a><a class="door" href="#r-ledger"><span class="plaque"><strong>The Ledger</strong><span>Results and token savings, with every loss.</span></span></a><a class="door" href="#r-guild"><span class="plaque"><strong>The Guild</strong><span>For companies: the gateway, keys and metrics.</span></span></a><a class="door" href="#r-gate"><span class="plaque"><strong>The Gate</strong><span>Get started: four commands and you are in.</span></span></a><!-- /BUILD:doors --></nav>
     </section>
 
     <section class="view" id="v-room" aria-live="off" hidden>
+      <img class="bg" id="room-bg" sizes="(max-width:1100px) 100vw, 1100px" width="2048" height="1152" alt="" loading="lazy" decoding="async">
       <div class="room-head">
         <button type="button" class="back" id="btn-hall">Back to the hall</button>
         <h2 id="room-title"></h2>
