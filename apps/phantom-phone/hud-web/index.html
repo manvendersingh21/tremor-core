@@ -64,6 +64,20 @@ body{margin:0;min-height:100vh;color:var(--fg);font:15px/1.55 Inter,system-ui,sa
 .gbat{display:block;fill:#0c0307;stroke:rgba(243,205,170,.6);stroke-width:.6;animation:wing .9s ease-in-out infinite;transform-origin:50% 55%}
 .b2 .gbat{animation-duration:1.15s}.b3 .gbat{animation-duration:1.4s}
 @keyframes wing{0%,100%{transform:scaleY(1) translateY(0)}50%{transform:scaleY(.45) translateY(-3px)}}
+/* Life: moon glow, drifting clouds, more bats. Transform and opacity only; kept faint so data stays readable. */
+.gl{position:absolute;left:50%;top:50%;width:max(100vw,177.78vh);height:max(56.25vw,100vh);transform:translate(-50%,-50%)}
+.gl>*{position:absolute;pointer-events:none}
+.gmoon{left:62.1%;top:23.8%;width:27%;aspect-ratio:1;border-radius:50%;opacity:.7;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(255,170,70,.28),rgba(255,140,50,.08) 55%,transparent 70%);animation:gmoon 7s ease-in-out infinite alternate}
+@keyframes gmoon{from{opacity:.45;transform:translate(-50%,-50%) scale(.96)}to{opacity:.9;transform:translate(-50%,-50%) scale(1.05)}}
+.gcl{left:0;width:200%;opacity:.3;background-repeat:repeat-x;background-size:50% 100%;will-change:transform;animation:gcl 160s linear infinite}
+.gcl.c1{top:2%;height:40%;background-image:radial-gradient(ellipse 15% 26% at 16% 40%,rgba(150,100,175,.34),transparent 72%),radial-gradient(ellipse 18% 22% at 54% 60%,rgba(120,80,150,.3),transparent 72%)}
+.gcl.c2{top:12%;height:34%;opacity:.25;animation-duration:100s;background-image:radial-gradient(ellipse 17% 24% at 28% 56%,rgba(190,120,150,.3),transparent 72%),radial-gradient(ellipse 14% 28% at 70% 38%,rgba(140,95,170,.3),transparent 72%)}
+@keyframes gcl{to{transform:translateX(-50%)}}
+.flyer.b4{animation-duration:44s;animation-delay:-9s}.flyer.b5{animation-duration:96s;animation-delay:-66s}
+.flyer .gbat{animation-duration:.14s}
+.flyer.b2 .gbat{animation-duration:.16s}.flyer.b3 .gbat{animation-duration:.18s}
+.motion-off .scene *,.tab-hidden .scene *{animation-play-state:paused!important}
+.tbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 /* Rose under glass, candelabra */
 .stage{width:clamp(230px,32vw,360px);height:auto;justify-self:center;overflow:visible}
 .flame{transform-box:fill-box;transform-origin:50% 100%;animation:flame 2.4s ease-in-out infinite}
@@ -147,7 +161,7 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 [hidden]{display:none!important}
 @media (max-width:520px){nav{margin-left:0;width:100%}nav button{flex:1;padding:8px 6px}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:24px}.card{padding:14px}.tbtn{padding:8px 10px}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
-  .flyer{left:var(--rx);transform:none}.petal{opacity:0}}
+  .flyer{left:var(--rx);transform:none}.petal{opacity:0}.gmoon{opacity:.75}#motion{display:none}}
 </style>
 </head>
 <body>
@@ -160,9 +174,12 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 <div class="scene g" aria-hidden="true">
   <div class="fog f1"></div><div class="fog f2"></div>
   <img class="gart" src="gate-bg.webp" alt="" width="1024" height="576">
+  <div class="gl"><div class="gmoon"></div><div class="gcl c1"></div><div class="gcl c2"></div></div>
   <div class="flyer b1" style="top:92px;--rx:68%"><svg class="gbat" width="46" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
   <div class="flyer b2" style="top:150px;--rx:78%"><svg class="gbat" width="30" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
   <div class="flyer b3" style="top:58px;--rx:58%"><svg class="gbat" width="22" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
+  <div class="flyer b4" style="top:120px;--rx:48%"><svg class="gbat" width="38" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
+  <div class="flyer b5" style="top:210px;--rx:88%"><svg class="gbat" width="16" viewBox="0 0 40 20"><use href="#batp"/></svg></div>
 </div>
 
 <!-- Hollowkeep scene -->
@@ -191,6 +208,7 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
     <button class="tbtn" type="button" data-theme-btn="gothic" aria-pressed="true">Gothic</button>
     <button class="tbtn" type="button" data-theme-btn="hollowkeep" aria-pressed="false">Hollowkeep</button>
     <button class="tbtn" type="button" data-theme-btn="standard" aria-pressed="false">Standard</button>
+    <button class="tbtn" id="motion" type="button" aria-pressed="false">Pause motion</button>
   </div>
 </header>
 
@@ -326,6 +344,10 @@ function setTheme(t,save){
   $('themenote').textContent=THEMES[t]+' theme';
   if(save)try{localStorage.setItem('chimera-theme',t)}catch(_){}
 }
+{const R=document.documentElement,B=document.getElementById('motion');let off=false;try{off=localStorage.getItem('chimera-motion')==='off'}catch(_){}
+const ap=()=>{R.classList.toggle('motion-off',off);B.setAttribute('aria-pressed',off)};ap();
+B.onclick=()=>{off=!off;ap();try{localStorage.setItem('chimera-motion',off?'off':'on')}catch(_){}};
+document.addEventListener('visibilitychange',()=>R.classList.toggle('tab-hidden',document.hidden))}
 document.querySelectorAll('[data-theme-btn]').forEach(b=>b.onclick=()=>setTheme(b.dataset.themeBtn,true));
 setTheme(root.dataset.theme,false);
 document.querySelectorAll('.how').forEach(b=>b.append(lab(b.dataset.k)));

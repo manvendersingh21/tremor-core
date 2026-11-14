@@ -62,3 +62,5 @@ python apps/phantom-phone/hud-web/demo.py --real # llama-server on :8080 + Cruso
 - Dollars saved come from the router's flat `cloud_dollars_per_1k_tokens` estimate. The benchmark `usd` column is real Crusoe usage. They are different numbers.
 - The demo's tier mix is invented. It shows the HUD works, not how the router performs.
 - `docs/gothic.png` is the Live tab (1440 px, demo data); 320 px was checked by screenshot only during development. Screenshots, taken with headless Chromium from the Playwright cache. The Benchmarks tab was checked through `/api/bench` output and tests, not by screenshot.
+
+- Gothic backdrop motion: 5 flapping bats, a breathing moon glow and two slow cloud strips (transform and opacity only). The `Pause motion` button shares the site key `chimera-motion`. It pauses when the tab is hidden, and reduced motion shows a still frame.
