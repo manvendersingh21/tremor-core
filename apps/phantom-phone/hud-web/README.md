@@ -64,3 +64,15 @@ python apps/phantom-phone/hud-web/demo.py --real # llama-server on :8080 + Cruso
 - `docs/gothic.png` is the Live tab (1440 px, demo data); 320 px was checked by screenshot only during development. Screenshots, taken with headless Chromium from the Playwright cache. The Benchmarks tab was checked through `/api/bench` output and tests, not by screenshot.
 
 - Gothic backdrop motion: 5 flapping bats, a breathing moon glow and two slow cloud strips (transform and opacity only). The `Pause motion` button shares the site key `chimera-motion`. It pauses when the tab is hidden, and reduced motion shows a still frame.
+
+## Evals tab
+
+One log of every benchmark run (`bench/evallog.py`): leaderboard, charts, tokens by tier, paged run log. Run:
+
+```
+bin/chimera evals import        # result files -> ~/.chimera/evals.db (+ Supabase eval_runs if CHIMERA_DB_URL is set)
+bin/chimera evals leaderboard
+python apps/phantom-phone/hud-web/server.py   # open http://127.0.0.1:8765/#evals
+```
+
+`/api/evals` reads the SQLite file, or the result files directly if it does not exist yet. `docs/evals.png` is the tab (Gothic, 1440 px, real rows). Tests: `tests/test_evallog.py`.
