@@ -238,10 +238,12 @@ class PgVectorCache:
         best = 1.0 if hit and hit.source == "exact" else info["best"]
         return hit, Lookup((hit.response, hit.similarity) if hit else None, best, info["guard"], ms)
 
-    def ping(self) -> float:
-        """ms for `select 1` through the same budget and breaker as lookups. Raises when the DB is not reachable."""
+    def ping(self, timeout_s: float = 3.0) -> float:
+        """ms for one real lookup round trip (health checks). Own timeout, no breaker strikes. Raises when unreachable."""
         t0 = time.perf_counter()
-        self._call(lambda s: s._tx(self.tenant, "select 1", (), "one"))  # type: ignore[attr-defined]
+        emb = [0.0] * 383 + [1.0]
+        self._pool.submit(lambda: self._store_ready().lookup(self.tenant, "__health__", "-", emb, 1)
+                          ).result(timeout=timeout_s)
         return (time.perf_counter() - t0) * 1000
 
     def get(self, prompt: str, namespace: str = "") -> tuple[str, float] | None:

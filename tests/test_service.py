@@ -177,3 +177,14 @@ def test_health_and_stats_shapes_and_caching(tmp_path):
     list(svc.chat({"prompt": "stats please"}, "4.4.4.4"))
     s = svc.stats()["session"]
     assert s["calls"] == 2 and s["cache_hits"]["shared"] == 1 and s["hit_rate"] == 0.5 and s["tokens_kept_off_big"] > 0
+
+
+def test_modal_state_reads_the_newest_gpu_large_app():
+    from chimera_core.service import modal_state_of
+
+    apps = [{"description": "chimera-gpu-large", "state": "stopped", "created_at": "2026-11-13 22:45"},
+            {"description": "chimera-gpu-large", "state": "deployed", "created_at": "2026-11-14 01:00"},
+            {"description": "chimera-img-check", "state": "deployed", "created_at": "2026-11-15 00:00"}]
+    assert modal_state_of(apps) == "deployed"
+    assert modal_state_of(apps[:1]) == "stopped"
+    assert modal_state_of(apps[2:]) == "not_deployed"
