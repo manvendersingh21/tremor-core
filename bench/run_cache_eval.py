@@ -27,7 +27,7 @@ from chimera_core.cache.pgvector_cache import PgStore, PgVectorCache  # noqa: E4
 from chimera_core.cache.semantic_cache import SemanticCache  # noqa: E402
 from run_bench import load_env  # noqa: E402
 
-STORE = pathlib.Path(os.environ.get("KIROCREW_SCRATCH") or ROOT / "bench/.scratch")
+STORE = ROOT / "bench/.scratch"  # in the repo, git-ignored
 EVAL = ROOT / "bench/datasets/cache_eval.jsonl"
 OUT = ROOT / "bench/results_cache_eval.json"
 TENANT = "eval-kaggle"
