@@ -65,7 +65,7 @@ Real stores written from the same 200 verified answers: `Neo4jGraphStore` for th
 ## Rerun
 
 ```
-# port forward to the 30B (11444) and Neo4j (17687) first; CRUSOE_API_KEY, CHIMERA_DB_URL, CHIMERA_GRAPH_* in .env
+# open an SSH tunnel to your GPU box and to Neo4j first; CRUSOE_API_KEY, CHIMERA_DB_URL, CHIMERA_GRAPH_* in .env
 .venv/bin/python bench/memory/run_memory.py all
 N_TEST=80 W30=4 .venv/bin/python bench/memory/run_memory.py report
 ```
