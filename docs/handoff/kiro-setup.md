@@ -60,3 +60,23 @@ Uncommitted edits by other chats contain a GPU host, a port and a key path: `ben
 - Kiro's file-save event field names for the file path are not documented. `_common.py` takes any path-like string in the event. Not tested inside Kiro.
 - `speculative-shield` was kept as is; it calls the network on every save, against the "fast, no network" goal. Disable it with `"enabled": false` if it is too slow.
 - No Hypothesis tests were written here; the property-test chat owns them.
+
+## Extra MCP servers (added later)
+
+All are in `powers/chimera/workspace-mcp.json` (copy to `.kiro/settings/mcp.json`; Kiro denied that write, see above). Versions are pinned. Commands were checked against each package's CLI or README. No server has write access to Supabase or Aura.
+
+| Server | Entry | State | Credential | Given to |
+|---|---|---|---|---|
+| `playwright` | `npx -y @playwright/mcp@0.0.85 --isolated --allowed-origins http://127.0.0.1:8765` | on | none | `frontend-owner`, `reviewer` (also embedded in their agent files) |
+| `context7` | `npx -y @upstash/context7-mcp@4.7.0` | on | none (an optional Context7 API key raises rate limits; not set) | all four agents |
+| `huggingface` | `https://huggingface.co/mcp` | on | none: anonymous access to public search. A `HF_TOKEN` is needed only for private repos or Jobs; not configured | `bench-runner` |
+| `github-readonly` | remote `https://api.githubcopilot.com/mcp/`, headers `X-MCP-Readonly: true`, `X-MCP-Toolsets: repos,issues,pull_requests,actions` | **disabled** | `GITHUB_PERSONAL_ACCESS_TOKEN` (fine-grained, read scopes only) | nobody yet |
+| `supabase-readonly` | remote `https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true&features=database,docs` | **disabled** | `SUPABASE_ACCESS_TOKEN` (personal access token) and `SUPABASE_PROJECT_REF` | nobody yet |
+| `neo4j-aura-readonly` | `uvx neo4j-mcp-server`, `NEO4J_MCP_READ_ONLY=true` | **disabled** | the `CHIMERA_GRAPH_*` variables, ideally a read-only Aura role | `backend-owner` (embedded, still needs the variables) |
+
+Notes and limits:
+- Playwright is limited to `http://127.0.0.1:8765` by `--allowed-origins`. This is a request filter, not a security boundary, and it may block external fonts. Start `make web` first.
+- Supabase: the `@supabase/mcp-server-supabase@0.17.0` stdio build has no `--read-only` or `--project-ref` flag (its options are `--access-token`, `--api-url`, `--http`), so the hosted server with URL parameters is used. I did not confirm that Kiro expands `${SUPABASE_PROJECT_REF}` inside a URL; if it does not, write the project ref into the URL by hand when you enable it. `read_only=true` makes the Postgres role read-only. The access token itself can still manage the whole account, so use a token for an org that holds only this project.
+- GitHub: read-only is enforced by the server header, not by the token. Use a token with read scopes only.
+- Hugging Face anonymous mode was taken from the public endpoint description; I did not run a call.
+- None of the new servers was started in a live Kiro session.

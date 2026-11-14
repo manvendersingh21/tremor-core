@@ -2,7 +2,9 @@
   "mcpServers": {
     "chimera": {
       "command": ".venv/bin/python",
-      "args": ["apps/kiro-trimmer/mcp_server.py"],
+      "args": [
+        "apps/kiro-trimmer/mcp_server.py"
+      ],
       "env": {
         "CRUSOE_API_KEY": "${CRUSOE_API_KEY}",
         "CHIMERA_DB_URL": "${CHIMERA_DB_URL}",
@@ -11,12 +13,17 @@
         "CHIMERA_GRAPH_PASSWORD": "${CHIMERA_GRAPH_PASSWORD}",
         "CHIMERA_GRAPH_DATABASE": "${CHIMERA_GRAPH_DATABASE}"
       },
-      "autoApprove": ["chimera_stats", "chimera_risk_score"],
+      "autoApprove": [
+        "chimera_stats",
+        "chimera_risk_score"
+      ],
       "disabled": false
     },
     "neo4j-aura-readonly": {
       "command": "uvx",
-      "args": ["neo4j-mcp-server"],
+      "args": [
+        "neo4j-mcp-server"
+      ],
       "env": {
         "NEO4J_MCP_URI": "${CHIMERA_GRAPH_URL}",
         "NEO4J_MCP_USERNAME": "${CHIMERA_GRAPH_USER}",
@@ -24,6 +31,47 @@
         "NEO4J_MCP_DATABASE": "${CHIMERA_GRAPH_DATABASE}",
         "NEO4J_MCP_READ_ONLY": "true",
         "NEO4J_MCP_TELEMETRY": "false"
+      },
+      "disabled": true
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.85",
+        "--isolated",
+        "--allowed-origins",
+        "http://127.0.0.1:8765"
+      ],
+      "autoApprove": [],
+      "disabled": false
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@4.7.0"
+      ],
+      "autoApprove": [],
+      "disabled": false
+    },
+    "huggingface": {
+      "url": "https://huggingface.co/mcp",
+      "disabled": false
+    },
+    "github-readonly": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}",
+        "X-MCP-Readonly": "true",
+        "X-MCP-Toolsets": "repos,issues,pull_requests,actions"
+      },
+      "disabled": true
+    },
+    "supabase-readonly": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true&features=database,docs",
+      "headers": {
+        "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"
       },
       "disabled": true
     }
