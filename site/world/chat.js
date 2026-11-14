@@ -142,7 +142,7 @@
     });
     async function stream(q, on) {
       if (!mock) {
-        let r; try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ prompt: q }) }); } catch (e) { r = null; }
+        let r; try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ prompt: q, task: taskType(q), conversation_id: conversation() }) }); } catch (e) { r = null; }
         if (r && (r.status === 429 || r.status === 503)) { const e = new Error('rate'); e.polite = r.status === 429 ? 'The bat is catching its breath. Too many questions; wait ' + (r.headers.get('Retry-After') || 'a few') + ' seconds.' : 'The castle is busy. Try again in a moment.'; throw e; }
         if (r && r.status === 403) { const e = new Error('held'); e.polite = 'That action is risky, so it waits for a person to approve it.'; throw e; }
         if (r && r.ok && r.body) { await sse(r.body, on); return; }
@@ -230,6 +230,11 @@
       localStorage.setItem(KEY, JSON.stringify(all.slice(0, 60)));
     } catch (e) { /* storage full or blocked: the trace on screen is still complete */ }
   }
+  /* one id per browser tab: /api/stats groups this chat's calls under it (by_conversation) */
+  function conversation() {
+    try { let c = sessionStorage.getItem('chimera-conv'); if (!c) { c = 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); sessionStorage.setItem('chimera-conv', c); } return c; }
+    catch (e) { return 'web-anon'; }
+  }
   const history = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
-  window.CastleChat = { mount, THRESH, GATE, history, taskType };
+  window.CastleChat = { mount, THRESH, GATE, history, taskType, conversation };
 })();

@@ -72,6 +72,7 @@ body{margin:0;min-height:100vh;color:var(--fg);font:15px/1.55 Inter,system-ui,sa
 #chat .w-btn{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:600}
 .embed nav{display:none}
 .embed .hero{padding-top:20px}
+.svsel{float:right;display:inline-flex;gap:4px}.svsel button{font:500 11px Inter,sans-serif;letter-spacing:0;text-transform:none;color:var(--mut);background:transparent;border:1px solid var(--line);border-radius:99px;padding:1px 8px;cursor:pointer}.svsel button[aria-pressed=true]{color:var(--fg);background:var(--card)}
 .split{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--line);margin:10px 0 6px}
 @keyframes flicker{0%,100%{opacity:1}45%{opacity:.78}55%{opacity:.95}70%{opacity:.82}}
 .wrap-all{position:relative;z-index:1;max-width:1120px;margin:auto;padding:0 16px 48px}
@@ -181,18 +182,15 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 
   <div class="sec-head"><div class="eyebrow acc" data-h>The cellar books</div><h2 class="serif">What the house <em>keeps</em></h2></div>
   <div class="cards2">
-    <div class="card"><div class="eyebrow">Savings over time</div><svg class="spark" id="spark" viewBox="0 0 600 110" preserveAspectRatio="none" role="img" aria-label="Tokens saved over time"></svg>
-      <div class="lbl" id="sparklbl">waiting for the telemetry stream</div></div>
+    <div class="card"><div class="eyebrow">Savings over time <span class="svsel"><button type="button" data-sv="daily" aria-pressed="true">days</button><button type="button" data-sv="hourly" aria-pressed="false">hours</button></span></div><svg class="spark" id="spark" viewBox="0 0 600 110" preserveAspectRatio="none" role="img" aria-label="Tokens saved over time"></svg>
+      <div class="lbl" id="sparklbl">reading /api/stats series</div></div>
     <div class="card"><div class="eyebrow">Cache hits: exact vs cosine</div><div class="split" id="split" role="img" aria-label="Exact versus cosine cache hits"></div>
       <div class="lbl" id="splitlbl">reading /api/stats</div>
       <div class="eyebrow" style="margin-top:16px">Database size</div>
-      <table><tr><th>Store</th><th>Rows or nodes</th><th>Size</th></tr>
-        <tr><td>Supabase cache (prompts)</td><td><span class="pend">pending API</span></td><td><span class="pend">pending API</span></td></tr>
-        <tr><td>Memory: teacher_pairs</td><td><span class="pend">pending API</span></td><td><span class="pend">pending API</span></td></tr>
-        <tr><td>Neo4j graph</td><td><span class="pend">pending API</span></td><td>–</td></tr></table>
+      <table><thead><tr><th>Store</th><th>Rows or nodes</th><th>Size</th></tr></thead><tbody id="dbbody"><tr><td colspan="3">reading /api/stats storage</td></tr></tbody></table>
       <div class="lbl" id="dbnote" style="margin-top:6px"></div></div>
   </div>
-  <div class="card" style="margin-top:12px"><div class="eyebrow">How it answered</div><div class="lbl">Questions asked from this browser (the guide and the Chat door). Every user's traces: <span class="pend">pending API</span></div><div id="traces"></div></div>
+  <div class="card" style="margin-top:12px"><div class="eyebrow">How it answered</div><div class="lbl">The last calls on this machine, newest first, from /api/stats recent. Prompts are cut to 80 characters with keys and emails removed.</div><div id="traces"></div></div>
 </section>
 
 
@@ -227,9 +225,9 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
   <div class="chatgrid">
     <div class="card chatcard"><div id="chatmount"></div></div>
     <div class="card"><div class="eyebrow">Cache hit rate</div><div class="big" id="ch-hit">–</div><div class="lbl" id="ch-hitlbl">reading /api/stats</div>
-      <div class="eyebrow" style="margin-top:18px">Tokens used today</div><div class="big" id="ch-today">0</div><div class="lbl" id="ch-todaylbl">questions from this browser · all users: <span class="pend">pending API</span></div>
-      <div class="eyebrow" style="margin-top:18px">Tokens per task</div><div id="ch-tasks" class="lbl">nothing asked from this browser yet</div>
-      <div class="lbl" style="margin-top:8px">Task type is guessed from the question (code, lookup, chat). Server-side grouping: <span class="pend">pending API</span></div></div>
+      <div class="eyebrow" style="margin-top:18px">Tokens used today</div><div class="big" id="ch-today">0</div><div class="lbl" id="ch-todaylbl">reading /api/stats</div>
+      <div class="eyebrow" style="margin-top:18px">Tokens per task</div><div id="ch-tasks" class="lbl">reading /api/stats by_task</div>
+      <div class="lbl" style="margin-top:8px">Each question is sent with a task kind (code, lookup, chat) and this chat's conversation id; the server groups them.</div></div>
   </div>
 </section>
 </main>
@@ -275,7 +273,6 @@ let SRC=null; // set by a _meta line (demo.py) or by the first real event
 function addEvent(e){
   if(e._meta){SRC=e._meta.source;const s=$('src');s.textContent=/demo/.test(SRC)?'demo (simulated backends)':SRC;s.className='badge'+(/demo/.test(SRC)?' demo':'');return}
   if(!SRC){SRC='live';const s=$('src');s.textContent='live · this machine';s.className='badge'}
-  SER.push((SER.length?SER[SER.length-1]:0)+(e.tokens_saved||0));if(SER.length>600)SER.shift();
   const g=group(e.tier_used);S.calls++;S.tiers[g]++;if(g!=='cloud')S.low++;S.tok+=e.tokens_saved||0;S.usd+=e.dollars_saved||0;
   if(e.acceptance_rate_alpha!=null){S.asum+=e.acceptance_rate_alpha;S.acount++}
   const row=document.createElement('div');row.className='call';
@@ -303,38 +300,66 @@ function paint(){
 donut();
 const SER=[];let G=null;
 const es=new EventSource('/events');
-es.onmessage=m=>{try{addEvent(JSON.parse(m.data));paint();spark()}catch(_){}};
+es.onmessage=m=>{try{addEvent(JSON.parse(m.data));paint()}catch(_){}};
 
 /* totals from /api/stats (all calls on this machine); the stream above fills the feed and the donut */
+let STATS=null;
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const kb=b=>b==null?'–':b>=1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';
 async function stats(){
-  try{const r=await fetch('/api/stats',{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();G=j.global&&j.global.calls?j.global:j.session;
+  try{const r=await fetch('/api/stats',{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();STATS=j;G=j.global&&j.global.calls?j.global:j.session;
     if(!SRC&&G.calls){SRC='live';$('src').textContent='live · this machine';$('src').className='badge'}
     S.tok=G.tokens_kept_off_big||0;S.usd=G.dollars_saved||0;$('spent').textContent='$'+(G.dollars_spent||0).toFixed(4);
     $('gpuav').textContent=G.gpu_calls_avoided??0;$('hit').textContent=Math.round((G.hit_rate||0)*100)+'%';
-    const bt=G.by_tier||{},ex=bt.exact_cache||0,se=bt.semantic_cache||0,sh=(G.cache_hits&&G.cache_hits.shared)||0,tot=ex+se||1;
-    $('split').innerHTML=`<div style="width:${ex/tot*100}%;background:var(--cache)"></div><div style="width:${se/tot*100}%;background:var(--gpu)"></div>`;
-    $('splitlbl').textContent=`${ex} exact (hash) · ${se} cosine ≥ 0.97 · ${sh} counted as Supabase hits · ${G.false_hits||0} false hits`;
-    paint()}catch(_){}
-  try{const r=await fetch('/api/health',{cache:'no-store'});const h=await r.json();$('dbnote').textContent=h.supabase?`Supabase is ${h.supabase.up?'up':'down'}${h.supabase.lookup_ms!=null?', lookup '+Math.round(h.supabase.lookup_ms)+' ms':''}.`:''}catch(_){}
+    // cache.all_time: exact = Supabase hash matches, cosine = pgvector matches >= 0.97 that the guard passed
+    const ca=(G.cache&&G.cache.all_time)||{},td=(G.cache&&G.cache.today)||{},ex=ca.exact||0,co=ca.cosine||0,tot=ex+co||1;
+    $('split').innerHTML=`<div style="width:${ex/tot*100}%;background:var(--cache)"></div><div style="width:${co/tot*100}%;background:var(--gpu)"></div>`;
+    $('splitlbl').textContent=`All time: ${ex} exact (hash) · ${co} cosine ≥ 0.97 · ${ca.false_hits||0} false hits. Today: ${td.exact||0} exact · ${td.cosine||0} cosine.`;
+    storage(j.storage);series(G.series);traces(j.recent);paint()}catch(_){}
 }
 stats();setInterval(stats,5000);
-function spark(){
-  if(SER.length<2)return;const W=600,H=110,mx=SER[SER.length-1]||1;
-  $('spark').innerHTML=`<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${SER.map((v,i)=>`${(i/(SER.length-1)*W).toFixed(1)},${(H-4-v/mx*(H-12)).toFixed(1)}`).join(' ')}"/>`;
-  const l=$('sparklbl');l.textContent=`${mx.toLocaleString()} tokens saved over the last ${SER.length} calls in the telemetry log. Per-day series: `;
-  const p=document.createElement('span');p.className='pend';p.textContent='pending API';l.append(p);
+function storage(s){
+  const b=$('dbbody');if(!s){b.innerHTML='<tr><td colspan="3">/api/stats sent no storage block</td></tr>';return}
+  const sb=s.supabase||{},t=sb.tables||{},n4=s.neo4j||{},row=(name,v,sz)=>`<tr><td>${name}</td><td>${v}</td><td>${sz}</td></tr>`;
+  const tb=k=>t[k]?`${f(t[k].tenant_rows)} <span class="lbl">of ~${f(t[k].rows_estimate)}</span>`:'–';
+  b.innerHTML=(sb.up===false?row('Supabase','unreachable ('+esc(sb.error||'')+')','–'):
+    row('Supabase cache (prompts)',tb('prompts'),kb(t.prompts&&t.prompts.bytes))+row('Cache events',tb('cache_events'),kb(t.cache_events&&t.cache_events.bytes))+
+    row('Memory: teacher_pairs',tb('teacher_pairs'),kb(t.teacher_pairs&&t.teacher_pairs.bytes))+row('Memory graph rows (mem_nodes / mem_edges)',`${f(t.mem_nodes&&t.mem_nodes.tenant_rows)} / ${f(t.mem_edges&&t.mem_edges.tenant_rows)}`,kb((t.mem_nodes&&t.mem_nodes.bytes||0)+(t.mem_edges&&t.mem_edges.bytes||0)))+
+    row('<b>Supabase total</b>','',`<b>${kb(sb.bytes_total)}</b>`))+
+    (n4.up===false?row('Neo4j graph','unreachable ('+esc(n4.error||'')+')','–'):row('Neo4j graph',`${f(n4.nodes)} nodes · ${f(n4.edges)} edges`,'–'));
+  $('dbnote').textContent=`Rows this tenant ("${sb.tenant||'default'}") can see, of the whole table's estimate. Read ${new Date((s.ts||0)*1000).toLocaleTimeString()} from /api/stats storage.`;
 }
-function traces(){
-  let rs=[];try{rs=JSON.parse(localStorage.getItem('chimera-traces')||'[]')}catch(_){}
-  const el=$('traces');
-  if(!rs.length){el.innerHTML='<div class="lbl" style="margin-top:8px">No question asked from this browser yet. Ask the guide in the Great Hall or open the Chat door.</div>';return}
-  el.replaceChildren(...rs.slice(0,8).map(r=>{const d=document.createElement('div');d.className='trace';
-    const q=document.createElement('b');q.textContent=r.q;const st=document.createElement('div');st.className='steps';
-    (r.steps||[]).forEach(x=>{const s=document.createElement('span');s.textContent=x;st.append(s)});
+let SV='daily';
+function series(sr){
+  const rows=(sr&&sr[SV])||[];const l=$('sparklbl');
+  if(!rows.length){$('spark').innerHTML='';l.textContent=`No ${SV} rows yet in /api/stats series.`;return}
+  const W=600,H=110,mx=Math.max(...rows.map(r=>r.tokens_saved||0),1),n=rows.length;
+  const X=i=>n<2?W/2:(i/(n-1)*W),Y=v=>H-4-v/mx*(H-14);
+  $('spark').innerHTML=(n<2?'':`<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${rows.map((r,i)=>X(i).toFixed(1)+','+Y(r.tokens_saved||0).toFixed(1)).join(' ')}"/>`)+
+    rows.map((r,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(r.tokens_saved||0).toFixed(1)}" r="4" fill="var(--accent)"><title>${esc(r.t)}: ${f(r.tokens_saved)} tokens saved, $${(r.dollars_saved||0).toFixed(4)} saved, ${r.calls} calls</title></circle>`).join('');
+  const sum=k=>rows.reduce((a,r)=>a+(r[k]||0),0);
+  l.textContent=`${n} ${SV==='daily'?'day':'hour'}${n>1?'s':''} from ${rows[0].t} to ${rows[n-1].t}: ${f(sum('tokens_saved'))} tokens saved, $${sum('dollars_saved').toFixed(4)} saved, $${sum('dollars_spent').toFixed(4)} spent, ${f(sum('calls'))} calls.`;
+}
+document.querySelectorAll('[data-sv]').forEach(b=>b.onclick=()=>{SV=b.dataset.sv;document.querySelectorAll('[data-sv]').forEach(x=>x.setAttribute('aria-pressed',x===b));series(G&&G.series)});
+function spark(){}
+function step(s){
+  if(s.step==='cache_shared')return s.hit?`cache HIT ${s.kind||''}${s.score!=null?' cos '+(+s.score).toFixed(3):''}`:`cache miss${s.score!=null?' cos '+(+s.score).toFixed(3):''}`;
+  if(s.step==='call')return `${s.tier} ${s.ok===false?'failed':Math.round(s.ms||0)+' ms'}`;
+  if(s.step==='draft')return `${s.tier} conf ${s.confidence!=null?(+s.confidence).toFixed(2):'?'}/${s.gate}`;
+  if(s.step==='decide')return `try ${s.tier}`;
+  if(s.step==='memory')return s.op==='retrieve'?`memory ${s.chars||0} chars`:`teacher ${s.stored?'stored':'not stored'}`;
+  if(s.step==='embed')return `embed ${Math.round(s.ms||0)} ms`;
+  return s.step;
+}
+function traces(rs){
+  const el=$('traces');rs=rs||[];
+  if(!rs.length){el.innerHTML='<div class="lbl" style="margin-top:8px">/api/stats has no recent calls yet.</div>';return}
+  el.replaceChildren(...rs.slice(0,10).map(r=>{const d=document.createElement('div');d.className='trace';
+    const q=document.createElement('b');q.textContent=r.prompt;const st=document.createElement('div');st.className='steps';
+    (r.steps||[]).forEach(x=>{const s=document.createElement('span');s.textContent=step(x);st.append(s)});
     const t=document.createElement('div');t.className='tag';
-    t.textContent=`${r.cache?'cache HIT':r.tier}${r.cos!=null?' · cos '+(+r.cos).toFixed(3):''} · ${r.model||(r.cache?'no model':'')} · ${r.tokens_in}→${r.tokens_out} tok · ${r.ms!=null?Math.round(r.ms)+' ms':''} · $${(r.dollars||0).toFixed(5)}`;
+    t.textContent=`${r.cache?'cache HIT':r.tier}${r.score!=null?' · cos '+(+r.score).toFixed(3):''} · ${r.model||''} · ${f(r.tokens_in)}→${f(r.tokens_out)} tok · ${r.ms!=null?f(r.ms)+' ms':''} · $${(r.dollars||0).toFixed(5)} · task ${r.task||'–'} · ${new Date(r.ts*1000).toLocaleTimeString()}`;
     d.append(q,st,t);return d}))}
-traces();addEventListener('storage',traces);setInterval(traces,4000);
 
 /* ---------- Evals tab: /api/evals leaderboard ---------- */
 let evDone=false;
@@ -359,12 +384,13 @@ function loadChat(){
   chatSide();setInterval(chatSide,5000);
 }
 function chatSide(){
-  if(G){$('ch-hit').textContent=Math.round((G.hit_rate||0)*100)+'%';$('ch-hitlbl').textContent=`of ${G.calls} calls on this machine`}
-  const rs=window.CastleChat?window.CastleChat.history():[],today=new Date().toDateString(),t=rs.filter(r=>new Date(r.ts).toDateString()===today);
-  const tok=a=>a.reduce((s,r)=>s+(r.tokens_in||0)+(r.tokens_out||0),0);
-  $('ch-today').textContent=tok(t).toLocaleString();
-  const by={};rs.forEach(r=>{const x=by[r.type]=by[r.type]||{n:0,tok:0,hit:0};x.n++;x.tok+=(r.tokens_in||0)+(r.tokens_out||0);if(r.cache)x.hit++});
-  if(Object.keys(by).length)$('ch-tasks').innerHTML='<table><tr><th>Task</th><th>Asked</th><th>Tokens</th><th>Hits</th></tr>'+Object.entries(by).map(([k,v])=>`<tr><td>${k}</td><td>${v.n}</td><td>${v.tok.toLocaleString()}</td><td>${v.hit}</td></tr>`).join('')+'</table>';
+  if(!G)return;
+  $('ch-hit').textContent=Math.round((G.hit_rate||0)*100)+'%';$('ch-hitlbl').textContent=`of ${f(G.calls)} calls on this machine (${f(G.calls_today)} today)`;
+  $('ch-today').textContent=f(G.tokens_today);$('ch-todaylbl').textContent=`model tokens since midnight, all users on this machine (${f(G.tokens)} all time)`;
+  const bt=G.by_task||{},ks=Object.keys(bt).sort((a,b)=>bt[b].tokens-bt[a].tokens);
+  $('ch-tasks').innerHTML=ks.length?'<table><tr><th>Task</th><th>Calls</th><th>Tokens</th><th>Hits</th><th>Saved</th></tr>'+ks.map(k=>`<tr><td>${esc(k)}</td><td>${f(bt[k].calls)}</td><td>${f(bt[k].tokens)}</td><td>${f(bt[k].cache_hits)}</td><td>${f(bt[k].tokens_saved)}</td></tr>`).join('')+'</table>':'no calls yet';
+  const c=STATS&&STATS.session&&STATS.session.by_conversation,me=c&&window.CastleChat&&c[window.CastleChat.conversation()];
+  if(me)$('ch-tasks').insertAdjacentHTML('beforeend',`<div class="lbl" style="margin-top:6px">This conversation: ${f(me.calls)} calls, ${f(me.tokens)} tokens, ${f(me.cache_hits)} cache hits.</div>`);
 }
 
 /* ---------- ?view=<tab> picks a tab; ?embed=1 hides the tab bar (castle doors) ---------- */
