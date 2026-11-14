@@ -36,6 +36,7 @@ class Telemetry(BaseModel):
     tier_ms: dict[str, float] = {}  # ms per tier: local, mid, brief, top
     # Optional per-model split of this call. Old events lack it; readers fall back to local_tokens/cloud_tokens.
     per_tier: dict[TierKey, TierUsage] | None = None
+    tier_name: str | None = None  # pool mode: the [[tiers]] name that answered (e.g. "gpu-large")
     # Shared-cache metrics. All optional: old events and old readers ignore them.
     gpu_calls_avoided: int | None = None  # defaults to 1 when a cache answered, else None
     false_hit: bool | None = None         # set by a caller that reports a served cache answer as wrong

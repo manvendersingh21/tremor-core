@@ -31,12 +31,14 @@ class ServiceTracker(TelemetryTracker):
 def make_app(cfg: ChimeraConfig):
     g = cfg.gateway
     router = build_router(cfg, tracker=ServiceTracker([TelemetryTracker.jsonl_sink(str(cfg.telemetry_path))]))
-    for b in (router.local, router.mid, router.top):
-        if hasattr(b, "timeout"):
-            b.timeout = g.timeout_s
-    raw_mid, local, cap = router.mid, router.local, router.cfg.max_local_tokens
-    router.mid = Resilient(raw_mid, lambda p, n: local.complete(p, min(n, cap)).text, "gpu", "local", g.retry_backoff_s)
-    router.top = Resilient(router.top, raw_mid.complete, "top", "gpu", g.retry_backoff_s)
+    if router.pool is None:  # pool mode (use_pool) has no mid/top; TierPool already falls through on errors
+        for b in (router.local, router.mid, router.top):
+            if hasattr(b, "timeout"):
+                b.timeout = g.timeout_s
+        raw_mid, local, cap = router.mid, router.local, router.cfg.max_local_tokens
+        router.mid = Resilient(raw_mid, lambda p, n: local.complete(p, min(n, cap)).text, "gpu", "local",
+                               g.retry_backoff_s)
+        router.top = Resilient(router.top, raw_mid.complete, "top", "gpu", g.retry_backoff_s)
     return create_app(cfg, router, KeyStore(str(cfg.gateway_db)), AuditLog(str(cfg.gateway_db)))
 
 

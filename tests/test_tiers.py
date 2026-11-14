@@ -95,6 +95,7 @@ def test_router_uses_pool_behind_flag(tmp_path):
     r = SpeculativeCascadeRouter(local=None, pool=p)
     out = r.generate("hello")
     assert out.text == "gpu-small-answer" and out.telemetry.tier_used == "gpu"
+    assert out.telemetry.tier_name == "gpu-small"  # the gateway's x-chimera-tier header uses this
     assert out.telemetry.per_tier["gpu_small"].output_tokens == 5
 
 

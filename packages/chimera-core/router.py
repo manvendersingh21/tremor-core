@@ -120,7 +120,7 @@ class SpeculativeCascadeRouter:
             tokens_saved=(tin + tout) if owned else 0,
             local_tokens=sum(u.output_tokens for u in per.values() if u.device in ("Phone", "Mac")),
             cloud_tokens=sum(u.output_tokens for u in per.values() if u.device == "Crusoe"),
-            per_tier=per,
+            per_tier=per, tier_name=r.tier,
         )
 
     def _store_local(self, prompt: str, draft: DraftResult, t0: float) -> GenerateResult:
@@ -160,13 +160,13 @@ class SpeculativeCascadeRouter:
 
     def _done(
         self, text: str, tier: str, t0: float, tokens_saved: int = 0, alpha: float | None = None,
-        local_tokens: int = 0, cloud_tokens: int = 0, per_tier: dict | None = None,
+        local_tokens: int = 0, cloud_tokens: int = 0, per_tier: dict | None = None, tier_name: str | None = None,
     ) -> GenerateResult:
         tel = Telemetry(
             tier_used=tier, tokens_saved=tokens_saved, acceptance_rate_alpha=alpha,
             latency_ms=(time.perf_counter() - t0) * 1000,
             dollars_saved=tokens_saved / 1000 * self.cfg.cloud_dollars_per_1k_tokens,
-            local_tokens=local_tokens, cloud_tokens=cloud_tokens, per_tier=per_tier,
+            local_tokens=local_tokens, cloud_tokens=cloud_tokens, per_tier=per_tier, tier_name=tier_name,
         )
         self.tracker.emit(tel)
         return GenerateResult(text=text, telemetry=tel)
