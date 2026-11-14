@@ -47,7 +47,19 @@ def main(argv: list[str] | None = None) -> int:
     rv.add_argument("--id", type=int)
     cache = sub.add_parser("cache", help="gateway cache admin").add_subparsers(dest="action", required=True)
     cache.add_parser("purge", help="delete a tenant's cached answers").add_argument("--tenant", required=True)
+    ev = sub.add_parser("evals", help="one log of every benchmark run").add_subparsers(dest="action", required=True)
+    ev.add_parser("import", help="read every bench result file into ~/.chimera/evals.db (and Supabase if CHIMERA_DB_URL is set)")
+    for name, h in (("list", "print logged rows"), ("leaderboard", "one row per benchmark and mode")):
+        sp = ev.add_parser(name, help=h)
+        sp.add_argument("--dataset")
+        if name == "list":
+            sp.add_argument("--mode")
+            sp.add_argument("--limit", type=int, default=50)
     args = ap.parse_args(argv)
+    if args.cmd == "evals":  # needs no config or models
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "bench"))
+        import evallog
+        return evallog.main(args)
     cfg = load_config(args.config)
 
     if args.cmd in ("keys", "cache"):

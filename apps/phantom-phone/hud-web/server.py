@@ -6,11 +6,14 @@ import json
 import os
 import pathlib
 import statistics
+import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = pathlib.Path(__file__).resolve().parent
 BENCH = HERE.parent.parent.parent / "bench"
+sys.path.insert(0, str(BENCH))
+import evallog  # noqa: E402  the one eval log (bench/evallog.py)
 TELEMETRY = pathlib.Path(os.environ.get("HUD_TELEMETRY", HERE / "telemetry.jsonl"))
 # CSV column prefix -> ledger tier. shortcut: a CSV has no per-model split, so GPU = gpu_small and cloud/top = crusoe.
 CSV_TIER = {"cloud": "crusoe", "top": "crusoe", "crusoe": "crusoe", "gpu": "gpu_small", "mid": "gpu_small"}
@@ -117,6 +120,11 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / "gate-bg.webp").read_bytes(), "image/webp")
         elif self.path == "/api/bench":
             self._send(200, json.dumps(bench_summary()).encode(), "application/json")
+        elif self.path == "/api/evals":
+            try:
+                self._send(200, json.dumps(evallog.api_payload(evallog.load_rows())).encode(), "application/json")
+            except Exception as e:  # noqa: BLE001  a bad DB must not kill the page
+                self._send(500, json.dumps({"error": type(e).__name__}).encode(), "application/json")
         elif self.path == "/events":
             self._events()
         else:
