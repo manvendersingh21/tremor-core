@@ -13,7 +13,7 @@ import time
 import urllib.request
 from typing import Callable, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .router import complexity_score
 
@@ -35,6 +35,12 @@ class TierCfg(BaseModel):
     timeout_s: float = 120.0
     enabled: bool = True
     template_kwargs: dict = Field(default_factory=dict)  # openai backend: chat_template_kwargs
+    api_key_env: str = "CRUSOE_API_KEY"  # openai backend: env var holding the key (never the key itself)
+
+    @field_validator("url")
+    @classmethod
+    def _expand_env(cls, v: str) -> str:  # "$MODAL_VLLM_URL" -> its value; unset stays literal and fails the probe
+        return os.path.expandvars(v)
 
 
 class TierUsage(BaseModel):
@@ -83,7 +89,8 @@ def build_backend(t: TierCfg):
             text = ob.complete(prompt, n)
             return text, ob.last_usage["prompt_tokens"], ob.last_usage["completion_tokens"], None
     else:
-        cb = TopBackend(t.model, t.template_kwargs, base_url=t.url, timeout=t.timeout_s)
+        cb = TopBackend(t.model, t.template_kwargs, api_key=os.environ.get(t.api_key_env, ""),
+                        base_url=os.path.expandvars(t.url), timeout=t.timeout_s)
 
         def run(prompt: str, n: int):
             text = cb.complete(prompt, n)
@@ -91,15 +98,17 @@ def build_backend(t: TierCfg):
 
     class _B:
         complete = staticmethod(run)
+        raw = cb if t.backend == "openai" else None  # exposes usage_log (cached_tokens) to benches
 
     return _B()
 
 
 def http_probe(t: TierCfg) -> bool:
-    req = urllib.request.Request(t.url.rstrip("/") + PROBES[t.backend])
-    if t.backend == "openai" and os.environ.get("CRUSOE_API_KEY"):
-        req.add_header("Authorization", "Bearer " + os.environ["CRUSOE_API_KEY"])
     try:
+        req = urllib.request.Request(os.path.expandvars(t.url).rstrip("/") + PROBES[t.backend],
+                                     headers={"User-Agent": "chimera/0.1"})
+        if t.backend == "openai" and os.environ.get(t.api_key_env):
+            req.add_header("Authorization", "Bearer " + os.environ[t.api_key_env])
         with urllib.request.urlopen(req, timeout=3) as r:  # noqa: S310 (configured URL)
             return r.status == 200
     except Exception:

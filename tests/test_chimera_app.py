@@ -41,7 +41,7 @@ def test_example_toml_loads_with_spec_values():
     cfg = load_config(ROOT / "chimera.example.toml")
     assert (cfg.thresholds.semantic, cfg.thresholds.confidence, cfg.thresholds.heavy) == (0.97, 0.85, 0.6)
     assert cfg.gpu.model == "qwen3:30b-instruct" and cfg.gpu.url.endswith(":11435")
-    assert "key" not in (ROOT / "chimera.example.toml").read_text().lower().replace("api_key comes", "")
+    assert "key" not in (ROOT / "chimera.example.toml").read_text().lower().replace("api_key comes", "").replace("api_key_env", "").replace("gmi_api_key", "")
 
 
 def test_telemetry_env_override(tmp_path, monkeypatch):

@@ -86,7 +86,7 @@ def test_same_family_rule():
 def test_example_config_loads():
     from chimera_core.config import ROOT, load_config
     names = [t.name for t in load_config(ROOT / "chimera.example.toml").tiers]
-    assert names == ["phone-3b", "mac-3b", "gpu-small", "gpu-large", "cloud-mid", "cloud-top", "cloud-largest"]
+    assert names == ["phone-3b", "mac-3b", "gpu-small", "gpu-large", "cloud-mid", "cloud-top", "cloud-deepseek", "cloud-coder", "cloud-largest"]
 
 
 def test_router_uses_pool_behind_flag(tmp_path):
@@ -106,3 +106,9 @@ def test_per_tier_has_real_model_and_latency_for_each_tier_touched():
     per = p.telemetry_per_tier(p.generate("x", 0.1))
     assert set(per) == {"phone_3b", "gpu_small"}
     assert per["phone_3b"].model == "Qwen2.5-3B-Instruct-q4_k_m" and per["phone_3b"].device == "Phone"
+
+
+def test_url_env_expansion(monkeypatch):
+    monkeypatch.setenv("MODAL_VLLM_URL", "https://x.modal.run")
+    t = TierCfg(name="g", device="gpu", backend="openai", url="$MODAL_VLLM_URL")
+    assert t.url == "https://x.modal.run"
