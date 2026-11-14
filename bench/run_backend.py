@@ -39,6 +39,7 @@ from chimera_core.tiers import TierCfg  # noqa: E402
 STORE = pathlib.Path(os.environ.get("KIROCREW_SCRATCH") or ROOT / "bench")
 ROWS = STORE / "backend_rows.jsonl"
 PAIRS = STORE / "backend_pairs.json"
+VERDICT_FILE = ROOT / "bench/results_backend_verdict.md"  # hand-written verdict, kept across report reruns
 TENANT = "bench-backend"
 NS = os.environ.get("BENCH_NS", "bench-backend-run1")
 TOP_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
@@ -206,95 +207,8 @@ def acc(rows: list[dict]) -> str:
 
 
 def report() -> None:
-    by = load()
-    n = max(len(v) for v in by.values())
-    base_in, base_out = (sum(r[k] for r in by["BASE"]) for k in ("big_in", "big_out"))
-    base_usd = sum(r["dollars"] for r in by["BASE"])
-    p = lambda m, k: sum(r[k] for r in by[m])  # noqa: E731
-    lines = ["# Backend end to end: production path, real stack", "",
-             f"{n} prompts (30 from `bench/prompts.jsonl`, 30 from `bench/datasets/suite.jsonl`: 10 MMLU, 10 GSM8K, 5 HumanEval, 5 MBPP). "
-             "Single run per pass. Router: `config.build_router` with `use_pool` (the same object the gateway and `/api/chat` use). "
-             "Tiers: Mac Qwen2.5-3B q4_k_m (llama.cpp), GPU Qwen3-30B (Ollama, V100 box over a tunnel), Crusoe DeepSeek-V4.1-Flash 763B as the big model. "
-             "Caches: exact + local SQLite + shared Supabase (tenant role, guard on, threshold 0.97). Gate 0.95. "
-             "Local tiers cost $0 here (owned hardware); dollars are Crusoe list price.", "",
-             "## Per pass", "",
-             "| pass | calls | big-model calls | GPU calls | cache hits (exact/local/shared) | big in+out tokens | big $ | graded correct | p50 ms | p90 ms |",
-             "|---|---|---|---|---|---|---|---|---|---|"]
-    for m in ORDER:
-        rs = by[m]
-        if not rs:
-            continue
-        big_calls = sum(1 for r in rs if r["big_in"] + r["big_out"] > 0)
-        hits = {k: sum(r["cache_source"] == k for r in rs) for k in ("exact", "local", "shared")}
-        lat = [r["latency_ms"] for r in rs]
-        lines.append(f"| {m} | {len(rs)} | {big_calls} | {sum(r['gpu_call'] for r in rs)} | "
-                     f"{hits['exact']}/{hits['local']}/{hits['shared']} | {p(m, 'big_in') + p(m, 'big_out')} | "
-                     f"${p(m, 'dollars'):.5f} | {acc(rs)} | {pct(lat, .5):.0f} | {pct(lat, .9):.0f} |")
-    cold, warm, second = by["COLD"], by["WARM"], by["SECOND"]
-    if cold and by["BASE"]:
-        c_tok = p("COLD", "big_in") + p("COLD", "big_out")
-        lines += ["", "## Against the big-model-only baseline (BASE)", "",
-                  "| | BASE | COLD | WARM | SECOND |", "|---|---|---|---|---|"]
-        for lab, fn in (("big tokens", lambda m: p(m, "big_in") + p(m, "big_out") if by[m] else None),
-                        ("big $", lambda m: f"${p(m, 'dollars'):.5f}" if by[m] else None)):
-            lines.append(f"| {lab} | " + " | ".join(str(fn(m)) if by[m] else "-" for m in ("BASE", "COLD", "WARM", "SECOND")) + " |")
-        bt = base_in + base_out
-        lines += ["", f"Tokens kept off the big model: COLD {100 * (1 - c_tok / bt):.1f}%, "
-                  f"WARM {100 * (1 - (p('WARM', 'big_in') + p('WARM', 'big_out')) / bt):.1f}%, "
-                  f"SECOND {100 * (1 - (p('SECOND', 'big_in') + p('SECOND', 'big_out')) / bt):.1f}%. "
-                  f"Dollars saved: COLD ${base_usd - p('COLD', 'dollars'):.5f} of ${base_usd:.5f} "
-                  f"({100 * (1 - p('COLD', 'dollars') / base_usd):.1f}%)." if base_usd and bt else ""]
-    if warm and cold:
-        gc = sum(r["gpu_call"] for r in cold)
-        lines += ["", "## Cache: local vs shared", "",
-                  f"- WARM (same machine, second pass): hit rate {sum(bool(r['cache_source']) for r in warm) / len(warm):.2f}, "
-                  f"all local; GPU calls {sum(r['gpu_call'] for r in warm)} vs {gc} cold (avoided {gc - sum(r['gpu_call'] for r in warm)}), "
-                  f"big-model calls {sum(1 for r in warm if r['big_in'] + r['big_out'])} vs {sum(1 for r in cold if r['big_in'] + r['big_out'])} cold."]
-    if second:
-        sh = [r["shared_ms"] for r in second if r["shared_ms"]]
-        gc = sum(r["gpu_call"] for r in cold)
-        lines += [f"- SECOND (fresh local cache, shared Supabase): hit rate {sum(bool(r['cache_source']) for r in second) / len(second):.2f} "
-                  f"({sum(r['cache_source'] == 'shared' for r in second)} shared, {sum(r['cache_source'] == 'local' for r in second)} local); "
-                  f"GPU calls {sum(r['gpu_call'] for r in second)} vs {gc} cold; shared lookup p50 {pct(sh, .5):.0f} ms, p90 {pct(sh, .9):.0f} ms; "
-                  f"shared statuses {sorted({r['shared_status'] for r in second if r['shared_status']})}."]
-    if cold or warm or second:
-        # same-prompt hits must return what COLD answered; a graded-wrong hit whose COLD answer was right is a false hit
-        cg = {r["id"]: r["grade"] for r in cold}
-        fh = sum(1 for r in warm + second if r["cache_source"] and r["grade"] == 0 and cg.get(r["id"]) == 1)
-        lines += [f"- False hits (served from cache, graded wrong, COLD answer was right): {fh}."]
-    if PAIRS.exists():
-        pr = json.loads(PAIRS.read_text())
-        lines += ["", f"## Guard and threshold, {pr['n_pairs']} labeled Quora pairs ({pr['n_dup']} duplicates), real embedder", "",
-                  "| threshold | guard | cache hits | right (duplicates) | wrong (not duplicates) |", "|---|---|---|---|---|"]
-        for k, v in pr["cells"].items():
-            t, g = k.replace("thr", "").split("_guard")
-            lines.append(f"| {t} | {g} | {v['hits']} | {v['right']} | {v['wrong']} |")
-    if by["GATE85"] and cold:
-        lines += ["", "## Confidence gate 0.85 vs 0.95 (no caches, same prompts)", "",
-                  "| gate | answered by Mac 3B | GPU calls | big-model calls | big tokens | big $ | graded correct | p50 ms | p90 ms |",
-                  "|---|---|---|---|---|---|---|---|---|"]
-        for lab, rs in (("0.85", by["GATE85"]), ("0.95", cold)):
-            lat = [r["latency_ms"] for r in rs]
-            lines.append(f"| {lab} | {sum(r['path'] == 'mac-3b' for r in rs)} | {sum(r['gpu_call'] for r in rs)} | "
-                         f"{sum(1 for r in rs if r['big_in'] + r['big_out'])} | {sum(r['big_in'] + r['big_out'] for r in rs)} | "
-                         f"${sum(r['dollars'] for r in rs):.5f} | {acc(rs)} | {pct(lat, .5):.0f} | {pct(lat, .9):.0f} |")
-        lines += ["", "(0.95 row is COLD, which also had caches on; its duplicates within the 60 prompts may be cache hits.)"]
-    lines += ["", "## Accuracy by source (graded rows only)", "", "| source | BASE | COLD | GATE85 |", "|---|---|---|---|"]
-    for src in sorted({r["src"] for r in cold}):
-        lines.append(f"| {src} | " + " | ".join(acc([r for r in by[m] if r["src"] == src]) for m in ("BASE", "COLD", "GATE85")) + " |")
-    lines += ["", "## Latency by path (all passes)", "", "| path | n | p50 ms | p90 ms |", "|---|---|---|---|"]
-    allr = [r for m in ORDER if m != "BASE" for r in by[m]]
-    for path in sorted({r["path"] for r in allr}):
-        lat = [r["latency_ms"] for r in allr if r["path"] == path]
-        lines.append(f"| {path} | {len(lat)} | {pct(lat, .5):.0f} | {pct(lat, .9):.0f} |")
-    errs = [r for r in allr + by["BASE"] if r["error"]]
-    lines += ["", f"Errors (calls where no tier answered): {len(errs)}."]
-    (ROOT / "bench/results_backend.md").write_text("\n".join(lines) + "\n")
-    with (ROOT / "bench/results_backend.csv").open("w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(allr[0]))
-        w.writeheader()
-        w.writerows([r for m in ORDER for r in by[m]])
-    print("\n".join(lines))
+    import backend_report  # noqa: PLC0415  (kept apart: it imports this module)
+    backend_report.report(VERDICT_FILE.read_text() if VERDICT_FILE.exists() else "")
 
 
 if __name__ == "__main__":
