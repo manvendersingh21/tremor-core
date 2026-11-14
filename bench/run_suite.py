@@ -1,10 +1,10 @@
 """Real-dataset suite: TOP-only vs POOL, both through SpeculativeCascadeRouter.generate() with a TierPool.
 
     TOP : one tier, Crusoe deepseek-ai/DeepSeek-V4.1-Flash (763B, thinking off); no semantic cache.
-    POOL: exact + semantic cache (0.97) -> mac-3b -> gpu-small (Ollama 30B) -> the same 763B.
+    POOL: exact + semantic cache (0.97) -> gpu-small (Ollama 30B) -> the same 763B.
           gpu-large (Modal H200) stays off: it is added only when MODAL_VLLM_URL is set.
 
-Needs (POOL): llama-server on 127.0.0.1:8080, tunnel to the GPU Ollama on 127.0.0.1:$GPU_PORT (default 11439),
+Needs (POOL): tunnel to the GPU Ollama on 127.0.0.1:$GPU_PORT (default 11439),
 CRUSOE_API_KEY in .env.
     .venv/bin/python bench/run_suite.py TOP | POOL | report
 Rows go to $KIROCREW_SCRATCH/suite_<mode>.jsonl as they finish; a rerun skips finished ids. The key is never written.
@@ -51,8 +51,7 @@ TOP_TIER = TierCfg(name="cloud-deepseek", device="cloud", backend="openai", url=
 
 def pool_tiers() -> list[TierCfg]:
     tiers = [
-        TierCfg(name="mac-3b", device="laptop", backend="llamacpp", url="http://127.0.0.1:8080",
-                model="Qwen2.5-3B-Instruct-q4_k_m", family="qwen", max_complexity=0.4, timeout_s=90),
+        # shortcut: the Mac 3B tier (127.0.0.1:8080) is removed, the user stopped it; the 30B is the first model tier.
         TierCfg(name="gpu-small", device="gpu", backend="ollama",
                 url=f"http://127.0.0.1:{os.environ.get('GPU_PORT', '11439')}", model="qwen3:30b-instruct",
                 family="qwen", max_complexity=0.6, timeout_s=180),
@@ -255,7 +254,7 @@ def report() -> None:
          "- TOP: every item to Crusoe `%s` (763B, thinking off), through `SpeculativeCascadeRouter.generate()` with a one-tier pool, no semantic cache." % TOP_MODEL,
          "- POOL: exact cache + semantic cache (0.97) -> Mac `Qwen2.5-3B` q4_k_m (llama.cpp, confidence >= 0.85) -> "
          "GPU `qwen3:30b-instruct` (Ollama on a V100, SSH tunnel) -> the same 763B. `gpu-large` (Modal H200) off.",
-         "- Pool routing by `complexity_score` (mac-3b <= 0.4, gpu-small <= 0.6, top = all); a low-confidence or failed tier climbs. max_tokens 1024 on both. "
+         "- Pool routing by `complexity_score` (gpu-small <= 0.6, top = all); a low-confidence or failed tier climbs. max_tokens 1024 on both. "
          "Prices are Crusoe list: $0.29/M in, $1.20/M out, no cached-token discount, owned hardware $0.",
          "- Mac and GPU were shared with other workers during the run, so latency is indicative only.", "",
          "## Datasets", "", "| Source | Dataset | License | Rows used | Type | Grader |", "|---|---|---|---|---|---|"]

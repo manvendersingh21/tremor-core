@@ -22,3 +22,5 @@
     .venv/bin/python bench/run_suite.py report          # writes results_suite.md/.csv
 The TOP tokenizer file `bench/.scratch/tok_DeepSeek-V4.1-Flash.json` is from huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash (re-download if missing).
 Crusoe tokens so far: TOP run only (see `per_tier` sums in `suite_TOP.jsonl`); judge not run.
+
+- 2026-11-13: the Mac 3B was stopped by the user. POOL is now cache -> gpu-small (30B) -> 763B. The 116 POOL rows already in bench/.scratch were made with the 3B tier first, so delete bench/.scratch/suite_POOL.jsonl before a rerun.
