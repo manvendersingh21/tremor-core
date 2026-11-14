@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 import re
 import time
+import logging
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -11,6 +12,7 @@ from .extract import heuristic_extract
 from .graph import GraphStore, Pair
 from .safety import scrub
 
+log = logging.getLogger("chimera.memory")
 MAX_CONTEXT_TOKENS = 800
 MIN_SCORE = 0.30          # below this a "similar" problem is not shown
 HALF_LIFE_S = 30 * 86400  # recency halves every 30 days
@@ -91,24 +93,31 @@ class Memory:
         tk = tokens or {}
         t = self.tenant
         pe = self._emb(prompt)
-        pid = self.graph.add_pair(t, Pair(prompt, answer, model, tier, True, tests, int(tk.get("in", 0)),
-                                          int(tk.get("out", 0))), pe)
-        concepts, why = self.extractor(prompt, answer)
-        w = 1.0 if tests is True else min(1.0, (score or 4) / 5)
-        prob = self.graph.add_node(t, "problem", prompt, pe)
-        sol = self.graph.add_node(t, "solution", answer, self._emb(answer))
-        self.graph.add_edge(t, sol, prob, "solves", w)
-        pat = self.graph.add_node(t, "pattern", scrub(why), self._emb(why))
-        self.graph.add_edge(t, pat, sol, "part_of", w)
-        for c in concepts[:5]:
-            c = scrub(c)
-            cid = self.graph.find_node(t, "concept", c)
-            if cid is None:
-                cid = self.graph.add_node(t, "concept", c, self._emb(c))
-            self.graph.add_edge(t, sol, cid, "uses", w)
-        for other, sim in self.graph.nearest(t, "problem", pe, 4):
-            if other.id != prob and sim >= SIMILAR_AT:
-                self.graph.add_edge(t, prob, other.id, "similar_to", sim)
+        try:
+            pid = self.graph.add_pair(t, Pair(prompt, answer, model, tier, True, tests, int(tk.get("in", 0)),
+                                              int(tk.get("out", 0))), pe)
+        except Exception as e:  # noqa: BLE001  never fail the caller's request because the teacher store is down
+            log.warning("memory: teacher pair not saved (%s)", type(e).__name__)
+            pid = 0
+        try:
+            concepts, why = self.extractor(prompt, answer)
+            w = 1.0 if tests is True else min(1.0, (score or 4) / 5)
+            prob = self.graph.add_node(t, "problem", prompt, pe)
+            sol = self.graph.add_node(t, "solution", answer, self._emb(answer))
+            self.graph.add_edge(t, sol, prob, "solves", w)
+            pat = self.graph.add_node(t, "pattern", scrub(why), self._emb(why))
+            self.graph.add_edge(t, pat, sol, "part_of", w)
+            for c in concepts[:5]:
+                c = scrub(c)
+                cid = self.graph.find_node(t, "concept", c)
+                if cid is None:
+                    cid = self.graph.add_node(t, "concept", c, self._emb(c))
+                self.graph.add_edge(t, sol, cid, "uses", w)
+            for other, sim in self.graph.nearest(t, "problem", pe, 4):
+                if other.id != prob and sim >= SIMILAR_AT:
+                    self.graph.add_edge(t, prob, other.id, "similar_to", sim)
+        except Exception as e:  # noqa: BLE001  the pair is saved; only the graph part is skipped
+            log.warning("memory: graph write skipped (%s)", type(e).__name__)
         self.stored += 1
         return pid
 
@@ -116,6 +125,13 @@ class Memory:
     def retrieve(self, prompt: str, k: int = 3) -> MemoryContext:
         """Three signals: (a) nearest stored problems, (b) 1-2 hop expansion over shared concepts,
         (c) rank = similarity x edge weight x recency."""
+        try:
+            return self._retrieve(prompt, k)
+        except Exception as e:  # noqa: BLE001  graph down: no memory context for this call, the call itself goes on
+            log.warning("memory: graph skipped for this call (%s)", type(e).__name__)
+            return MemoryContext()
+
+    def _retrieve(self, prompt: str, k: int) -> MemoryContext:
         t, now = self.tenant, time.time()
         pe = self._emb(scrub(prompt))
         seeds = self.graph.nearest(t, "problem", pe, max(k * 3, 6))

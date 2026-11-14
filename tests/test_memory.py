@@ -1,6 +1,7 @@
 """Memory with fakes: no models, no DB, no keys."""
 import hashlib
 import math
+import os
 import re
 
 from chimera_core.memory import InMemoryStore, Memory, Neo4jGraphStore, scrub
@@ -11,9 +12,9 @@ import pytest
 class BagEmbedder:
     """Words hashed into 64 buckets: texts that share words are close."""
     def embed(self, text):
-        v = [0.0] * 64
+        v = [0.0] * 384
         for w in re.findall(r"[a-z]+", text.lower()):
-            v[int(hashlib.md5(w.encode()).hexdigest(), 16) % 64] += 1.0
+            v[int(hashlib.md5(w.encode()).hexdigest(), 16) % 384] += 1.0
         n = math.sqrt(sum(x * x for x in v)) or 1.0
         return [x / n for x in v]
 
@@ -113,6 +114,28 @@ def test_extractor_parse_and_fallback():
     assert boom("p", "def f(): pass")[0]
 
 
-def test_neo4j_stub_is_clearly_unbuilt():
-    with pytest.raises(NotImplementedError):
-        Neo4jGraphStore()
+def test_graph_down_never_fails_the_call(monkeypatch):
+    from chimera_core.memory import default_store
+    for k in ("CHIMERA_GRAPH_URL", "CHIMERA_DB_URL"):
+        monkeypatch.delenv(k, raising=False)
+    pytest.importorskip("neo4j")
+    m = Memory(default_store(), BagEmbedder(), "x")       # no graph configured
+    assert m.retrieve("sort a list").examples == []
+    assert put(m, "sort a list of numbers") == 0           # no pair store either: skipped, not raised
+    monkeypatch.setenv("CHIMERA_GRAPH_URL", "bolt://127.0.0.1:1")  # configured but unreachable
+    m = Memory(default_store(), BagEmbedder(), "x")
+    assert m.retrieve("sort a list").examples == []
+
+
+@pytest.mark.skipif(not os.environ.get("CHIMERA_GRAPH_URL"), reason="needs the Neo4j port forward (live)")
+def test_neo4j_live_roundtrip():
+    st = Neo4jGraphStore()
+    a, b = mk("t_a", st), mk("t_b", st)
+    try:
+        put(a, "sort a list of integers ascending")
+        assert a.retrieve("sort a list of integers ascending").examples
+        assert b.retrieve("sort a list of integers ascending").examples == []
+    finally:
+        a.purge()
+        b.purge()
+    assert a.stats()["problem"] == 0
