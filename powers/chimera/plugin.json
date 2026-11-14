@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "chimera",
+  "version": "1.0.0",
+  "description": "Route LLM calls through the Chimera ladder (Supabase cache, self-hosted 30B, Crusoe 763B), read routing stats and score risky actions.",
+  "author": { "name": "tremor-core" },
+  "keywords": ["chimera", "router", "ladder", "cache", "tier", "telemetry", "tokens saved", "risk score", "castle", "n+1 memory"],
+  "license": "MIT"
+}

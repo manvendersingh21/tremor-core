@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "chimera": {
+      "command": ".venv/bin/python",
+      "args": ["apps/kiro-trimmer/mcp_server.py"],
+      "env": {
+        "CRUSOE_API_KEY": "${CRUSOE_API_KEY}",
+        "CHIMERA_DB_URL": "${CHIMERA_DB_URL}",
+        "CHIMERA_GRAPH_URL": "${CHIMERA_GRAPH_URL}",
+        "CHIMERA_GRAPH_USER": "${CHIMERA_GRAPH_USER}",
+        "CHIMERA_GRAPH_PASSWORD": "${CHIMERA_GRAPH_PASSWORD}",
+        "CHIMERA_GRAPH_DATABASE": "${CHIMERA_GRAPH_DATABASE}"
+      },
+      "autoApprove": ["chimera_stats", "chimera_risk_score"],
+      "disabled": false
+    },
+    "neo4j-aura-readonly": {
+      "command": "uvx",
+      "args": ["neo4j-mcp-server"],
+      "env": {
+        "NEO4J_MCP_URI": "${CHIMERA_GRAPH_URL}",
+        "NEO4J_MCP_USERNAME": "${CHIMERA_GRAPH_USER}",
+        "NEO4J_MCP_PASSWORD": "${CHIMERA_GRAPH_PASSWORD}",
+        "NEO4J_MCP_DATABASE": "${CHIMERA_GRAPH_DATABASE}",
+        "NEO4J_MCP_READ_ONLY": "true",
+        "NEO4J_MCP_TELEMETRY": "false"
+      },
+      "disabled": true
+    }
+  }
+}

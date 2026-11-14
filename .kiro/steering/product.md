@@ -1,7 +1,11 @@
+---
+inclusion: always
+---
+
 # Product Overview: CHIMERA (Speculative Edge-to-Cloud Router)
 
 ## Vision
-Answer each LLM call at the cheapest tier that can do it. Order: shared Supabase cache, a self-hosted 30B on the user's GPU, optionally a 120B on a Modal H200, then the largest cloud model (Crusoe 763B). Big-model answers are stored as teacher data (N+1 memory) so the 30B can retrieve solved examples next time. The Mac 3B of the first benchmarks is an experiment tier, off. Log tier, tokens, latency and dollars for every call. Score risky actions (pay, delete, merge) from 0 to 100 and hold them for approval at 70 or more.
+Answer each LLM call at the cheapest tier that can do it. Order: shared Supabase cache (exact hash, then cosine 0.97), an optional 30B yes/no check on cosine hits (planned), the self-hosted 30B on the user's GPU (Ollama `qwen3:30b-instruct`), optionally a 120B on a Modal H200, then the largest cloud model (Crusoe 763B). There is no answer cache on the Mac. Big-model answers that pass their tests are stored as teacher data in Supabase `teacher_pairs`, with a concept graph in hosted Neo4j Aura (N+1 memory), so the 30B can retrieve solved examples next time. A solved-problem bank is planned. The Mac 3B of the first benchmarks is an experiment tier (Android only), off. Log tier, tokens, latency and dollars for every call. Score risky actions (pay, delete, merge) from 0 to 100 and hold them for approval at 70 or more.
 
 ## Measured results (single runs, 30 prompts, no repeats)
 The earlier "60-80% token savings" target is **mostly not met**: only the 763B top model in the ladder run reached it (65.6%). Real numbers:
@@ -18,13 +22,16 @@ The earlier "60-80% token savings" target is **mostly not met**: only the 763B t
 | Learned router, 180 graded prompts | 70.0%, same as the confidence gate. Off. | `bench/results_research_router.md` |
 | Modal H200 gpt-oss-120b vs 763B only | 763B calls 25 -> 0, asserts 24/24 both. But about $0.11 of H200 time vs $0.0058 of 763B tokens, median 1,352 ms vs 728 ms. Off by default. Qwen3.5-122B never served. | `bench/results_modal.md` |
 
+Not measured yet: N+1 memory end to end, `chimera code`, the cost case, the real-dataset suite (`bench/results_suite.md` does not exist), savings replay and LoRA distillation (both planned).
+
 What worked: cache hits cost $0 and answer in under 130 ms. 14 of 30 prompts were answered locally.
 What failed: long briefs raised input tokens on heavy tasks. Cache threshold 0.94 served wrong answers. The ladder and plain spec are slower than calling the top model. The GPU handoff tail is unexplained, and the ladder's slow calls came from a shared GPU box.
 Fixes in code: semantic threshold 0.97, heavy tasks skip the 3B, no brief by default. The ladder run measured the fixes: no wrong cached answer, and a 30B brief gave no dollar saving and was 4.4x slower.
 
 ## Surfaces
-1. **Kiro (built):** CLI, MCP server and hook interceptor in `apps/kiro-trimmer/`.
-2. **Web page (built):** one page on 127.0.0.1:8765 (`make web`): walk the castle with WASD, the live dashboard in the Observatory, evals in the Ledger, and a chat with the bat agent that shows each routing step (`site/`).
+1. **Kiro (built):** CLI, MCP server and hook interceptor in `apps/kiro-trimmer/`, plus the `.kiro/` setup (steering, specs, hooks, custom agents, MCP, a Power).
+1b. **Terminal agent `chimera code` (written, in review):** `apps/terminal/`, edits files and runs tests through the ladder.
+2. **Web page (built, one URL):** one page on 127.0.0.1:8765 (`make web`): a castle you walk with WASD (a 3D castle with gate, guide desk, stairs and three doors plus a 2D minimap is in progress), the live dashboard in the Observatory, evals in the Ledger, and a chat with the bat agent that shows each routing step (`site/`).
 3. **Gateway (built):** OpenAI-compatible service for companies, keys per tenant.
 4. **Android tier (written, not tested on a phone).**
 5. **Phone agent (planned):** DND call handling, Marketplace, ride prices, mobile hotfix. Not built.

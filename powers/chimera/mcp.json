@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "chimera": {
+      "type": "stdio",
+      "command": ".venv/bin/python",
+      "args": ["apps/kiro-trimmer/mcp_server.py"],
+      "env": {
+        "CRUSOE_API_KEY": "${CRUSOE_API_KEY}",
+        "CHIMERA_DB_URL": "${CHIMERA_DB_URL}",
+        "CHIMERA_GRAPH_URL": "${CHIMERA_GRAPH_URL}",
+        "CHIMERA_GRAPH_USER": "${CHIMERA_GRAPH_USER}",
+        "CHIMERA_GRAPH_PASSWORD": "${CHIMERA_GRAPH_PASSWORD}",
+        "CHIMERA_GRAPH_DATABASE": "${CHIMERA_GRAPH_DATABASE}"
+      }
+    }
+  }
+}

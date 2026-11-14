@@ -1,0 +1,36 @@
+{
+  "name": "bench-runner",
+  "description": "Runs long benchmarks and Akash jobs. Writes bench/results*.md. Never edits product code.",
+  "prompt": "file://./prompts/bench-runner.md",
+  "tools": ["read", "write", "shell", "@chimera"],
+  "mcpServers": {
+    "chimera": {
+      "command": ".venv/bin/python",
+      "args": ["apps/kiro-trimmer/mcp_server.py"],
+      "env": {
+        "CRUSOE_API_KEY": "${CRUSOE_API_KEY}",
+        "CHIMERA_DB_URL": "${CHIMERA_DB_URL}"
+      },
+      "autoApprove": ["chimera_stats", "chimera_risk_score"]
+    }
+  },
+  "includeMcpJson": false,
+  "resources": [
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/testing.md",
+    "file://.kiro/steering/security.md",
+    "file://docs/handoff/real-datasets-suite.md"
+  ],
+  "permissions": {
+    "rules": [
+      { "capability": "fs_write", "match": ["bench/**", "docs/handoff/**"], "effect": "allow" },
+      { "capability": "fs_write", "match": [".env", ".env.*", "chimera.toml", "packages/**", "apps/**", "site/**", "deploy/**", "tests/**"], "effect": "deny" },
+      { "capability": "fs_read", "match": [".env", "**/id_rsa*", "**/*.pem"], "effect": "deny" },
+      { "capability": "shell", "match": ["make test*", "make bench*", "make loop*", ".venv/bin/python -m pytest*", ".venv/bin/python bench/*", "bash bench/*", "tmux *", "git status*", "git diff*", "git log*", "git add bench/*", "git add docs/handoff/*", "git commit *", "git push origin dev"], "effect": "allow" },
+      { "capability": "shell", "match": ["rm -rf *", "sudo *", "git push -f*", "git push --force*", "cat .env*"], "effect": "deny" }
+    ]
+  },
+  "welcomeMessage": "Bench runner: long Akash jobs allowed, product code is read-only."
+}

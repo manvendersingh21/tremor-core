@@ -1,0 +1,37 @@
+{
+  "name": "frontend-owner",
+  "description": "Owns the one page: castle, minimap, bat agent, dashboard, Evals, site and README text.",
+  "prompt": "file://./prompts/frontend-owner.md",
+  "tools": ["read", "write", "shell", "@chimera/chimera_stats"],
+  "mcpServers": {
+    "chimera": {
+      "command": ".venv/bin/python",
+      "args": ["apps/kiro-trimmer/mcp_server.py"],
+      "env": {
+        "CHIMERA_DB_URL": "${CHIMERA_DB_URL}"
+      },
+      "autoApprove": ["chimera_stats"]
+    }
+  },
+  "includeMcpJson": false,
+  "resources": [
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/testing.md",
+    "file://.kiro/steering/security.md",
+    "file://.kiro/steering/api.md",
+    "file://.kiro/steering/ui.md",
+    "file://docs/api.md"
+  ],
+  "permissions": {
+    "rules": [
+      { "capability": "fs_write", "match": ["site/**", "apps/phantom-phone/hud-web/**", "README.md", "tests/test_world.py", "tests/test_hud.py"], "effect": "allow" },
+      { "capability": "fs_write", "match": [".env", ".env.*", "chimera.toml", "docs/api.md", "packages/**"], "effect": "deny" },
+      { "capability": "fs_read", "match": [".env", "**/id_rsa*", "**/*.pem"], "effect": "deny" },
+      { "capability": "shell", "match": ["make test*", "make web*", ".venv/bin/python -m pytest*", "python3 site/build.py*", "git status*", "git diff*", "git log*", "git add *", "git commit *", "git push origin dev"], "effect": "allow" },
+      { "capability": "shell", "match": ["rm -rf *", "sudo *", "git push -f*", "git push --force*", "cat .env*"], "effect": "deny" }
+    ]
+  },
+  "welcomeMessage": "Frontend owner: one URL, animation always on, keep the minimap."
+}
