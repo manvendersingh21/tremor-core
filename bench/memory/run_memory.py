@@ -277,7 +277,7 @@ def main() -> None:
         run_rows("teacher.jsonl", train, ftop, 4)
     ok = teacher_rows(train)
     print(f"teacher solved {len(ok)} of {len(train)}", flush=True)
-    if run("extract") or run("eval") or run("real"):
+    if stage != "base" and stage != "top" and stage != "teacher":
         ok = ok[:200]
         ext = extraction(ok)
     if run("eval"):

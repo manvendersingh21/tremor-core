@@ -92,7 +92,7 @@ def write(test, train, ok):
           f"({pct(table[len(conds)]['pass_rate'])}). It fixed {len(cfix)} and broke {len(cbrk)}.",
           f"- The big model alone solved {top_row['pass']} of {n} ({pct(top_row['pass_rate'])}).",
           f"- With these sample sizes the 95% intervals overlap ({table[0]['ci95']} vs {table[len(conds)-1]['ci95']}). "
-          "Treat differences of a few problems as noise: this is one run of %d problems." % n, ""]
+          f"Treat differences of a few problems as noise: this is one run of {n} problems.", ""]
     L += ["## Table", "", "| Condition | Pass@1 | 95% CI | Still need big model | Big tokens moved off | Big $ moved off | Avg 30B tokens in/out | Median ms |",
           "|---|---|---|---|---|---|---|---|"]
     for t in table:
