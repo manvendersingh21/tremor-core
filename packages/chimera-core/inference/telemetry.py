@@ -7,7 +7,7 @@ from typing import Callable, Literal
 
 from pydantic import BaseModel, Field
 
-Tier = Literal["exact_cache", "semantic_cache", "local", "cloud_verified", "cloud_handoff"]
+Tier = Literal["exact_cache", "semantic_cache", "local", "cloud_verified", "cloud_handoff", "gpu", "top"]
 
 
 class Telemetry(BaseModel):
@@ -18,6 +18,7 @@ class Telemetry(BaseModel):
     dollars_saved: float = 0.0
     cloud_tokens: int = 0
     local_tokens: int = 0
+    gpu_tokens: int = 0
 
 
 class TelemetryTracker:
