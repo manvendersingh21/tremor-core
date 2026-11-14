@@ -1,0 +1,32 @@
+{
+ "A": {
+  "calls_to_cloud": 30,
+  "cloud_prompt_tokens": 1502,
+  "cloud_completion_tokens": 7229,
+  "cloud_cached_tokens": 0,
+  "usd": 0.01483,
+  "median_ms": 689.0,
+  "p90_ms": 2551,
+  "total_ms": 31838
+ },
+ "B": {
+  "calls_to_cloud": 8,
+  "cloud_prompt_tokens": 5102,
+  "cloud_completion_tokens": 4599,
+  "cloud_cached_tokens": 0,
+  "usd": 0.01047,
+  "median_ms": 1547.0,
+  "p90_ms": 19380,
+  "total_ms": 145044
+ },
+ "B_tiers": {
+  "local": 14,
+  "cloud_handoff": 8,
+  "exact_cache": 3,
+  "semantic_cache": 5
+ },
+ "grader_usage": {
+  "prompt_tokens": 9089,
+  "completion_tokens": 118
+ }
+}

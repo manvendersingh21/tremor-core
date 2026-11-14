@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Chimera Local 3B Spec-Compliance & Cache Shield",
+      "trigger": "PostFileSave",
+      "matcher": "\\.(py|ts|tsx)$",
+      "action": {
+        "type": "command",
+        "command": "python3 apps/kiro-trimmer/hook_interceptor.py --mode=post-save --prefer-local-kv"
+      }
+    }
+  ]
+}

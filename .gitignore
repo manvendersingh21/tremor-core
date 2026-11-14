@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.db
+.env
+.env*
+!.env.example
+*.gguf
+*.bin
+*.safetensors
+models/
+*.log
+.pytest_cache/
+*.pem
+id_rsa*
+.DS_Store
