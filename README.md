@@ -29,7 +29,7 @@ Parts, with their status:
 | Tier pool (the product path): Supabase cache, GPU 30B, optional H200 120B, Crusoe 763B | Built | `packages/chimera-core/tiers.py`, `chimera.example.toml` |
 | Ladder router with the Mac 3B (first benchmarks) | Built, measured ([results_ladder.md](bench/results_ladder.md)). The 3B is now an experiment tier, off | `packages/chimera-core/ladder.py` |
 | N+1 memory: big-model answers stored as teacher data, retrieved as few-shot context for the 30B | Built, not measured yet ([docs/memory.md](docs/memory.md)) | `packages/chimera-core/memory/` |
-| Web page: walkable castle with the live dashboard, evals and a chat with the router | Built ([site/README.md](site/README.md)) | `site/`, `apps/phantom-phone/hud-web/server.py` |
+| Web page: a 3D castle (three.js) on one URL. A guide at the front desk and a Chat door answer through the router with a live trace. Dashboard and Evals doors. | Built, 58 to 60 fps headless on this Mac ([site/docs/one_url_gates.md](site/docs/one_url_gates.md)) | `site/castle/`, `apps/phantom-phone/hud-web/server.py` |
 | Gateway: OpenAI-compatible HTTP service, keys per tenant, `/metrics` | Built | `apps/gateway/`, [deploy/README.md](deploy/README.md) |
 | Shared Supabase cache (Postgres + pgvector) | Built, one run ([vector-store.md](docs/vector-store.md)) | `cache/pgvector_cache.py` |
 | Spec+ (adaptive K, token tree, pipelining, free drafts, compact wire) | Built. Measured only against a stand-in target ([results_specplus.md](bench/results_specplus.md)) | `inference/specplus.py` |
@@ -47,7 +47,7 @@ make setup        # venv + install (add the embed extra for real semantic cache)
 make test         # offline, no models or keys needed
 make serve-local  # start the local llama.cpp server on 127.0.0.1:8080
 make bench        # print the commands to rerun each benchmark
-make web          # the castle site, dashboard and API on http://127.0.0.1:8765
+make web          # the 3D castle, dashboard, evals and chat on http://127.0.0.1:8765 (the only UI)
 make demo         # same, with demo telemetry so the dashboard moves
 ```
 

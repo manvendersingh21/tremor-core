@@ -1,0 +1,42 @@
+/* 3D castle shell. Panels, prompt, joystick, map dialog and chat trace reuse world/world.css. */
+.c3-root { position: fixed; inset: 0; z-index: 50; background: #0b0510; color: #f1e6da; font-family: "Cormorant Garamond", Georgia, serif; overflow: hidden; }
+.c3-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+.c3-bar { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: .6rem; align-items: center; padding: .6rem .9rem; background: linear-gradient(#0b0510cc, #0b051000); pointer-events: none; z-index: 3; }
+.c3-bar > * { pointer-events: auto; }
+.c3-where { font-family: Cinzel, Georgia, serif; letter-spacing: .08em; font-size: 1rem; color: #f4d58d; margin-right: auto; text-shadow: 0 1px 6px #000; }
+.c3-fps { font: 600 .8rem Inter, system-ui, sans-serif; color: #6ee7a0; background: #0b0510b0; padding: .2rem .5rem; border-radius: 6px; }
+.c3-mini { position: absolute; right: .9rem; bottom: .9rem; width: 200px; height: 150px; border: 1px solid #8f5aa8; border-radius: 8px; z-index: 3; }
+.c3-help { position: absolute; left: .9rem; bottom: .9rem; font: 500 .8rem Inter, system-ui, sans-serif; color: #f1e6da; background: #0b0510c0; padding: .4rem .65rem; border-radius: 6px; z-index: 3; transition: opacity .3s; }
+.c3-help.dim { opacity: .55; }
+.c3-help kbd { font: 700 .8em Inter, sans-serif; background: #e9c46a; color: #1a0d1e; border-radius: 4px; padding: 0 .35em; }
+.c3-cross { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: #fff8; box-shadow: 0 0 0 1px #0006; z-index: 2; pointer-events: none; }
+@media (pointer: coarse) { .c3-help { display: none; } }
+
+/* panels */
+.p-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .6rem; margin: .2rem 0 .4rem; }
+.p-card { background: #2c1838; border: 1px solid #5b2a6a; border-radius: 10px; padding: .7rem .8rem; display: flex; flex-direction: column; gap: .2rem; }
+.p-card b { font: 700 1.6rem Cinzel, Georgia, serif; color: #fff; }
+.p-card span { font: 500 .85rem Inter, system-ui, sans-serif; color: #e2d4ea; }
+.w-pb .lbl, .p-side .lbl { font: 400 .85rem Inter, system-ui, sans-serif; color: #d9c9e0; }
+.w-pb code { font-size: .85em; color: #f4d58d; }
+.p-pend { display: inline-block; font: 600 .72rem Inter, sans-serif; color: #1a0d1e; background: #e9c46a; border-radius: 999px; padding: .05rem .45rem; }
+.p-dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.p-dash section { background: #1f0d26; border: 1px solid #5b2a6a; border-radius: 12px; padding: .8rem 1rem; }
+.p-dash h3, .p-side h3 { margin: 0 0 .5rem; font: 700 1rem Cinzel, Georgia, serif; color: #f4d58d; letter-spacing: .05em; }
+.p-tbl { width: 100%; border-collapse: collapse; font: 400 .88rem Inter, system-ui, sans-serif; }
+.p-tbl th, .p-tbl td { text-align: left; padding: .35rem .4rem; border-bottom: 1px solid #3a1c46; }
+.p-tbl th { color: #cdb8d8; font-weight: 600; }
+.p-spark { width: 100%; height: 120px; background: #140818; border-radius: 8px; }
+.p-traces { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; max-height: 360px; overflow: auto; }
+.p-traces li { background: #2c1838; border: 1px solid #3a1c46; border-radius: 8px; padding: .5rem .6rem; font: 400 .85rem Inter, system-ui, sans-serif; }
+.p-q { color: #fff; font-weight: 600; }
+.p-steps { margin: .25rem 0; color: #e2d4ea; display: flex; flex-wrap: wrap; gap: .2rem .35rem; align-items: center; }
+.p-steps span { background: #140818; border-radius: 5px; padding: .05rem .35rem; }
+.p-steps i { color: #e9c46a; font-style: normal; }
+.p-tag { color: #f4d58d; }
+.p-chatwrap { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: .8rem; height: 100%; min-height: 0; }
+.p-chat { min-height: 0; }
+.p-side { background: #1f0d26; border: 1px solid #5b2a6a; border-radius: 12px; padding: .8rem .9rem; overflow: auto; font: 400 .9rem/1.4 Inter, system-ui, sans-serif; color: #f1e6da; }
+.p-side p { margin: 0 0 .8rem; }
+.p-side kbd { font: 700 .8em Inter, sans-serif; background: #e9c46a; color: #1a0d1e; border-radius: 4px; padding: 0 .35em; }
+@media (max-width: 980px) { .p-chatwrap { grid-template-columns: 1fr; } .p-dash { grid-template-columns: 1fr; } }

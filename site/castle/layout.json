@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "units": "metres; x right, z toward the visitor (south), y up",
+  "eye": 1.65,
+  "levels": {"ground": 0, "upper": 6},
+  "spawn": {"x": 0, "z": 30, "yaw": 0},
+  "zones": [
+    {"id": "courtyard", "name": "Outside the gate", "level": "ground", "x0": -30, "x1": 30, "z0": 0, "z1": 40},
+    {"id": "hall", "name": "The Great Hall", "level": "ground", "x0": -15, "x1": 15, "z0": -29, "z1": -1.5},
+    {"id": "gallery", "name": "The upper gallery", "level": "upper", "x0": -15, "x1": 15, "z0": -29, "z1": -17.6}
+  ],
+  "stairs": {"x0": -3, "x1": 3, "z0": -18, "z1": -8, "steps": 12},
+  "mezzanine": {"x0": -15, "x1": 15, "z0": -29, "z1": -18},
+  "gate": {"x0": -2.6, "x1": 2.6, "z0": -1.5, "z1": 0, "height": 5.6, "use": {"x": 0, "z": 2.5, "r": 4.5}},
+  "walls": [
+    {"id": "court-w", "x0": -31, "x1": -30, "z0": 0, "z1": 40, "h": 1.6, "level": "both", "kind": "low"},
+    {"id": "court-e", "x0": 30, "x1": 31, "z0": 0, "z1": 40, "h": 1.6, "level": "both", "kind": "low"},
+    {"id": "court-s", "x0": -31, "x1": 31, "z0": 40, "z1": 41, "h": 1.6, "level": "both", "kind": "low"},
+    {"id": "front-w", "x0": -16, "x1": -2.6, "z0": -1.5, "z1": 0, "h": 13.5, "level": "both", "kind": "stone"},
+    {"id": "front-e", "x0": 2.6, "x1": 16, "z0": -1.5, "z1": 0, "h": 13.5, "level": "both", "kind": "stone"},
+    {"id": "side-w", "x0": -16, "x1": -15, "z0": -30, "z1": -1.5, "h": 13, "level": "both", "kind": "stone"},
+    {"id": "side-e", "x0": 15, "x1": 16, "z0": -30, "z1": -1.5, "h": 13, "level": "both", "kind": "stone"},
+    {"id": "back", "x0": -16, "x1": 16, "z0": -30, "z1": -29, "h": 13, "level": "both", "kind": "stone"},
+    {"id": "tower-w", "x0": -19.5, "x1": -12.5, "z0": -1.5, "z1": 3.5, "h": 0, "level": "both", "kind": "hidden"},
+    {"id": "tower-e", "x0": 12.5, "x1": 19.5, "z0": -1.5, "z1": 3.5, "h": 0, "level": "both", "kind": "hidden"},
+    {"id": "stair-rail-w", "x0": -3.4, "x1": -3, "z0": -18, "z1": -8, "h": 0, "level": "both", "kind": "rail"},
+    {"id": "stair-rail-e", "x0": 3, "x1": 3.4, "z0": -18, "z1": -8, "h": 0, "level": "both", "kind": "rail"},
+    {"id": "mezz-rail-w", "x0": -15, "x1": -3.4, "z0": -18.2, "z1": -17.8, "h": 1.1, "level": "upper", "kind": "rail"},
+    {"id": "mezz-rail-e", "x0": 3.4, "x1": 15, "z0": -18.2, "z1": -17.8, "h": 1.1, "level": "upper", "kind": "rail"},
+    {"id": "desk", "x0": 4.6, "x1": 9.4, "z0": -8.2, "z1": -6.6, "h": 1.1, "level": "ground", "kind": "desk"},
+    {"id": "guide-chair", "x0": 6.2, "x1": 7.8, "z0": -10, "z1": -8.4, "h": 0, "level": "ground", "kind": "hidden"},
+    {"id": "pillar-1", "x0": -10.7, "x1": -9.3, "z0": -6.7, "z1": -5.3, "h": 13, "level": "both", "kind": "pillar"},
+    {"id": "pillar-2", "x0": 9.3, "x1": 10.7, "z0": -6.7, "z1": -5.3, "h": 13, "level": "both", "kind": "pillar"},
+    {"id": "pillar-3", "x0": -10.7, "x1": -9.3, "z0": -12.7, "z1": -11.3, "h": 13, "level": "both", "kind": "pillar"},
+    {"id": "pillar-4", "x0": 9.3, "x1": 10.7, "z0": -12.7, "z1": -11.3, "h": 13, "level": "both", "kind": "pillar"},
+    {"id": "pillar-5", "x0": -10.7, "x1": -9.3, "z0": -18.9, "z1": -17.5, "h": 13, "level": "both", "kind": "pillar"},
+    {"id": "pillar-6", "x0": 9.3, "x1": 10.7, "z0": -18.9, "z1": -17.5, "h": 13, "level": "both", "kind": "pillar"}
+  ],
+  "guide": {"x": 7, "z": -9.2, "use": {"x": 7, "z": -5.4, "r": 2.6}, "name": "Ambrose, the guide"},
+  "board": {"x": -14.45, "z": -8, "use": {"x": -12.5, "z": -8, "r": 3.2}},
+  "doors": [
+    {"id": "dashboard", "label": "Dashboard", "sub": "savings, database, how it answered", "x": -8, "z": -29, "level": "upper", "use": {"x": -8, "z": -27.2, "r": 2.4}},
+    {"id": "chat", "label": "Chat", "sub": "the Count's room", "x": 0, "z": -29, "level": "upper", "use": {"x": 0, "z": -27.2, "r": 2.4}},
+    {"id": "evals", "label": "Evals", "sub": "tests and benchmarks", "x": 8, "z": -29, "level": "upper", "use": {"x": 8, "z": -27.2, "r": 2.4}}
+  ],
+  "places": [
+    {"id": "gate", "name": "The castle gate", "level": "ground", "x": 0, "z": 6, "yaw": 0},
+    {"id": "guide", "name": "The guide's desk", "level": "ground", "x": 7, "z": -4.6, "yaw": 0},
+    {"id": "board", "name": "The savings board", "level": "ground", "x": -11.5, "z": -8, "yaw": 1.5708},
+    {"id": "stairs", "name": "Foot of the stairs", "level": "ground", "x": 0, "z": -6, "yaw": 0},
+    {"id": "dashboard", "name": "Door: Dashboard", "level": "upper", "x": -8, "z": -26.5, "yaw": 0},
+    {"id": "chat", "name": "Door: Chat", "level": "upper", "x": 0, "z": -26.5, "yaw": 0},
+    {"id": "evals", "name": "Door: Evals", "level": "upper", "x": 8, "z": -26.5, "yaw": 0}
+  ]
+}

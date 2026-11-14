@@ -19,7 +19,8 @@ TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf
          ".json": "application/json", ".webp": "image/webp", ".png": "image/png", ".gif": "image/gif", ".svg": "image/svg+xml"}
 sys.path.insert(0, str(BENCH))
 import evallog  # noqa: E402  the one eval log (bench/evallog.py)
-TELEMETRY = pathlib.Path(os.environ.get("HUD_TELEMETRY", HERE / "telemetry.jsonl"))
+# The real log every router call writes (chimera.toml [telemetry]); `make demo` points HUD_TELEMETRY at the demo file instead.
+TELEMETRY = pathlib.Path(os.environ.get("HUD_TELEMETRY") or os.environ.get("CHIMERA_TELEMETRY") or pathlib.Path.home() / ".chimera" / "telemetry.jsonl")
 # CSV column prefix -> ledger tier. shortcut: a CSV has no per-model split, so GPU = gpu_small and cloud/top = crusoe.
 CSV_TIER = {"cloud": "crusoe", "top": "crusoe", "crusoe": "crusoe", "gpu": "gpu_small", "mid": "gpu_small"}
 BENCH_FILES = ["results.csv", "results_gpu.csv", "results_ladder.csv", "spec_results.csv"]

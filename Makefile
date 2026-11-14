@@ -14,8 +14,8 @@ web:  # one page, one port: castle, dashboard and API on http://127.0.0.1:8765 (
 	python3 site/build.py --check || python3 site/build.py
 	$(PY) $(HUD)/server.py
 
-demo:  # demo telemetry in the background, then the one server, so the Observatory moves
-	$(PY) $(HUD)/demo.py & $(PY) $(HUD)/server.py
+demo:  # the same page fed by invented demo telemetry (labelled demo) instead of the real log
+	HUD_TELEMETRY=$(HUD)/telemetry.jsonl $(PY) $(HUD)/demo.py & HUD_TELEMETRY=$(HUD)/telemetry.jsonl $(PY) $(HUD)/server.py
 
 bench:
 	@echo "Rerun commands (from bench/*.md):"

@@ -13,10 +13,11 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="dashboard.css">
 <link rel="stylesheet" href="world/world.css">
+<link rel="stylesheet" href="castle/castle.css">
 </head>
 <body data-view="entrance">
 <a class="skip-link" href="#stage">Skip to content</a>
-<div id="world" class="js-world" aria-label="The castle. Walk with W A S D or the arrow keys. Press M for a list of rooms."></div>
+<div id="world" class="js-world" aria-label="The castle in 3D. Walk with W A S D or the arrow keys. Press M for the map and a list of rooms."></div>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
@@ -273,13 +274,16 @@
 
 <script src="rooms.js"></script>
 <script src="dashboard.js"></script>
-<script src="world/grid.js"></script>
 <script src="world/chat.js"></script>
-<script src="world/world.js"></script>
-<script>
-// The walk is the page. If it cannot start (no canvas, or opened from a file), the click-through tour takes over.
-CastleStart(document.getElementById('world'), { base: 'world/', artBase: 'art/', chat: { endpoint: '/api/chat', health: '/api/health' } })
-  .catch(() => { document.getElementById('world').remove(); const t = document.createElement('script'); t.src = 'tour.js'; document.body.appendChild(t); });
+<script src="castle/physics.js"></script>
+<script src="castle/panels.js"></script>
+<script type="module">
+// The 3D castle is the page. Without WebGL the plain HTML version below shows instead (all rooms as sections).
+const root = document.getElementById('world');
+const gl = (() => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } })();
+const plain = () => { root.remove(); document.documentElement.classList.remove('js'); };
+if (!gl) plain();
+else import('./castle/castle.js').then((m) => m.start(root, { base: 'castle/' })).catch((e) => { console.error(e); plain(); });
 </script>
 </body>
 </html>

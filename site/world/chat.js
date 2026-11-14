@@ -19,12 +19,12 @@
       <div class="c-col">
         <div class="c-mon" id="c-mon" aria-label="Laptop monitor"></div>
         <div class="c-log" id="c-log" role="log" aria-live="polite"></div>
-        <form class="c-form" id="c-form"><input id="c-in" maxlength="${MAXLEN}" autocomplete="off" aria-label="Ask the bat" placeholder="Ask the bat anything (max ${MAXLEN} characters)"><button class="w-btn" id="c-send" type="submit">Send</button></form>
+        <form class="c-form" id="c-form"><input id="c-in" maxlength="${MAXLEN}" autocomplete="off" aria-label="Ask the bat" placeholder="${cfg.placeholder || 'Ask anything'} (max ${MAXLEN} characters)"><button class="w-btn" id="c-send" type="submit">Send</button></form>
         <div class="c-mock" id="c-mock" hidden>Backend not connected: the replies below are a local MOCK, not a model.</div>
       </div>
       <div class="c-trace" id="c-trace" aria-label="Routing trace"><h4>ROUTING TRACE</h4><div id="c-tr"><p style="color:#cdb8d8">Ask something. Each step the router takes will appear here, live.</p></div><div class="t-sum" id="c-sum"></div></div></div>`;
     const $ = (s) => host.querySelector(s), log = $('#c-log'), input = $('#c-in');
-    addMsg('bat', 'Squeak. I am the castle’s one agent. Ask me anything and watch the road your question takes: shared cache, the self-hosted GPU 30B, then the big cloud model.');
+    addMsg('bat', cfg.greeting || 'Squeak. I am the castle’s one agent. Ask me anything and watch the road your question takes: shared cache, the self-hosted GPU 30B, then the big cloud model.');
     input.focus();
 
     function addMsg(who, text) { const d = document.createElement('div'); d.className = 'c-msg ' + who; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
@@ -44,7 +44,7 @@
         <div class="t-row" id="t-decide"><span class="t-k">3 Decision</span><span class="t-v">…</span></div>
         <div class="t-row" id="t-call"><span class="t-k">4 Call</span><span class="t-v">…</span></div>
         <div class="t-row" id="t-final"><span class="t-k">5 Final</span><span class="t-v">…</span></div>`;
-      T = { q, sim: null, matched: null, guard: null, el: (id) => tr.querySelector('#' + id) };
+      T = { q, sim: null, matched: null, guard: null, steps: [], el: (id) => tr.querySelector('#' + id) };
     }
     const setRow = (id, html) => { const r = T.el(id); if (r) r.querySelector('.t-v').innerHTML = html; };
     const selfTitle = (tier) => { // the lane says which self-hosted model really answered: the 3B is an experiment tier, not the product
@@ -60,6 +60,7 @@
     function onEvent(name, d) {
       if (!T) return;
       d = d || {};
+      T.steps.push(stepLine(name, d));
       if (name === 'embed') setRow('t-embed', `done <b>${ms(pick(d, 'ms', 'latency_ms'))}</b>${pick(d, 'dim') ? ' · ' + d.dim + '-dim vector' : ''}`);
       else if (name === 'cache_shared') {  // the only answer cache (Supabase); the Mac keeps none
         T.shared = true;
@@ -71,6 +72,7 @@
         const gd = pick(d, 'guard'); if (gd) T.guard = gd;
         if (hit) T.hit = { kind: kind || 'semantic', where: 'shared' };
         lane(id, err ? 'err' : hit ? 'hit' : 'miss', err ? `<b>${esc(err)}</b><br>${err === 'down' ? 'Supabase unreachable' : 'over the time budget'}<br>${ms(m)}` : `<b>${hit ? 'HIT' : 'MISS'}</b>${kind ? ' · ' + esc(kind) : ''} · ${ms(m)}${sim != null ? '<br>cos ' + (+sim).toFixed(3) + ' / ' + (pick(d, 'threshold') ?? THRESH) : ''}<br>guard: ${esc(gd || 'no candidate')}`);
+        if (sim == null && !err) setRow('t-cos', 'no stored question to compare yet (no score)');
         cosine();
       } else if (name === 'draft') {
         T.drafted = true; selfTitle(pick(d, 'tier'));
@@ -98,6 +100,8 @@
     }
     function finalRow(d) {
       T.finalized = true;
+      remember(T, d);
+      if (cfg.onFinal) cfg.onFinal();
       const tier = pick(d, 'tier', 'tier_used') || '?', tin = pick(d, 'tokens_in', 'input_tokens'), tout = pick(d, 'tokens_out', 'output_tokens'), cached = pick(d, 'cached_tokens'),
         cost = pick(d, 'dollars', 'usd'), total = pick(d, 'ms', 'total_ms'), kept = pick(d, 'tokens_kept_off_big', 'tokens_saved'), cacheHit = !!pick(d, 'cache') || /cache/.test(tier), avoided = cacheHit || pick(d, 'gpu_call_avoided');
       const self = !CLOUD.test(tier); if (self && !cacheHit) selfTitle(tier);
@@ -203,5 +207,29 @@
     let timer = setTimeout(poll, 0);
     return function unmount() { dead = true; clearTimeout(timer); };
   }
-  window.CastleChat = { mount, THRESH, GATE };
+  /* ---------- this browser's answered questions (the Dashboard and Chat side panels read them) ---------- */
+  const KEY = 'chimera-traces';
+  function stepLine(name, d) {
+    if (name === 'cache_shared') return d.hit ? `cache HIT ${d.kind || ''} cos ${(+d.score || 1).toFixed(3)}` : `cache miss${d.score != null ? ' cos ' + (+d.score).toFixed(3) : ''}${d.status && d.status !== 'ok' ? ' (' + d.status + ')' : ''}`;
+    if (name === 'call') return `${d.tier} ${d.ok === false ? 'failed' : Math.round(d.ms || 0) + ' ms'}`;
+    if (name === 'draft') return `${d.tier} conf ${d.confidence != null ? (+d.confidence).toFixed(2) : '?'}/${d.gate}`;
+    if (name === 'decide') return `try ${d.tier}`;
+    if (name === 'memory') return d.op === 'retrieve' ? `memory ${d.chars || 0} chars` : `teacher ${d.stored ? 'stored' : 'not stored'}`;
+    return name;
+  }
+  function taskType(q) {
+    if (/```|\bdef |function\b|class |code|python|javascript|sql|regex|bug|compile|script|implement/i.test(q)) return 'code';
+    if (/^(what|who|when|where|which|how many|how much|name|define|capital|list)\b/i.test(q.trim())) return 'lookup';
+    return 'chat';
+  }
+  function remember(T, d) {
+    try {
+      const all = JSON.parse(localStorage.getItem(KEY) || '[]');
+      all.unshift({ ts: Date.now(), q: T.q.slice(0, 120), type: taskType(T.q), tier: d.tier, model: d.model || null, cache: d.cache || (T.hit ? T.hit.where : null),
+        cos: T.sim, tokens_in: d.tokens_in || 0, tokens_out: d.tokens_out || 0, ms: d.ms, dollars: d.dollars || 0, kept: d.tokens_kept_off_big || 0, steps: T.steps.slice(0, 14) });
+      localStorage.setItem(KEY, JSON.stringify(all.slice(0, 60)));
+    } catch (e) { /* storage full or blocked: the trace on screen is still complete */ }
+  }
+  const history = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
+  window.CastleChat = { mount, THRESH, GATE, history, taskType };
 })();

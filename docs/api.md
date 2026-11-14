@@ -108,3 +108,13 @@ from chimera_core.service import handle_http
 # in do_GET:  if handle_http(self, "GET"): return
 # in do_POST: if handle_http(self, "POST"): return
 ```
+
+## Requested by the frontend (pending, not served yet)
+
+The 3D castle shows these as "pending API" until the backend adds them. Suggested shapes; the backend owner decides.
+
+- `GET /api/stats` → `global.tokens_today` and `session.tokens_today`: input + output tokens since local midnight.
+- `GET /api/stats` → `global.by_task`: `{"code": {"calls", "tokens", "cache_hits"}, "lookup": {...}, "chat": {...}}` (or grouped by conversation id).
+- `GET /api/stats` → `global.series`: `[{"day": "2026-11-14", "tokens_saved", "dollars_saved", "calls"}]` for "savings over time".
+- `GET /api/db`: `{"supabase": {"prompts_rows", "prompts_bytes", "teacher_pairs_rows", "teacher_pairs_bytes"}, "neo4j": {"nodes", "edges"}}`. Counts only; no text, no host.
+- `GET /api/traces?n=20`: the last N answered calls of this tenant, each with its steps (as in `/api/chat`), tier, model, cos score, tokens, ms, $. Prompts truncated to 80 characters, this tenant only.
