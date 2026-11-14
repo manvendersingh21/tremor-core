@@ -287,7 +287,10 @@ class SpeculativeCascadeRouter:
         if self.semantic is not None:
             self.semantic.put(prompt, text, self.cfg.namespace)
         if self.shared is not None:
-            self.shared.put(prompt, text, self.cfg.namespace, verified=True, **(meta or {}))
+            from .memory.safety import scrub  # emails, keys, JWTs, DB URLs, card numbers never reach the shared DB
+            # the hash/embedding use the raw prompt so lookups still match; only the stored text is scrubbed
+            self.shared.put(prompt, scrub(text), self.cfg.namespace, verified=True, stored_prompt=scrub(prompt),
+                            **(meta or {}))
 
     def _done(
         self, text: str, tier: str, t0: float, tokens_saved: int = 0, alpha: float | None = None,

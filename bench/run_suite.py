@@ -1,10 +1,10 @@
 """Real-dataset suite: TOP-only vs POOL, both through SpeculativeCascadeRouter.generate() with a TierPool.
 
     TOP : one tier, Crusoe deepseek-ai/DeepSeek-V4.1-Flash (763B, thinking off); no semantic cache.
-    POOL: exact + semantic cache (0.97) -> gpu-small (Ollama 30B) -> the same 763B.
-          gpu-large (Modal H200) stays off: it is added only when MODAL_VLLM_URL is set.
+    POOL: Supabase cache (exact, then cosine 0.97 + guard; tenant TENANT, purged before and after) -> gpu-small
+          (Ollama 30B) -> the same 763B. No Mac 3B, no local cache. gpu-large (Modal H200) stays off.
 
-Needs (POOL): tunnel to the GPU Ollama on 127.0.0.1:$GPU_PORT (default 11439),
+Needs (POOL): CHIMERA_GPU_URL (the local end of an SSH tunnel to your GPU box),
 CRUSOE_API_KEY in .env.
     .venv/bin/python bench/run_suite.py TOP | POOL | report
 Rows go to $KIROCREW_SCRATCH/suite_<mode>.jsonl as they finish; a rerun skips finished ids. The key is never written.
@@ -26,23 +26,29 @@ sys.path.insert(0, str(ROOT / "bench" / "datasets"))
 import conftest  # noqa: E402,F401
 
 import cache_eval_report  # noqa: E402
+import evallog  # noqa: E402
 import grade  # noqa: E402
 from chimera_core import RouterConfig, SpeculativeCascadeRouter  # noqa: E402
-from chimera_core.cache.semantic_cache import OnnxMiniLMEmbedder, SemanticCache  # noqa: E402
+from chimera_core.cache.guard import make_guard  # noqa: E402
+from chimera_core.cache.pgvector_cache import PgStore, PgVectorCache  # noqa: E402
+from chimera_core.cache.semantic_cache import CachedEmbedder, OnnxMiniLMEmbedder  # noqa: E402
 from chimera_core.inference.local_draft import LlamaCppBackend  # noqa: E402
+from chimera_core.ladder import TopBackend  # noqa: E402
 from chimera_core.tiers import TierCfg, TierPool  # noqa: E402
 from run_bench import load_env  # noqa: E402
 
 STORE = pathlib.Path(os.environ.get("KIROCREW_SCRATCH") or ROOT / "bench")
 SUITE = ROOT / "bench/datasets/suite.jsonl"
 TOP_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
-JUDGE = "Qwen/Qwen3.8-27B"  # wrote none of the graded answers; used only for the Dolly rows
-PRICE = {TOP_MODEL: (0.29, 1.20), JUDGE: (0.25, 2.00)}  # $/M in, out (Crusoe list; no cached-token discount)
+JUDGE = "zai-org/GLM-5.3-Flash"  # cheap GMI model; wrote none of the graded answers; used only for the Dolly rows
+GMI = "https://api.gmi-serving.com"
+TENANT = "eval-suite"  # own Supabase tenant: nothing else is read or touched; purged before and after the POOL run
+PRICE = {TOP_MODEL: (0.29, 1.20), JUDGE: (0.15, 0.50)}  # $/M in, out (Crusoe / GMI list; no cached-token discount)
 LICENSE_NOTE = {"humaneval": "MIT", "mbpp": "CC-BY-4.0", "gsm8k": "MIT", "mmlu": "MIT",
                 "dolly": "CC-BY-SA-3.0", "qqp": "Quora terms via GLUE (license 'other', research use)"}
 REPO = {"humaneval": "openai/openai_humaneval", "mbpp": "google-research-datasets/mbpp (sanitized, test)",
         "gsm8k": "openai/gsm8k (main, test)", "mmlu": "cais/mmlu (6 subjects, test)",
-        "dolly": "databricks/databricks-dolly-15k", "qqp": "nyu-mll/glue qqp (validation)"}
+        "dolly": "databricks/databricks-dolly-15k", "qqp": "nyu-mll/glue qqp (validation; stands in for Kaggle Quora pairs)"}
 
 TOP_TIER = TierCfg(name="cloud-deepseek", device="cloud", backend="openai", url="https://api.inference.crusoecloud.com",
                    model=TOP_MODEL, family="deepseek", cost_per_1k_in=0.00029, cost_per_1k_out=0.0012,
@@ -53,7 +59,7 @@ def pool_tiers() -> list[TierCfg]:
     tiers = [
         # shortcut: the Mac 3B tier (127.0.0.1:8080) is removed, the user stopped it; the 30B is the first model tier.
         TierCfg(name="gpu-small", device="gpu", backend="ollama",
-                url=f"http://127.0.0.1:{os.environ.get('GPU_PORT', '11439')}", model="qwen3:30b-instruct",
+                url=os.environ.get("CHIMERA_GPU_URL", ""), model="qwen3:30b-instruct",
                 family="qwen", max_complexity=0.6, timeout_s=180),
         TOP_TIER,
     ]
@@ -63,21 +69,26 @@ def pool_tiers() -> list[TierCfg]:
 
 
 def build(mode: str) -> tuple[SpeculativeCascadeRouter, dict]:
-    pool = TierPool(pool_tiers() if mode == "POOL" else [TOP_TIER], min_confidence=0.85, max_tokens=1024)
+    pool = TierPool(pool_tiers() if mode == "POOL" else [TOP_TIER], min_confidence=0.95, max_tokens=1024)
     last: dict = {}
     orig = pool.generate
 
-    def spy(prompt, complexity=None):
-        last["r"] = r = orig(prompt, complexity)
+    def spy(*a, **kw):
+        last["r"] = r = orig(*a, **kw)
         return r
 
     pool.generate = spy
-    sem = None
+    shared = emb = None
     if mode == "POOL":
-        sem = SemanticCache(OnnxMiniLMEmbedder(), threshold=0.97)
-        sem._embedder.embed("warm up")
-    router = SpeculativeCascadeRouter(LlamaCppBackend(), semantic=sem, config=RouterConfig(min_confidence=0.85),
-                                      pool=pool)
+        emb = CachedEmbedder(OnnxMiniLMEmbedder())
+        emb.embed("warm up")
+        dsn = os.environ["CHIMERA_DB_URL"]
+        # store_text=True: the guard only judges rows stored with their prompt text. budget 3 s: a lookup is ~110 ms.
+        shared = PgVectorCache(emb, lambda: PgStore(dsn), threshold=0.97, tenant=TENANT, store_text=True,
+                               guard=make_guard(), budget_s=3.0, cooldown_s=0.0, max_strikes=10**9)
+    # the Mac llama.cpp object is only the router's unused local slot; the pool answers (shortcut: no 3B call is made)
+    router = SpeculativeCascadeRouter(LlamaCppBackend(), exact=False, shared=shared, embedder=emb,
+                                      config=RouterConfig(min_confidence=0.95), pool=pool)
     return router, last
 
 
@@ -87,6 +98,8 @@ def run(mode: str) -> None:
     out = STORE / f"suite_{mode}.jsonl"
     done = {json.loads(x)["id"] for x in out.read_text().splitlines()} if out.exists() else set()
     router, last = build(mode)
+    if mode == "POOL" and not done:
+        print("purged", router.shared.purge(), "old rows in tenant", TENANT, flush=True)
     if mode == "POOL":  # load the models; not timed, not cached
         for t in router.pool.tiers:
             if t.device != "cloud":
@@ -102,7 +115,10 @@ def run(mode: str) -> None:
             t0 = time.perf_counter()
             err = ""
             try:
-                res = router.generate(row["prompt"])
+                check = (lambda a, row=row: bool(grade.grade(row, a))) if row["grader"] == "unit_test" else None
+                res = router.generate(row["prompt"], check=check)  # only answers that pass tests are cached
+                if router.shared is not None:
+                    router.shared.flush()  # the next prompt must see this answer
                 text, tier = res.text, res.telemetry.tier_used
                 if "r" in last:
                     tier = last["r"].tier
@@ -117,6 +133,9 @@ def run(mode: str) -> None:
             fh.write(json.dumps(rec) + "\n")
             fh.flush()
             print(mode, row["id"], tier, round(ms), rec["grade"], err, flush=True)
+    if mode == "POOL" and len({r["id"] for r in rows} - done - {json.loads(x)["id"] for x in out.read_text().splitlines()}) == 0:
+        print("stats", router.shared.stats["hits"], "hits", router.shared.stats["fallbacks"], "cache unavailable", flush=True)
+        print("purged", router.shared.purge(), "rows from tenant", TENANT, flush=True)
 
 
 # ---------------------------------------------------------------- report ----
@@ -135,25 +154,57 @@ def load(mode: str) -> dict[str, dict]:
     return {r["id"]: r for r in map(json.loads, p.read_text().splitlines())} if p.exists() else {}
 
 
+class Judge:
+    """GMI JUDGE model behind grade.llm_scores. Every call's usage is kept so the eval log lists each one."""
+
+    def __init__(self) -> None:
+        self.b = TopBackend(JUDGE, {}, api_key=os.environ["GMI_API_KEY"], base_url=GMI, timeout=120)
+
+    def complete(self, q: str, n: int) -> str:
+        return self.b.complete(q, n)
+
+
 def judge_dolly(suite: list[dict], data: dict[str, dict[str, dict]]) -> tuple[dict, dict]:
     """1-5 score for every Dolly answer, both modes in one blind call per prompt. Cached in the scratch dir."""
-    from chimera_core.inference.cloud_verifier import CrusoeBackend
     path = STORE / "suite_judge.json"
-    cache = json.loads(path.read_text()) if path.exists() else {"scores": {}, "in": 0, "out": 0}
-    j = CrusoeBackend(model=JUDGE)
+    cache = json.loads(path.read_text()) if path.exists() else {"scores": {}, "calls": {}}
+    j = Judge()
     for row in suite:
         if row["grader"] != "llm" or row["id"] in cache["scores"]:
             continue
         ans = {m: data[m][row["id"]]["answer"] for m in data if row["id"] in data[m] and data[m][row["id"]]["answer"]}
         if len(ans) < 2:
             continue
+        t0 = time.perf_counter()
         s = grade.llm_scores(j, row["prompt"], row["data"]["reference"], ans)
+        u = j.b.last_usage
         cache["scores"][row["id"]] = s
+        cache["calls"][row["id"]] = {"in": u["prompt_tokens"], "out": u["completion_tokens"],
+                                     "ms": round((time.perf_counter() - t0) * 1000)}
         print("judge", row["id"], s, flush=True)
-    cache["in"] += sum(u["prompt_tokens"] for u in j.usage_log)
-    cache["out"] += sum(u["completion_tokens"] for u in j.usage_log)
+        path.write_text(json.dumps(cache))
     path.write_text(json.dumps(cache))
-    return cache["scores"], {"in": cache["in"], "out": cache["out"]}
+    c = cache["calls"].values()
+    return cache["scores"], {"in": sum(x["in"] for x in c), "out": sum(x["out"] for x in c), "calls": cache["calls"]}
+
+
+def write_eval_log(data: dict, scores: dict, jtok: dict) -> int:
+    """Rebuild $STORE/eval_log.jsonl (EvalRows) from both runs plus one row per judge call, so the Evals tab shows all."""
+    out = []
+    for m in ("TOP", "POOL"):
+        for r in evallog.import_suite(STORE / f"suite_{m}.jsonl"):
+            if r.dataset == "dolly" and (s := scores.get(r.item_id, {}).get(m)) is not None:
+                r.passed, r.grader = s >= 4, f"judge {JUDGE} score {s}/5 (pass >= 4)"
+            r.run_id = "suite-v2"
+            r.mode = f"suite-{m}"
+            out.append(r)
+    for rid, c in jtok["calls"].items():
+        out.append(evallog.EvalRow(run_id="suite-v2", dataset="dolly", item_id=rid, mode="suite-judge", tier="cloud", model=JUDGE,
+                                   tokens_in=c["in"], tokens_out=c["out"], latency_ms=c["ms"],
+                                   dollars=(c["in"] * PRICE[JUDGE][0] + c["out"] * PRICE[JUDGE][1]) / 1e6,
+                                   grader="judge call (scores both modes' answers)"))
+    (STORE / "eval_log.jsonl").write_text("".join(r.model_dump_json() + "\n" for r in out))
+    return len(out)
 
 
 def passed(row: dict, rec: dict, scores: dict, mode: str):
@@ -182,7 +233,7 @@ def cache_stats(suite: list[dict], pool: dict[str, dict]) -> dict:
             else:
                 s["neg_b"] += 1
                 s["neg_hit"] += hit
-        elif not (row["grader"] == "pair"):
+        else:  # an A row or a stand-alone prompt: no earlier duplicate exists, any hit is wrong
             s["other_rows"] += 1
             if hit:
                 s["other_hit"] += 1
@@ -244,16 +295,23 @@ def report() -> None:
     slower = sum(1 for r in done if data["POOL"][r["id"]]["latency_ms"] > data["TOP"][r["id"]]["latency_ms"])
     errs = {m: sum(1 for r in done if data[m][r["id"]]["error"]) for m in data}
     ct = {m: sum(top_tok(a) for a in [agg([r for r in done], m)]) for m in data}
-    crusoe_total = ct["TOP"] + ct["POOL"] + jtok["in"] + jtok["out"]
+    crusoe_total = ct["TOP"] + ct["POOL"]
+    n_log = write_eval_log(data, scores, jtok)
+    n = len(done)
+    free = sum(1 for r in done if not (top_usage(data["POOL"][r["id"]])[0] or top_usage(data["POOL"][r["id"]])[1]))
+    free_top = sum(1 for r in done if not (top_usage(data["TOP"][r["id"]])[0] or top_usage(data["TOP"][r["id"]])[1]))
+    bad_hits = cs["neg_hit"] + cs["dup_wrong_hit"] + cs["other_hit"]
 
     L = ["# Real-dataset suite: TOP-only vs POOL", "",
          "Single run, no repeats. Items: %d of %d in suite.jsonl. Quality is graded by tests, exact match or choice letter; "
-         "Dolly rows (open QA) are scored 1-5 by `%s` (blind, both answers in one call), pass = score >= 4. Pair rows are "
+         "Dolly rows (open QA) are scored 1-5 by the cheap GMI model `%s` (blind, both answers in one call), pass = score >= 4. Pair rows are "
          "not graded for quality; they feed the cache table." % (len(done), len(suite), JUDGE), "",
          "## Setup", "",
          "- TOP: every item to Crusoe `%s` (763B, thinking off), through `SpeculativeCascadeRouter.generate()` with a one-tier pool, no semantic cache." % TOP_MODEL,
-         "- POOL: exact cache + semantic cache (0.97) -> Mac `Qwen2.5-3B` q4_k_m (llama.cpp, confidence >= 0.85) -> "
-         "GPU `qwen3:30b-instruct` (Ollama on a V100, SSH tunnel) -> the same 763B. `gpu-large` (Modal H200) off.",
+         "- POOL: Supabase cache (exact hash, then cosine >= 0.97, guard on; own tenant `eval-suite`, purged before and after) -> "
+         "GPU `qwen3:30b-instruct` (Ollama on a V100, SSH tunnel to your GPU box, confidence gate 0.95) -> the same 763B. "
+         "No Mac 3B (stopped by the owner) and no local cache. `gpu-large` (Modal H200) off. "
+         "The earlier 116-row POOL run that had the 3B tier is not used; it is kept only as a reference file.",
          "- Pool routing by `complexity_score` (gpu-small <= 0.6, top = all); a low-confidence or failed tier climbs. max_tokens 1024 on both. "
          "Prices are Crusoe list: $0.29/M in, $1.20/M out, no cached-token discount, owned hardware $0.",
          "- Mac and GPU were shared with other workers during the run, so latency is indicative only.", "",
@@ -264,7 +322,7 @@ def report() -> None:
             continue
         L.append(f"| {src} | {REPO[src]} | {LICENSE_NOTE[src]} | {len(rs)} | "
                  f"{', '.join(sorted({r['type'] for r in rs}))} | {', '.join(sorted({r['grader'] for r in rs}))} |")
-    L += ["", "Kaggle: see the cache eval section (Kaggle Quora data only if its train.csv was downloaded).", "",
+    L += ["", "Kaggle was skipped (no credentials). GLUE QQP from Hugging Face stands in for the Quora pairs, here and in the cache eval.", "",
           "## Totals", "", "| | TOP | POOL |", "|---|---|---|",
           f"| 763B calls | {A['TOP']['top_calls']} | {A['POOL']['top_calls']} |",
           f"| 763B tokens in / out | {A['TOP']['top_in']:,} / {A['TOP']['top_out']:,} | {A['POOL']['top_in']:,} / {A['POOL']['top_out']:,} |",
@@ -304,10 +362,19 @@ def report() -> None:
              f"Median latency went from {A['TOP']['med_ms']:.0f} ms to {A['POOL']['med_ms']:.0f} ms and p90 from "
              f"{A['TOP']['p90_ms']:.0f} ms to {A['POOL']['p90_ms']:.0f} ms. "
              f"The cache served {cs['dup_true_hit']} of {cs['dup_b']} real duplicate questions and gave {cs['neg_hit'] + cs['dup_wrong_hit'] + cs['other_hit']} wrong-source hits.")
-    L.append("")
+    L += ["", "## Per 1,000 requests (this mix)", "",
+          "This mix is 300 items, not real traffic: 1/5 of it is MMLU, 1/5 Dolly, 1/5 Quora pairs, the rest code and math. "
+          "Numbers are the run's totals scaled by 1000/%d." % n, "",
+          "| Per 1,000 requests | TOP only | POOL |", "|---|---|---|",
+          f"| Answered without a 763B call | {free_top * 1000 / n:.0f} | {free * 1000 / n:.0f} |",
+          f"| 763B tokens (in + out) | {top_tok(A['TOP']) * 1000 / n:,.0f} | {top_tok(A['POOL']) * 1000 / n:,.0f} |",
+          f"| 763B dollars at list price | ${A['TOP']['usd'] * 1000 / n:.3f} | ${A['POOL']['usd'] * 1000 / n:.3f} |",
+          f"| Wrong cache hits | 0 | {bad_hits * 1000 / n:.1f} |",
+          f"| Items TOP passed and POOL failed | 0 | {len(lost) * 1000 / n:.1f} |", "",
+          f"Eval log: {n_log} rows (both runs and every judge call) in `bench/.scratch/eval_log.jsonl`, imported with `bin/chimera evals import`.", ""]
     L += cache_eval_report.section()
     L.append(f"Crusoe tokens used for this report: {crusoe_total:,} (TOP run {ct['TOP']:,}, POOL run {ct['POOL']:,}, "
-             f"judge {jtok['in'] + jtok['out']:,}); warm-up and retried calls excluded.")
+             f"warm-up and retried calls excluded). Judge (GMI {JUDGE}): {len(jtok['calls'])} calls, {jtok['in'] + jtok['out']:,} tokens.")
     (ROOT / "bench/results_suite.md").write_text("\n".join(L) + "\n")
     print("\n".join(L[-14:]))
 

@@ -132,7 +132,7 @@ Wall time is a latency sum, not a GPU-busy time. At an assumed $/hr R, G costs a
 
 ## Rerun
 ```
-ssh -f -N -L 127.0.0.1:11435:127.0.0.1:11434 -i ~/akash-key2/id_rsa -o IdentitiesOnly=yes -p 30803 root@provider.zencloud.eu
+ssh -f -N -L 127.0.0.1:<port>:127.0.0.1:11434 <gpu-host>   # an SSH tunnel to your GPU box
 .venv/bin/python bench/run_bench_gpu.py G
 .venv/bin/python bench/run_bench_gpu.py H     # needs bench/serve_local.sh running
 .venv/bin/python bench/run_bench_gpu.py report

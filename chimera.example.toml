@@ -75,10 +75,10 @@ timeout_s = 60
 enabled = false              # experiment only: not in the product ladder (speculative-decoding benches use it)
 
 [[tiers]]
-name = "gpu-small"           # GPU 30B (self-hosted): the smallest product tier. V100 box, Ollama via ssh tunnel (-L 11441:127.0.0.1:11434)
+name = "gpu-small"           # GPU 30B (self-hosted): the smallest product tier. V100 box, Ollama via an SSH tunnel to your GPU box
 device = "gpu"
 backend = "ollama"
-url = "http://127.0.0.1:11441"
+url = "$CHIMERA_GPU_URL"      # from .env: the local end of an SSH tunnel to your GPU box
 model = "qwen3:30b-instruct"
 family = "qwen"
 max_complexity = 0.6
