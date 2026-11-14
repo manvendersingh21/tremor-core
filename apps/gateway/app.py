@@ -220,7 +220,7 @@ def create_app(cfg: ChimeraConfig, router, keys: KeyStore, audit: AuditLog, *,
         usage = {"prompt_tokens": max(len(prompt) // 4, 1), "completion_tokens": len(res.text) // 4}
         usage["total_tokens"] = usage["prompt_tokens"] + usage["completion_tokens"]  # estimates, len/4
         extra = {**tel.model_dump(), "request_id": rid, "fallback_from": fb[-1][0] if fb else None}
-        headers = {"x-chimera-tier": tel.tier_used, "x-chimera-tokens-saved": str(tel.tokens_saved),
+        headers = {"x-chimera-tier": tel.tier_name or tel.tier_used, "x-chimera-tokens-saved": str(tel.tokens_saved),
                    "x-chimera-latency-ms": f"{tel.latency_ms:.1f}"}
         cid, created = f"chatcmpl-{rid}", int(time.time())
 

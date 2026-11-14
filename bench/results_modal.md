@@ -1,6 +1,29 @@
 # Modal H200 (gpu-large): results
 
-**Verdict: not measured.** The H200 never served a request in two cold starts. There are no ladder, speculative-decoding, gateway or KV-cache numbers from Modal. Nothing here is a speedup or savings claim. The user stopped the app by hand at 22:26 PST, and no run was started after that.
+Two models were tried. Qwen3.5-122B (attempt 1) never served. `openai/gpt-oss-120b` (attempt 2) served after a 376 s cold start, and pair runs A and D finished. Runs E, B and C, the KV test and the gateway smoke test did not run: the work was stopped by a handoff order at 22:54 PST.
+
+## Verdict (single run, 30 prompts)
+
+| Run | 763B calls | 763B in / out / cached | 763B $ | H200 time | H200 $ | local tokens | median ms | p90 ms | asserts |
+|---|---|---|---|---|---|---|---|---|---|
+| A: 763B only | 25 | 1,167 / 4,539 / 0 | $0.0058 | 0 | $0 | 0 | 728 | 2,799 | 24/24 |
+| D: H200 120B -> 763B | **0** | 0 / 0 / 0 | $0 | about 90 s | about $0.11 | 22,395 | 1,352 | 8,125 | 24/24 |
+
+5 of 30 prompts were cache hits in both runs. Quality ties on asserts. No blind grade was run.
+
+- **Cost:** A wins. The 763B is so cheap ($0.0058 for 25 calls) that 90 s of H200 time costs about 20x more. D only wins on cost if the H200 is already up and busy with other traffic.
+- **Speed:** A wins. Median 728 ms vs 1,352 ms, and heavy-prompt median 2.6 s vs 6.6 s.
+- **Quality:** a tie, 24/24 each.
+- **Best pair: A (763B only).** The H200 tier adds no value at this traffic level. Recommend dropping `gpu-large` unless traffic is steady enough to keep it busy, or the data must stay off Crusoe.
+- **Speculative verify:** skipped on gpt-oss. It is not a Qwen model, so its token ids don't match the Mac Qwen 3B.
+
+Raw rows: `bench/results_modal.csv` (runs A and D).
+
+---
+
+# Attempt 1: Qwen3.5-122B (failed)
+
+**Verdict: not measured.** The H200 never served a request in two cold starts. The user stopped the app by hand at 22:26 PST.
 
 ## Setup
 
@@ -85,3 +108,69 @@ After `modal-up`, put the printed URL in `.env` as `MODAL_VLLM_URL`. `MODAL_VLLM
 5. Once it is up, run in this order: `/v1/models` 200, one completion, speculative tokenizer-id check, then the ladder, spec and KV tests in one session, and stop the app.
 
 Skipped: the CSV (`bench/results_modal.csv`), unit tests for the vLLM verify backend and all live tests. Risk: the `chimera.example.toml` gpu-large entry and the verify backend are untested against a real vLLM server.
+
+---
+
+# Attempt 2: openai/gpt-oss-120b
+
+## Setup
+
+| Item | Value |
+|---|---|
+| Model | `openai/gpt-oss-120b`, MXFP4 (native), `reasoning_effort=low` |
+| GPU | 1x H200, $4.54/hr list |
+| Image | `vllm/vllm-openai:v0.33.0` (torch 2.14 cu130) |
+| Flags | `--enable-prefix-caching`, `--max-logprobs 20`, `--max-model-len 32768`, `--gpu-memory-utilization 0.90` |
+| Memory | weights plus graphs 62.4 GiB of 139.8 GiB; the rest is KV cache |
+| Scaling | `min_containers=0`, `scaledown_window=120` s, bearer token from Modal secret |
+
+## Deploys
+
+| # | App id | Time (PST) | Result |
+|---|---|---|---|
+| 2a | `ap-diKaSKgzuJnkfdCh3FFOCr` | 22:33 to 22:37 | Deploy refused: Modal couldn't read the Python version. Fixed with a `python` symlink. No GPU used. |
+| 2b | `ap-yjcGHZwcr6Jbz1StbEzjG4` | 22:37 to 22:40 | Image `v0.32.0-cu129` crashed on import: `libnvrtc.so.13` missing (torchcodec). Stopped at once. |
+| check | `ap-jnG6BFAxKctwFzht99b1pf` | 22:40 to 22:45 | L4 import test of `v0.33.0`: OK. |
+| 2c | `ap-0WpQuCjxibIkA2hScBskOi` | 22:45 to 22:54 | **Served.** Stopped at 22:54:45. |
+
+## Cold start (2c)
+
+| Step | Time |
+|---|---|
+| Deploy to first `/v1/models` 200 | **376 s** |
+| GPU wait plus weight download (first time, about 65 GB to the Volume) | about 3.5 min |
+| Engine init (profile, KV cache, warmup) | 147 s, of which torch.compile 16 s |
+| CUDA graph capture | 34 s |
+
+The weights are now in `chimera-hf-cache`, so the next cold start skips the download.
+
+## Cost of attempt 2
+
+| Item | Minutes | $ (upper bound) |
+|---|---|---|
+| 2b H200 | about 1.5 | about $0.11 |
+| L4 check | about 4.5 | about $0.06 |
+| 2c H200 | about 9.3 | about $0.70 |
+| **Total** | | **about $0.87** |
+
+Both attempts together: about **$2.5** upper bound, from app lifetimes. Check the Modal dashboard for the real bill.
+
+## Not run (stopped for handoff)
+
+Run E crashed in 6 s with `Connection refused` on one tier URL; I did not find which one before the stop order. Runs B and C, the KV test (`bench/run_kv.py`), the gateway smoke test (`$KIROCREW_SCRATCH/gw_smoke.py`, not committed) and the blind grade did not run.
+
+## Shutdown proof (attempt 2)
+
+`modal app list --json` at 22:55 PST:
+
+```
+ap-0WpQuCjxibIkA2hScBskOi  chimera-gpu-large   stopped  0 tasks  stopped 22:54:45
+ap-jnG6BFAxKctwFzht99b1pf  chimera-img-check   stopped  0 tasks  stopped 22:45:20
+ap-yjcGHZwcr6Jbz1StbEzjG4  chimera-gpu-large   stopped  0 tasks  stopped 22:40:29
+ap-diKaSKgzuJnkfdCh3FFOCr  chimera-gpu-large   stopped  0 tasks  stopped 22:37:23
+ap-bxrD1t1A1mEhHoHZGP87m0  chimera-gpu-large   stopped  0 tasks  stopped 22:26:21
+ap-EynMuiNwVDXTLhuy3jtxwI  chimera-gpu-large   stopped  0 tasks  stopped 22:19:21
+ap-mtBeVO40ImcVekiTgW8Vjt  chimera-h100-check  stopped  0 tasks  stopped 22:03:25
+```
+
+No `chimera-*` app is running or deployed.
