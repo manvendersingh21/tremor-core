@@ -7,7 +7,7 @@
 Needs (POOL): CHIMERA_GPU_URL (the local end of an SSH tunnel to your GPU box),
 CRUSOE_API_KEY in .env.
     .venv/bin/python bench/run_suite.py TOP | POOL | report
-Rows go to $KIROCREW_SCRATCH/suite_<mode>.jsonl as they finish; a rerun skips finished ids. The key is never written.
+Rows go to bench/.scratch/suite_<mode>.jsonl as they finish; a rerun skips finished ids. The key is never written.
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from chimera_core.ladder import TopBackend  # noqa: E402
 from chimera_core.tiers import TierCfg, TierPool  # noqa: E402
 from run_bench import load_env  # noqa: E402
 
-STORE = pathlib.Path(os.environ.get("KIROCREW_SCRATCH") or ROOT / "bench")
+STORE = ROOT / "bench/.scratch"  # in the repo, git-ignored; not $KIROCREW_SCRATCH (lost on a gateway restart)
 SUITE = ROOT / "bench/datasets/suite.jsonl"
 TOP_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
 JUDGE = "zai-org/GLM-5.3-Flash"  # cheap GMI model; wrote none of the graded answers; used only for the Dolly rows
