@@ -120,7 +120,13 @@ def noisy_model(c):
     return big_model(c) if len(c) % 3 else big_model(c) + 1
 
 
-def fake_vllm(model, tito=True, fast_holes=False):
+def fake_vllm(model, tito=True, fast_holes=False, block=4):
+    """Greedy fake of vLLM's /inference/v1/generate and /v1/completions. With skip_reading_prefix_cache=False it
+    behaves like vLLM's prefix cache: the hit is the longest prefix (in whole blocks, at most len-1) shared with an
+    earlier prompt of the same salt, and prompt_logprobs is [None] + rows from the hit on. fast_holes: a broken server
+    that drops one draft row."""
+    seen: dict[str, list[list[int]]] = {}
+
     def handler(request):
         body = json.loads(request.content)
         if request.url.path == "/inference/v1/generate":
@@ -130,22 +136,31 @@ def fake_vllm(model, tito=True, fast_holes=False):
         else:
             ids, sp = body["prompt"], body
         assert sp["temperature"] == 0.0 and sp["repetition_penalty"] == 1.0 and body["cache_salt"]
+        assert "stop_token_ids" in sp
         c, out = list(ids), []
         while len(out) < sp["max_tokens"]:
             out.append(model(c))
             c.append(out[-1])
         pl = None
         if sp.get("prompt_logprobs"):
-            pl = [None]
+            rows = []
             for i in range(1, len(ids)):
                 top = model(ids[:i])
                 row = {str(top): {"logprob": -0.1, "rank": 1}, str(top + 50): {"logprob": -1.0, "rank": 2}}
                 if ids[i] not in (top, top + 50):
                     row[str(ids[i])] = {"logprob": -5.0, "rank": 9}
-                pl.append(row)
-            start = sp.get("prompt_logprob_start")
-            if start is not None:
-                pl = [None] * len(pl) if fast_holes else [None if i <= start else r for i, r in enumerate(pl)]
+                rows.append(row)
+            hit = 0
+            if sp.get("skip_reading_prefix_cache") is False:
+                for prev in seen.get(body["cache_salt"], []):
+                    n = 0
+                    while n < min(len(prev), len(ids)) and prev[n] == ids[n]:
+                        n += 1
+                    hit = max(hit, min(n, len(ids) - 1) // block * block)
+                if fast_holes:
+                    hit = len(ids) - 2  # drops draft rows: must be caught
+            pl = [None] + rows[hit:]
+        seen.setdefault(body["cache_salt"], []).append(list(ids))
         if request.url.path == "/v1/completions":
             return httpx.Response(200, json={"choices": [{"token_ids": out, "prompt_logprobs": pl}]})
         return httpx.Response(200, json={"choices": [{"token_ids": out}], "prompt_logprobs": pl})
@@ -236,9 +251,14 @@ def test_run_plan_end_to_end_on_fakes(monkeypatch, tmp_path):
 
     monkeypatch.setattr(m, "big_client", lambda url: httpx.Client(base_url=url, transport=httpx.MockTransport(handler)))
 
-    class Tok:
-        def apply_chat_template(self, msgs, **kw):
-            return PROMPT + [len(msgs[0]["content"]) % 40 + 1]
+    class Tok:  # chat template as text, then token ids, like encode() in the Modal file
+        def apply_chat_template(self, msgs, tokenize=False, add_generation_prompt=True, **kw):
+            assert tokenize is False and add_generation_prompt
+            return "x" * len(msgs[0]["content"])
+
+        def __call__(self, text, add_special_tokens=True):
+            assert add_special_tokens is False
+            return {"input_ids": PROMPT + [len(text) % 40 + 1]}
 
         def decode(self, ids):
             return " ".join(map(str, ids))
@@ -247,7 +267,7 @@ def test_run_plan_end_to_end_on_fakes(monkeypatch, tmp_path):
     local = core.VLLM("small", client=fake_vllm(noisy_model))
     url = "http://fake"
     base = m.run_plan(prompts, prompts[:1], {"name": "big_alone", "mode": "big_alone", "max_tokens": 30}, url, Tok(), None)
-    for plan in ({"name": "s", "mode": "spec", "max_tokens": 30, "k": 4}, {"name": "p", "mode": "spec", "max_tokens": 30, **m.PLUS}):
+    for plan in ({"name": "s", "mode": "spec", "max_tokens": 30, "k": 4}, {"name": "p", "mode": "spec", "max_tokens": 30, "adaptive": True, "pipeline": True, "free": True}):
         res = m.run_plan(prompts, prompts[:1], plan, url, Tok(), local)
         assert [r["out"] for r in res["rows"]] == [r["out"] for r in base["rows"]]
         assert len(res["rtt_ms"]) == sum(r["rounds"] for r in res["rows"])  # warm-up rounds are not counted
@@ -264,3 +284,41 @@ def test_live_apps_reads_lowercase_app_list_keys():
             {"app_id": "ap-2", "description": "chimera-spec-qa", "state": "stopped"},
             {"app_id": "ap-3", "description": "chimera-video-wan", "state": "deployed"}]
     assert [a["app_id"] for a in driver.live_apps("chimera-spec-qa", rows)] == ["ap-1"]
+
+
+def test_jobs_are_consistent():
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "deploy" / "modal"))
+    import spec_models as sm
+
+    for name, cfg in sm.JOBS.items():
+        assert cfg["app"].startswith("chimera-spec-") and cfg["big"] in sm.MODELS and cfg["tok"] in sm.MODELS
+        assert sm.MODELS[cfg["tok"]]["family"] == sm.MODELS[cfg["big"]]["family"], name  # one tokenizer per job
+        names = [p["name"] for p in cfg["plans"]]
+        assert len(names) == len(set(names)), name
+        for p in cfg["plans"]:
+            assert p["mode"] in ("draft_alone", "big_alone", "spec", "margins", "switch"), p
+            if p["mode"] in ("draft_alone", "spec"):
+                d = sm.DRAFTERS[p["drafter"]]
+                assert sm.MODELS[d["model"]]["family"] == sm.MODELS[cfg["big"]]["family"], p  # same tokenizer
+                assert d["mode"] in sm.MODES
+            if p["mode"] == "switch":
+                assert p["to"] in sm.MODES
+            if p["mode"] == "margins":
+                assert set(p["runs"]) <= set(names) and p["base"] in names
+    assert len({c["app"] for c in sm.JOBS.values()}) == len(sm.JOBS)  # parallel jobs never share an app name
+    for m in sm.MODES.values():
+        assert m is None or "model" not in m or m["model"] in sm.MODELS
+
+
+def test_report_tables_from_fake_runs(tmp_path, monkeypatch):
+    monkeypatch.setattr(driver, "OUT", tmp_path)
+    base = {"plan": {"name": "s_big_alone", "mode": "big_alone"}, "rows": [{"id": 1, "kind": "code", "out": [5, 6, 7], "wall_s": 1.0}]}
+    spec = {"plan": {"name": "s_spec_k4", "mode": "spec", "drafter": "q3_4b", "k": 4},
+            "rows": [{"id": 1, "kind": "code", "out": [5, 6, 7], "wall_s": 0.5, "rounds": 1, "drafted": 3, "accepted": 2,
+                      "misses": 1, "ks": [4], "draft_ms": 10.0, "free_accepted": 0, "reused": 0}],
+            "rtt_ms": [30.0], "server_ms": [10.0]}
+    for n, r in (("s_big_alone", base), ("s_spec_k4", spec)):
+        (tmp_path / f"{n}.json").write_text(json.dumps(r))
+    table = driver.job_tables("smoke", driver.load_runs())
+    row = next(line for line in table.splitlines() if "`s_spec_k4`" in line)
+    assert "2.00x" in row and "1/1" in row and "30 / 30" in row
