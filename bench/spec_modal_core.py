@@ -138,14 +138,16 @@ def _top1(entry):
 
 
 def accept_from_prompt_logprobs(pl, n_ctx: int, d: list[int]) -> tuple[int, int | None]:
-    """(m, big model's token at the first miss or None). pl covers the prompt ctx+d, either as one row per prompt
-    position (rows before the scored part may be None) or as one row per draft token."""
-    if len(pl) == n_ctx + len(d):
-        rows = pl[n_ctx:]
-    elif len(pl) == len(d):
-        rows = pl
-    else:
-        raise IncompleteScores(f"{len(pl)} rows for {n_ctx}+{len(d)} tokens")
+    """(m, big model's token at the first miss or None) for the prompt ctx+d.
+
+    vLLM returns [None, row_H, ..., row_{n-2}]: H is the prefix-cache hit (0 without one), row_i predicts prompt
+    token i+1 (vllm/logprobs.py create_prompt_logprobs; v1/worker/gpu/sample/prompt_logprob.py). So the last len(d)
+    entries always score the draft tokens, as long as the hit stops before the draft (H <= n_ctx - 1). It does in this
+    loop: ctx ends with the verifier's own token, which no earlier request of the same cache salt had at that place.
+    A too-short list or a None entry means the draft rows are missing: IncompleteScores."""
+    if not d or len(pl) < len(d):
+        raise IncompleteScores(f"{len(pl)} rows for a draft of {len(d)} after {n_ctx} tokens")
+    rows = pl[-len(d):]
     for i, t in enumerate(d):
         top = _top1(rows[i])
         if top != t:
@@ -172,21 +174,22 @@ def first_diff(a, b):
 # ---------- greedy client for one local vLLM server ----------
 class VLLM:
     """Greedy calls to one vLLM server. transport: tito (/inference/v1/generate, token ids in and out) or openai
-    (/v1/completions). fast: verify scores only the draft rows and lets the context come from the request's own
-    prefix cache (prompt_logprob_start + skip_reading_prefix_cache=False); selftest() turns it on only when it
-    agrees with full scoring. Every request carries a cache_salt, so runs never share cache entries."""
+    (/v1/completions). fast: the verify request sets skip_reading_prefix_cache=False, so its context is read from
+    the prefix cache that the same request salt filled in earlier rounds, and only the new rows are computed (vLLM
+    otherwise recomputes the whole prompt for prompt_logprobs). selftest() keeps it only when it matches full
+    scoring. Every request carries a cache_salt, so runs never share cache entries. stop: the family's EOS ids."""
 
-    def __init__(self, name, base="http://127.0.0.1:8000", client=None):
+    def __init__(self, name, base="http://127.0.0.1:8000", client=None, stop=EOS):
         if client is None:
             import httpx
 
             client = httpx.Client(timeout=600)
-        self.name, self.base, self.c = name, base, client
+        self.name, self.base, self.c, self.stop = name, base, client, list(stop)
         self.transport, self.fast, self.fallbacks = "tito", False, 0
 
     def call(self, ids, n, salt, transport=None, **sp):
         t = transport or self.transport
-        params = {"max_tokens": n, "temperature": 0.0, "repetition_penalty": 1.0, **sp}
+        params = {"max_tokens": n, "temperature": 0.0, "repetition_penalty": 1.0, "stop_token_ids": self.stop, **sp}
         if t == "tito":
             r = self.c.post(self.base + "/inference/v1/generate",
                             json={"token_ids": ids, "sampling_params": params, "cache_salt": salt})
@@ -219,7 +222,7 @@ class VLLM:
         fast = self.fast if fast is None else fast
         sp = {"prompt_logprobs": 1}
         if fast:
-            sp.update(prompt_logprob_start=len(ctx) - 1, skip_reading_prefix_cache=False)
+            sp["skip_reading_prefix_cache"] = False
         toks, pl = self.call(ctx + d, 1, salt, transport, **sp)
         try:
             m, miss = accept_from_prompt_logprobs(pl or [], len(ctx), d)
@@ -232,7 +235,7 @@ class VLLM:
 
     def top2(self, ctx, salt):
         """The two best next tokens after ctx with their logprobs, from a prefill row (near-tie check)."""
-        _, pl = self.call(ctx + [EOS[0]], 1, salt, prompt_logprobs=2)
+        _, pl = self.call(ctx + [self.stop[0]], 1, salt, prompt_logprobs=2)
         return ranked(pl[-1])[:2]
 
     def selftest(self, ids) -> dict:
