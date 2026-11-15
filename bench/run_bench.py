@@ -33,10 +33,9 @@ MAX_CLOUD = 2500
 
 
 def load_env() -> None:
-    for line in (ROOT / ".env").read_text().splitlines():
-        if "=" in line and not line.startswith("#"):
-            k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip())
+    """Same as chimera_core.config.load_env: no .env (CI) means nothing to load."""
+    from chimera_core.config import load_env as _load
+    _load(ROOT / ".env")
 
 
 def dollars(u: dict) -> float:
