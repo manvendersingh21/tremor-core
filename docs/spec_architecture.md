@@ -1,6 +1,6 @@
 # CHIMERA: how the ladder and speculative decoding fit, what we measured, what to change next
 
-DRAFT. Status: the Modal speculative-decoding runs (section 4) have **not** started; they wait for the user's go. Sections 1, 2, 3, 5, 6, 7 are written from earlier reports. Cells marked PENDING are filled from `bench/results_spec_modal.md` after the runs.
+DRAFT. Status: the Modal speculative-decoding runs (section 4) have **not** started; they wait for the user's go. The scripts are written and tested offline on fake servers (`tests/test_spec_modal.py`). Sections 1, 2, 3, 5, 6, 7 are written from earlier reports. Cells marked PENDING are filled from `bench/results_spec_modal.md` after the runs.
 
 ## 1. How the pieces fit today
 
@@ -64,18 +64,36 @@ Why it is not in the ladder: the 763B on Crusoe rejects `echo`, so it cannot sco
 
 ## 4. This run: Modal L40S draft + H200 verify (PENDING)
 
-Plan, fixed before any run: temperature 0, max_tokens 256, 48 prompts (28 code, 20 chat or reasoning; `bench/run_spec_modal.py`), 2 warm-up prompts per run not counted, cold starts reported apart. Models, all Qwen3 Instruct-2507 with one tokenizer: 4B, 30B-A3B (FP8 on an L40S), 235B-A22B (FP8 on 2 H200).
+Plan, fixed before any run (`deploy/modal/spec_modal.py`, `bench/run_spec_modal.py`, loop in `bench/spec_modal_core.py`):
+
+- **Prompts:** 48 measured (28 code from `bench/cost_case/tasks.jsonl` and HumanEval/MBPP, 10 Dolly chat, 5 GSM8K, 5 MMLU short answers) plus 2 warm-up prompts that are not measured.
+- **Fairness:** temperature 0, max_tokens 256 everywhere, `--generation-config vllm` so no repo sampling default (the 480B ships `repetition_penalty 1.05`) changes greedy output. Every run starts every prompt with a cold prefix cache (a cache salt per run and prompt); a spec run reuses only its own earlier rounds. Cold starts are logged apart from the runs.
+- **Lossless check:** every spec run is compared token by token with the 235B alone on all 48 prompts; the big model alone is also run twice. At each first difference the 235B's top-2 logprob gap is read, to tell a GPU near-tie from a bug.
+- **Network:** the drafter box calls the 235B box through Modal's public HTTPS endpoint, so each verify is a real round trip. Network time = round trip minus the server's own time.
+- **Modal off when idle:** each job is one ephemeral `modal run`; GPU boxes scale down after 2 idle minutes; the driver stops any leftover by App ID and saves `modal app list` after every job.
+
+Models. All are Qwen3 and share one `tokenizer.json` (same SHA-256 from 0.6B to 480B, read from the Hugging Face API):
+
+| Role | Model | Box |
+|---|---|---|
+| small | Qwen3-4B-Instruct-2507-FP8 | 1 L40S |
+| mid ("local machine") | Qwen3-30B-A3B-Instruct-2507-FP8 | 1 L40S |
+| big ("server") | Qwen3-235B-A22B-Instruct-2507-FP8 | 2 H200 |
+| biggest Qwen3 | Qwen3-Coder-480B-A35B-Instruct-FP8 | 4 H200 |
+| same-box heads | RedHatAI EAGLE-3 speculators for the 235B and the 30B | inside each vLLM |
 
 | Run | Draft | Verify | tok/s | alpha | RTT p50 | lossless |
 |---|---|---|---|---|---|---|
 | 30B alone | 30B L40S | none | PENDING | | | |
 | 235B alone | none | 235B | PENDING | | | |
 | plain spec K=4, K=8 | 30B | 235B across the network | PENDING | | | |
-| Spec+ (adaptive K) | 30B | 235B | PENDING | | | |
-| chain 4B -> 30B -> 235B | 4B inside 30B box | 235B | PENDING | | | |
-| same-box: n-gram, 4B draft model | in the 235B server | | PENDING | | | |
+| Spec+ (adaptive K, pipelined drafts, free prompt-copy drafts) | 30B | 235B | PENDING | | | |
+| 4B -> 235B | 4B L40S | 235B | PENDING | | | |
+| chain 4B -> 30B -> 235B | 4B inside the 30B's vLLM | 235B | PENDING | | | |
+| same box: EAGLE-3, n-gram, 4B draft model, suffix | inside the 235B's vLLM | | PENDING | | | |
+| 30B -> 480B | 30B L40S | Coder-480B | PENDING | | | |
 
-A 700B+ member of the same family: not planned. Qwen3 open weights top out at 480B (Coder) and Qwen3.5 at 397B; DeepSeek 763B on Crusoe cannot verify.
+**No 700B+ same-family model.** Qwen3's largest open model is the Coder-480B-A35B. Qwen3.5 (4B, 35B-A3B, 122B-A10B, 397B-A17B) is a separate tokenizer (248,320 tokens vs 151,936), so it cannot verify Qwen3 drafts; it tops out at 397B. Qwen3-Max is API-only. DeepSeek 763B on Crusoe has a different tokenizer and rejects `echo`, so it cannot score drafts.
 
 ## 5. Ranked improvements
 
