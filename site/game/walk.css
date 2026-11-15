@@ -68,4 +68,4 @@
 .m-board h3 { margin: 0 0 .3rem; font: 700 .8rem Cinzel, serif; letter-spacing: .12em; color: #ffd27a; }
 .m-board dl { margin: 0; } .m-board dt { color: #cdb9d6; font-size: .72rem; } .m-board dd { margin: 0 0 .25rem; font: 600 1.15rem Georgia, serif; color: #ffb44a; }
 .m-board p { margin: .3rem 0 0; font-size: .72rem; color: #cdb9d6; } .m-board a { color: #ffd27a; }
-@media (max-width: 600px) { .m-board { top: 3.4rem; width: 40vw; font-size: .7rem; padding: .4rem .5rem; } .m-board dd { font-size: .95rem; } .m-board p { display: none; } }
+@media (max-width: 600px) { .m-board { top: 12.6rem; right: .6rem; width: 46vw; font-size: .7rem; padding: .4rem .5rem; } .m-board dd { font-size: .95rem; } .m-board p { display: none; } }
