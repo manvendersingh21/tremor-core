@@ -71,7 +71,7 @@
 @media (max-width: 600px) { .m-board { top: 12.6rem; right: .6rem; width: 46vw; font-size: .7rem; padding: .4rem .5rem; } .m-board dd { font-size: .95rem; } .m-board p { display: none; } }
 
 /* the Count in the scene (scene.js): a cut-out standing on the painted ground, lit like the painting */
-.m-anchor { position: absolute; inset: 0; pointer-events: none; transform-origin: 50% 50%; }
+.m-anchor { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; transform-origin: 50% 50%; }
 .m-count { position: absolute; aspect-ratio: 449 / 959; transform: translate(-50%, -100%); opacity: 0; pointer-events: none; }
 .m-count img { display: block; height: 100%; width: 100%; object-fit: contain; transform-origin: 50% 100%;
   filter: brightness(.95) saturate(.9) contrast(1.04) drop-shadow(-1px 0 2px rgba(255, 176, 100, .7)) drop-shadow(2px -1px 3px rgba(205, 180, 255, .75)) drop-shadow(0 0 14px rgba(150, 120, 210, .35));
@@ -89,7 +89,7 @@
 .m-say.m-attached.m-tail-r::before { left: auto; right: -10px; border-right: 0; border-left: 10px solid #f3e9dcf0; }
 /* the Great Hall feels big: a slow drift of the painting and everything standing in it */
 .m-root.m-inhall #m-img, .m-root.m-inhall .m-anchor { animation: m-hall 28s ease-in-out infinite alternate; }
-@keyframes m-hall { from { scale: 1; translate: 0 0; } to { scale: 1.04; translate: 0 -0.6%; } }
+@keyframes m-hall { from { scale: 1; translate: 0 0; } to { scale: 1.035; translate: 0 -4px; } }
 /* the doors along both walls, in perspective (wide screens) */
 .m-doors.m-persp { left: 0; top: 0; right: 0; bottom: 0; transform: none; display: block; pointer-events: none; }
 .m-doors.m-persp .m-door { position: absolute; width: auto; aspect-ratio: 3 / 4.6; pointer-events: auto; transform-origin: 50% 100%;
@@ -122,3 +122,34 @@
 /* an open panel hides the Count's bubble and the savings board behind it */
 .m-root:has(.m-panel:not([hidden])) .m-say, .m-root:has(.m-panel:not([hidden])) .m-board { visibility: hidden; }
 .m-panel { background: #170a1cf5; }
+/* the great door (scene.js): closed when you reach it, the leaves swing in, gold light, you walk through */
+.m-rig { position: absolute; pointer-events: none; opacity: 0; transition: opacity .18s linear; overflow: visible; }
+.m-rig.on { opacity: 1; }
+.m-rig > img, .m-rig-door, .m-rig-frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.m-rig-door { transform-origin: 50% 56%; perspective: 1400px; perspective-origin: 50% 55%; }
+.m-rig-glow { position: absolute; left: 22%; right: 22%; top: 4%; bottom: 0; opacity: 0;
+  background: radial-gradient(ellipse 50% 60% at 50% 60%, rgba(255, 226, 160, .95), rgba(255, 170, 70, .55) 45%, rgba(255, 140, 40, 0) 75%); mix-blend-mode: screen; }
+.m-leaf { position: absolute; backface-visibility: visible; will-change: transform; filter: brightness(.95); }
+.m-leaf.l { transform-origin: 0% 50%; } .m-leaf.r { transform-origin: 100% 50%; }
+/* every painted candle in the hall flickers */
+.m-flames { position: absolute; inset: 0; opacity: 0; transition: opacity .4s; }
+.m-flames.on { opacity: 1; }
+.m-flames i { position: absolute; width: calc(1.6% * var(--s)); aspect-ratio: 1; translate: -50% -60%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 236, 190, .85), rgba(255, 176, 80, .38) 45%, rgba(255, 140, 40, 0));
+  mix-blend-mode: screen; animation: m-flick .2s steps(2, jump-none) infinite alternate; }
+@keyframes m-flick { from { opacity: .45; scale: .86 1; } to { opacity: 1; scale: 1.08 1.14; } }
+/* the hall's own painted doors are the doors you pick */
+.m-doors.m-spots { left: 0; top: 0; right: 0; bottom: 0; transform: none; display: block; pointer-events: none; }
+.m-doors.m-spots .m-door { position: absolute; width: auto; aspect-ratio: auto; pointer-events: auto; background: none; box-shadow: none;
+  border-radius: 50% 50% 4% 4% / 24% 24% 2% 2%; transform: none; transition: box-shadow .2s, backdrop-filter .2s; }
+.m-doors.m-spots .m-door.m-paste { background: url(../art/door.webp) center / cover no-repeat; box-shadow: 0 0 0 1px #b8862e, 0 0 12px #000c; filter: brightness(.7) saturate(.9); }
+.m-doors.m-spots .m-door.sel, .m-doors.m-spots .m-door:hover, .m-doors.m-spots .m-door:focus-visible { transform: none; outline: none; z-index: 5;
+  -webkit-backdrop-filter: brightness(1.45) saturate(1.25); backdrop-filter: brightness(1.45) saturate(1.25);
+  box-shadow: 0 0 0 2px #ffd27a, 0 0 0 4px #6a420c99, 0 0 34px 10px #ffb44a88, inset 0 0 26px #ffd27a66; }
+.m-doors.m-spots .m-door.m-paste.sel { filter: none; }
+.m-doors.m-spots .m-plaque { bottom: 103%; max-width: 13vw; padding: .12rem .4rem; }
+.m-doors.m-spots .m-plaque strong { font-size: var(--fs); }
+.m-doors.m-spots .m-door.m-far:not(.sel) .m-plaque { opacity: 0; }
+.m-doors.m-spots .m-door.sel .m-plaque span { max-width: 16vw; }
+.m-doors.m-spots .m-door.m-edge-l .m-plaque { left: 60%; transform: none; }
+.m-doors.m-spots .m-door.m-edge-r .m-plaque { left: auto; right: 60%; transform: none; }
