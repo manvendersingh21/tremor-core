@@ -188,5 +188,19 @@
   "height": 1024,
   "n": 1,
   "prompt": "Full-length painted figure, head to feet, of an original elegant vampire gentleman, Count Cuspid: young, pale, clean-shaven with no beard and no moustache, slicked-back dark hair, smooth face, glowing amber eyes, high-collar black cape with red satin lining, friendly half smile, tiny fangs, gold ring, one hand raised in welcome, standing on bare ground, three-quarter view facing left, cool moonlight rim from the upper right and warm candle light from the left. Glossy painterly gothic romance style. Plain flat uniform dark grey background for cutout, no floor, no shadow on the background, no props. No text, no letters, no logos."
+ },
+ "hall-grand": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 2,
+  "prompt": "Interior matte painting of an immense gothic cathedral-sized great hall inside a vampire castle at night, eye-level camera standing at the entrance looking straight down the centre, strict symmetrical one-point perspective, the hall at least 60 metres long and 25 metres high. Soaring pointed arches and a ribbed vaulted ceiling lost in darkness, two rows of massive carved stone columns receding into the distance, huge iron chandeliers full of burning candles hanging on long chains at several depths, hundreds of candles on the floor and on wall sconces, a long red velvet carpet with gold borders running from the camera to a grand pair of tall gold doors at the far end. Along both side walls between the columns, a row of tall arched doors framed in shining polished gold, each door lit by its own candles, getting smaller into the distance. High on the walls, tall stained glass lancet windows in deep purple, crimson and gold, and through the great rose window above the far doors a giant glowing orange full moon. Shafts of cool moonlight cross the warm candlelight, soft haze and floating dust, glossy floor reflections, strong depth and atmosphere, dark rich shadows. No people, no text, no letters, no logos."
+ },
+ "great-door": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Front view, eye level, standing right in front of an enormous closed pair of gothic castle doors at night, the doors fill most of the frame from top to bottom, perfectly centred and symmetrical, two tall dark carved oak door leaves meeting in the exact middle under a pointed stone arch, thick ornate shining gold rim around the arch and gold iron straps and studs on the doors, warm golden light glowing through the thin seam between the two leaves and under them, carved stone wall and two burning iron torches on each side, a few stone steps at the bottom, faint fog. Painterly gothic, rich glossy detail. No people, no text, no letters, no logos."
  }
 }

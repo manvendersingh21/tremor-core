@@ -11,21 +11,27 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const rnd = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
 
-  /* The walk, in order. lock: what must be opened (E) before you can walk this stretch. */
+  /* The walk, in order. secs: how long the stretch takes at walking speed (Shift doubles it), whatever its clip's
+     length: a clip is sped up to fit (playbackRate), win picks the part of a clip that is used.
+     lock: a gate or door that is closed until you reach it, then opens by itself (E opens it too).
+     clip: false = keep the painted stretch even if a clip lands. c-drive.mp4 (2026-11-15) stays at the gates and never
+     walks up to the door; d-door and e-hall clips are planned to end on the old hall.webp, not the hall painted now. */
   const SEGS = [
     // fb: the painted dolly used while a clip is not made yet: [zoom, focus x, focus y] at the start and the end
-    { id: 'a-approach', where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
-    { id: 'b-gates', where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
-    { id: 'c-drive', where: 'The lantern drive', key: 'art/drive.webp', fb: [[1, 0.5, 0.56], [2.1, 0.5, 0.5]], say: 'Follow the lanterns. The door is at the top.' },
-    { id: 'd-door', where: 'The great door', key: 'art/drive.webp', fb: [[2.1, 0.5, 0.5], [6, 0.5, 0.47]], lock: 'door', door: true, say: 'The door is open. Step inside.' },
-    { id: 'e-hall', where: 'The Great Hall', key: 'art/hall.webp', fb: [[1, 0.5, 0.55], [1.12, 0.5, 0.55]], say: 'Every door is a room. Pick one with A and D, then press E.' },
+    { id: 'a-approach', secs: 1.5, where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
+    { id: 'b-gates', secs: 0.8, win: [0, 2.4], where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
+    { id: 'c-drive', secs: 0.75, clip: false, where: 'The lantern drive', key: 'art/drive.webp', fb: [[1, 0.5, 0.56], [3.3, 0.5, 0.485]], say: 'Follow the lanterns. The door is at the top.' },
+    { id: 'd-door', secs: 0.5, clip: false, where: 'The great door', key: 'art/drive.webp', fb: [[3.3, 0.5, 0.485], [3.3, 0.5, 0.485]], lock: 'door', rig: true, say: 'The door opens for you. Step inside.' },
+    { id: 'e-hall', secs: 0.7, clip: false, where: 'The Great Hall', key: 'art/hall-grand-1.webp', fb: [[1, 0.5, 0.6], [1.08, 0.5, 0.62]], say: 'Every door is a room. Pick one with A and D, then press E.' },
   ];
   const LOCK_AT = { gates: 'Open the iron gates', door: 'Open the great door' };
 
   async function start(root, opts = {}) {
     const site = opts.site || '';
     const ROOMS = window.ROOMS || [];
-    const doors = ROOMS.map((r) => ({ id: r.id, title: r.title, sub: r.door, art: r.art || 'room-' + r.id }));
+    const ORDER = (window.MovieScene && window.MovieScene.ORDER) || [];   // the hall's painted doors, in A/D order
+    const rank = (id) => { const k = ORDER.indexOf(id); return k < 0 ? 99 : k; };
+    const doors = ROOMS.map((r) => ({ id: r.id, title: r.title, sub: r.door, art: r.art || 'room-' + r.id })).sort((a, b) => rank(a.id) - rank(b.id));
 
     root.innerHTML = `
       <div class="m-stage" id="m-stage"><video id="m-v0" muted playsinline preload="auto"></video><video id="m-v1" muted playsinline preload="auto"></video><img id="m-img" alt=""></div>
@@ -50,9 +56,10 @@
 
     /* ---------- clips: which exist ---------- */
     const have = {};
-    await Promise.all(SEGS.map(async (s) => { try { const r = await fetch(`${site}game/clips/${s.id}.mp4`, { method: 'HEAD' }); have[s.id] = r.ok; } catch (e) { have[s.id] = false; } }));
+    await Promise.all(SEGS.map(async (s) => { if (s.clip === false) { have[s.id] = false; return; } try { const r = await fetch(`${site}game/clips/${s.id}.mp4`, { method: 'HEAD' }); have[s.id] = r.ok; } catch (e) { have[s.id] = false; } }));
 
-    const S = { seg: 0, t: 0, open: {}, keys: new Set(), yaw: 0, pitch: 0, look: { x: 0, y: 0 }, room: null, panel: null, map: false,
+    SEGS.forEach((s) => { const im = new Image(); im.src = site + s.key; });   // no blank frame when a stretch starts
+    const S = { seg: 0, t: 0, over: 1.12, open: {}, keys: new Set(), yaw: 0, pitch: 0, look: { x: 0, y: 0 }, room: null, panel: null, map: false,
       hall: false, door: 0, time: 0, fps: [], walking: 0, joy: { x: 0, y: 0 } };
     let active = 0;
     function vidFor(i) { return vids[i % 2]; }
@@ -77,33 +84,43 @@
     }
     load(0); show(0);
 
-    const dur = (i) => { const v = vidFor(i); return have[SEGS[i].id] && v.duration ? v.duration : 8; };
+    /* S.t is walking time into the stretch (0..secs). A clip's own time is mapped onto it. */
+    const dur = (i) => SEGS[i].secs;
+    function win(i) { const s = SEGS[i], v = vidFor(i), d = v.duration || 8; return s.win ? [s.win[0], Math.min(s.win[1], d)] : [0, d]; }
+    const clipAt = (i, t) => { const [a, b] = win(i); return a + (b - a) * clamp(t / dur(i), 0, 1); };
     function setTime(i, t) {
-      if (have[SEGS[i].id]) { const v = vidFor(i); if (Math.abs(v.currentTime - t) > 0.02 && !v.seeking) v.currentTime = t; }
-      S.t = t;
+      S.t = clamp(t, 0, dur(i));
+      if (have[SEGS[i].id]) { const v = vidFor(i), ct = clipAt(i, S.t); if (Math.abs(v.currentTime - ct) > 0.02 && !v.seeking) v.currentTime = ct; }
     }
 
-    /* ---------- walking: W plays the clip under your feet, S walks it back ---------- */
+    /* ---------- walking: W plays the clip under your feet (sped up to fit the stretch), S walks it back ---------- */
+    function arrive(l) {                            // you reached a closed gate or door: it opens
+      if (S.open[l]) return; S.open[l] = true; creak();
+      say(l === 'gates' ? 'The gates swing open for you. Keep walking.' : 'The great door opens. Step inside.');
+    }
     function walk(dt, dir, run) {
       if (S.panel || S.map || S.room) return;
-      const i = S.seg, s = SEGS[i];
-      if (s.lock && !S.open[s.lock]) return;        // a closed gate or door: press E
-      const d = dur(i), rate = run ? 2 : 1;
-      let t = S.t + dir * dt * rate;
-      if (dir > 0 && have[s.id]) {                  // forward: let the decoder play (smooth), keep our clock in step
-        const v = vidFor(i); v.playbackRate = rate; if (v.paused) v.play().catch(() => {}); t = v.currentTime;
-      } else if (have[s.id]) { vidFor(i).pause(); }
-      if (t >= d - 0.04 && dir > 0) {
+      const i = S.seg, s = SEGS[i], speed = run ? 2 : 1;
+      if (s.lock && !S.open[s.lock]) { if (dir > 0) arrive(s.lock); else if (S.t > 0) return; }
+      let t;
+      t = S.t + dir * dt * speed;                   // our clock sets the pace; the clip follows it
+      if (dir > 0 && have[s.id]) {                  // forward: the decoder plays at the matching speed (smooth)
+        const v = vidFor(i), [a, b] = win(i), ct = clipAt(i, t);
+        v.playbackRate = clamp((b - a) / dur(i) * speed, 0.25, 8); if (v.paused) v.play().catch(() => {});
+        if (Math.abs(v.currentTime - ct) > 0.45 && !v.seeking) v.currentTime = ct;   // a decoder that cannot keep up skips ahead
+      } else if (have[s.id]) vidFor(i).pause();
+      if (t >= dur(i) - 0.01 && dir > 0) {
         const nx = SEGS[i + 1];
-        if (!nx) { setTime(i, d); vidFor(i).pause(); enterHall(); return; }
-        if (nx.lock && !S.open[nx.lock]) { setTime(i, d - 0.04); vidFor(i).pause(); return; } // stop at the gate or door
-        S.seg = i + 1; S.t = 0; fade(); setTime(S.seg, 0); show(S.seg); return;
+        if (have[s.id]) vidFor(i).pause();
+        if (!nx) { setTime(i, dur(i)); enterHall(); return; }
+        if (nx.lock) arrive(nx.lock);               // the gate or door opens as you reach it, not before
+        S.seg = i + 1; show(S.seg); setTime(S.seg, 0); S.walking = dir; return;
       }
       if (t <= 0 && dir < 0) {
         if (i === 0) { setTime(0, 0); return; }
-        S.seg = i - 1; show(S.seg); setTime(S.seg, dur(S.seg) - 0.05); return;
+        S.seg = i - 1; show(S.seg); setTime(S.seg, dur(S.seg) - 0.01); return;
       }
-      if (dir < 0) setTime(i, clamp(t, 0, d)); else S.t = t;
+      if (dir < 0) setTime(i, t); else S.t = clamp(t, 0, dur(i));
       S.walking = dir;
     }
     function stopWalk() { const s = SEGS[S.seg]; if (have[s.id]) vidFor(S.seg).pause(); S.walking = 0; }
@@ -112,23 +129,22 @@
     function pendingLock() {
       const i = S.seg, s = SEGS[i], nx = SEGS[i + 1];
       if (s.lock && !S.open[s.lock] && S.t < 0.1) return s.lock;
-      if (nx && nx.lock && !S.open[nx.lock] && S.t >= dur(i) - 0.5) return nx.lock;
+      if (nx && nx.lock && !S.open[nx.lock] && S.t >= dur(i) - 0.05) return nx.lock;
       return null;
     }
     function use() {
       if (S.panel || S.map) return;
       if (S.hall) { openRoom(doors[S.door]); return; }
       const l = pendingLock(); if (!l) return;
-      S.open[l] = true; creak();
-      if (S.seg < SEGS.length - 1 && SEGS[S.seg + 1].lock === l) { S.seg++; S.t = 0; fade(); setTime(S.seg, 0); show(S.seg); }
-      say(l === 'gates' ? 'The gates swing open. Hold W to walk through.' : 'The door opens. Hold W to step inside.');
+      arrive(l);
+      if (S.seg < SEGS.length - 1 && SEGS[S.seg + 1].lock === l) { S.seg++; show(S.seg); setTime(S.seg, 0); }
     }
 
     /* ---------- the hall: gold-plated doors with real signs ---------- */
     function enterHall() {
       if (S.hall) return; S.hall = true; S.door = 0;
       const box = $('m-doors');
-      box.innerHTML = doors.map((d, k) => `<button class="m-door" data-k="${k}" type="button"><span class="m-plaque"><strong>${esc(d.title)}</strong><span>${esc(d.sub || '')}</span></span></button>`).join('');
+      box.innerHTML = doors.map((d, k) => `<button class="m-door" data-k="${k}" data-id="${esc(d.id)}" type="button"><span class="m-plaque"><strong>${esc(d.title)}</strong><span>${esc(d.sub || '')}</span></span></button>`).join('');
       if (scene) scene.layoutDoors(box);
       box.hidden = false; markDoor(); board(true);
       say('Every door is a room. Pick one with A and D, then press E.');
@@ -206,8 +222,9 @@
     function jump(i, end) {
       fade(); if (S.room) { S.room = null; } leaveHall();
       for (let k = 1; k <= i; k++) if (SEGS[k].lock) S.open[SEGS[k].lock] = true;
-      S.seg = i; show(i); setTime(i, end ? dur(i) - 0.05 : 0);
-      if (have[SEGS[i].id]) { const v = vidFor(i); v.pause(); const go = () => { v.currentTime = end ? v.duration - 0.05 : 0; S.t = v.currentTime; }; v.readyState ? go() : v.addEventListener('loadedmetadata', go, { once: true }); }   // a jump always lands, even mid-seek
+      S.seg = i; show(i);
+      const t = end ? dur(i) - 0.01 : 0; S.t = t;
+      if (have[SEGS[i].id]) { const v = vidFor(i); v.pause(); const go = () => { v.currentTime = clipAt(i, t); }; v.readyState ? go() : v.addEventListener('loadedmetadata', go, { once: true }); }   // a jump always lands, even mid-seek
       if (end && i === SEGS.length - 1) enterHall();
     }
     function fade() { const f = $('m-fade'); f.classList.add('on'); setTimeout(() => f.classList.remove('on'), 350); }
@@ -331,7 +348,9 @@
       S.pitch += (S.look.y * 0.6 - S.pitch) * Math.min(1, dt * 3);
       // turning your head: the frame is 12% wider than the screen
       const bob = S.walking ? Math.sin(S.time * (k.has('shift') ? 14 : 9)) * 0.004 : 0;
-      stage.style.transform = `translate(${(-S.yaw * 5.2).toFixed(2)}%, ${(-S.pitch * 3 + bob * 100).toFixed(2)}%) scale(1.12)`;
+      S.over += ((S.seg >= SEGS.length - 2 && !S.room ? 1 : 1.12) - S.over) * Math.min(1, dt * 4);   // past the great door the hall is shown whole
+      const room = (S.over - 1) / 0.12;
+      stage.style.transform = `translate(${(-S.yaw * 5.2 * room).toFixed(2)}%, ${((-S.pitch * 3 + bob * 100) * room).toFixed(2)}%) scale(${S.over.toFixed(4)})`;
       const sg = SEGS[S.seg];
       const hv = held(S.seg), dollyEl = hv || still;
       vids.forEach((v) => { if (v !== hv && v.style.transform) v.style.transform = ''; });
@@ -344,7 +363,7 @@
       if (scene) scene.update(S, sg, clamp(S.t / dur(S.seg), 0, 1), dollyEl, have[sg.id], W, H);
       root.classList.toggle('m-inhall', S.hall);
       drawFx(dt); drawMini();
-      const pr = $('m-prompt'), l = !S.panel && !S.map && !S.hall && pendingLock();
+      const pr = $('m-prompt'), l = !S.panel && !S.map && !S.hall && !S.walking && pendingLock();
       if (l) { pr.innerHTML = `<kbd>E</kbd> ${LOCK_AT[l]}`; pr.classList.add('on'); }
       else if (S.hall && !S.panel) { pr.innerHTML = `<kbd>A</kbd><kbd>D</kbd> choose a door · <kbd>E</kbd> enter ${esc(doors[S.door] ? doors[S.door].title : '')}`; pr.classList.add('on'); }
       else if (!S.panel && !S.map && !S.walking && S.seg === 0 && S.t < 0.1) { pr.innerHTML = 'Hold <kbd>W</kbd> to walk to the castle'; pr.classList.add('on'); }

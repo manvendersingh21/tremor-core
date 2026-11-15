@@ -12,6 +12,7 @@ All art in `site/art/` and the walk-in clips in `site/game/clips/` were generate
 |---|---|---|---|
 | First painted site (commit 9495aa2): gate, hall, door, 8 rooms, Count, parchment | 14 | 13 | per-image GMI price; the exact bill was not logged |
 | Textures, windows, banner, doors, sky (2026-11-14) | 12 | 12 | `tex-*`, `glass-*`, `banner`, `door-*`, `sky-pano`; the run that was killed by a restart did not log its count |
+| Walk pacing (2026-11-15): `hall-grand` (the Great Hall, 2 versions; `hall-grand-1` is used) and `great-door` (the closed castle doors) | 3 | 2 | the door is cut into a frame and two leaves offline by `scripts/cut_door.py` (`game/layers/door-*.webp`); GMI image calls only, no video |
 | Walk polish (2026-11-15): `drive` (the lantern drive) and `count-full` (the Count, full length) | 3 | 3 | `count-full` was painted twice (the first had a beard); the cut-out `game/layers/count-full.webp` is made offline by `scripts/cut_count.py`. GMI image calls only; no video |
 
 Gate-layer cut-outs in `site/game/layers/` are made offline from `gate.webp` by `scripts/cut_layers.py` (no model call).
