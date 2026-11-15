@@ -119,3 +119,6 @@
   .m-board dt { font-size: .6rem; line-height: 1.15; } .m-board dd { font-size: .85rem; margin: 0; }
   .m-board h3 { font-size: .65rem; margin-bottom: .15rem; }
 }
+/* an open panel hides the Count's bubble and the savings board behind it */
+.m-root:has(.m-panel:not([hidden])) .m-say, .m-root:has(.m-panel:not([hidden])) .m-board { visibility: hidden; }
+.m-panel { background: #170a1cf5; }
