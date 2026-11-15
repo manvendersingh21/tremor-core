@@ -1,0 +1,329 @@
+{
+ "reports": [
+  {
+   "id": "suite",
+   "title": "Real-dataset suite (300 questions)",
+   "file": "bench/results_suite.md",
+   "metrics": [
+    {
+     "label": "763B tokens saved by the pool",
+     "value": "38.4%",
+     "loss": false
+    },
+    {
+     "label": "Dollars saved at list price",
+     "value": "28.1%",
+     "loss": false
+    },
+    {
+     "label": "Pass rate, 763B only / pool",
+     "value": "222/238 (93%) / 214/238 (90%)",
+     "loss": true
+    },
+    {
+     "label": "Median wait ms, 763B only / pool",
+     "value": "1120 / 85974",
+     "loss": true
+    }
+   ]
+  },
+  {
+   "id": "cost_case",
+   "title": "Cost case: what each tier costs per 1,000 calls",
+   "file": "bench/results_cost_case.md",
+   "metrics": [
+    {
+     "label": "30B on a V100, $ per 1k calls",
+     "value": "$11.02",
+     "loss": true
+    },
+    {
+     "label": "763B, $ per 1k calls",
+     "value": "$0.1576",
+     "loss": false
+    },
+    {
+     "label": "GPT-5.5, $ per 1k calls (60 items)",
+     "value": "$4.02",
+     "loss": false
+    },
+    {
+     "label": "Pass, 30B on V100",
+     "value": "269/301 = 89% (85-92)",
+     "loss": true
+    },
+    {
+     "label": "Pass, 763B",
+     "value": "286/301 = 95% (92-97)",
+     "loss": false
+    }
+   ]
+  },
+  {
+   "id": "cost_case_h200",
+   "title": "Cost case on a Modal H200",
+   "file": "bench/results_cost_case_h200.md",
+   "metrics": [
+    {
+     "label": "30B on H200, 64 at once, $ per 1k calls",
+     "value": "$0.0699",
+     "loss": false
+    },
+    {
+     "label": "30B on H200, 32 at once, $ per 1k calls",
+     "value": "$0.0962",
+     "loss": false
+    },
+    {
+     "label": "30B on H200, one at a time, $ per 1k calls",
+     "value": "$1.089",
+     "loss": true
+    },
+    {
+     "label": "An idle H200, $ per day",
+     "value": "$108.96",
+     "loss": true
+    },
+    {
+     "label": "Pass, 30B on H200 (64 at once)",
+     "value": "270/301 = 90% (86-93)",
+     "loss": false
+    }
+   ]
+  },
+  {
+   "id": "backend",
+   "title": "Backend end to end (60 prompts)",
+   "file": "bench/results_backend.md",
+   "metrics": [
+    {
+     "label": "763B tokens kept off, repeat run (WARM)",
+     "value": "97.5%",
+     "loss": false
+    },
+    {
+     "label": "763B tokens kept off, first run (COLD)",
+     "value": "12.2%",
+     "loss": false
+    },
+    {
+     "label": "Median ms, 763B only / cold ladder",
+     "value": "896 / 2340",
+     "loss": true
+    },
+    {
+     "label": "Wrong cache answers",
+     "value": "0 of 50",
+     "loss": false
+    }
+   ]
+  },
+  {
+   "id": "replay",
+   "title": "Savings replay on real traffic (oasst1, 300)",
+   "file": "bench/results_replay.md",
+   "metrics": [
+    {
+     "label": "Answered by the 30B",
+     "value": "18 of 300 (6%). 280 climbed to the 763B. 2 were exact cache hits",
+     "loss": true
+    },
+    {
+     "label": "763B tokens per 1k requests",
+     "value": "595,073 vs 541,730 per 1k requests (9.8% more)",
+     "loss": true
+    },
+    {
+     "label": "Latency",
+     "value": "ladder p50 82.7 s, p90 130.3 s. 763B alone p50 10.6 s (18 reference calls)",
+     "loss": true
+    },
+    {
+     "label": "Dollars per 1k requests",
+     "value": "$0.69 vs $15.58. Measured ladder cost, projected company cost",
+     "loss": false
+    }
+   ]
+  },
+  {
+   "id": "bank",
+   "title": "Solved-problem bank (80 problems)",
+   "file": "bench/results_bank.md",
+   "metrics": [
+    {
+     "label": "Same problems again, served from the bank",
+     "value": "75 (75/0)",
+     "loss": false
+    },
+    {
+     "label": "Reworded problems, served from the bank",
+     "value": "24 (0/24)",
+     "loss": true
+    },
+    {
+     "label": "Reworded, answered only as a hint",
+     "value": "40",
+     "loss": true
+    },
+    {
+     "label": "Bank size",
+     "value": "374 pairs",
+     "loss": false
+    }
+   ]
+  },
+  {
+   "id": "memory",
+   "title": "N+1 memory (80 coding problems)",
+   "file": "bench/results_memory.md",
+   "metrics": [
+    {
+     "label": "30B alone",
+     "value": "68/80 (85.0%)",
+     "loss": false
+    },
+    {
+     "label": "30B + 200 stored big-model answers",
+     "value": "70/80 (87.5%)",
+     "loss": false
+    },
+    {
+     "label": "Control: 3 random stored answers",
+     "value": "70/80 (87.5%)",
+     "loss": false
+    },
+    {
+     "label": "Big model alone",
+     "value": "75/80 (93.8%)",
+     "loss": false
+    }
+   ]
+  },
+  {
+   "id": "distill",
+   "title": "LoRA on 763B answers (566 held-out)",
+   "file": "bench/results_distill.md",
+   "metrics": [
+    {
+     "label": "pass@1 base / tuned (%)",
+     "value": "92.2 / 88.3",
+     "loss": true
+    },
+    {
+     "label": "Solved only by base / only by tuned",
+     "value": "26 / 4",
+     "loss": true
+    }
+   ]
+  },
+  {
+   "id": "terminal_agent",
+   "title": "Terminal agent `chimera code` (15 tasks)",
+   "file": "bench/results_terminal_agent.md",
+   "metrics": [
+    {
+     "label": "Tasks done fully on the 30B",
+     "value": "13 of 15",
+     "loss": false
+    },
+    {
+     "label": "Passed, ladder / 763B only",
+     "value": "15/15 / 15/15",
+     "loss": false
+    },
+    {
+     "label": "Dollars, ladder / 763B only",
+     "value": "$0.00102 / $0.00415 / 76% less",
+     "loss": false
+    },
+    {
+     "label": "Median seconds per task, ladder / 763B only",
+     "value": "92 s / 5.5 s",
+     "loss": true
+    }
+   ]
+  },
+  {
+   "id": "spec",
+   "title": "Speculative decoding over the internet",
+   "file": "bench/spec_results.md",
+   "metrics": [
+    {
+     "label": "Speed against plain Ollama, K=4 and K=8",
+     "value": "0.15x / 0.22x",
+     "loss": true
+    },
+    {
+     "label": "Mean alpha at K=4",
+     "value": "0.68",
+     "loss": false
+    },
+    {
+     "label": "Round trip floor ms (median)",
+     "value": "599",
+     "loss": true
+    }
+   ]
+  },
+  {
+   "id": "specplus",
+   "title": "Spec+ (stand-in target, modelled network)",
+   "file": "bench/results_specplus.md",
+   "metrics": [
+    {
+     "label": "Best Spec+ over best plain spec",
+     "value": "1.14x to 1.22x",
+     "loss": false
+    },
+    {
+     "label": "Big model alone, tok/s (RTT 150 ms)",
+     "value": "19.27",
+     "loss": false
+    },
+    {
+     "label": "Spec+ lossless, tok/s (RTT 150 ms)",
+     "value": "13.36",
+     "loss": true
+    }
+   ]
+  },
+  {
+   "id": "modal",
+   "title": "Modal H200 120B tier (30 prompts)",
+   "file": "bench/results_modal.md",
+   "metrics": [
+    {
+     "label": "763B only: dollars",
+     "value": "$0.0058",
+     "loss": false
+    },
+    {
+     "label": "763B only: median ms",
+     "value": "728",
+     "loss": false
+    },
+    {
+     "label": "H200 120B then 763B: dollars",
+     "value": "about $0.11",
+     "loss": true
+    },
+    {
+     "label": "H200 120B then 763B: median ms",
+     "value": "1,352",
+     "loss": true
+    }
+   ]
+  }
+ ],
+ "headlines": {
+  "h200_per_1k": [
+   "$0.0699",
+   "$0.0962"
+  ],
+  "top763_per_1k": "$0.1576",
+  "gpt55_per_1k": "$4.02",
+  "v100_per_1k": "$11.02",
+  "repeat_tokens_off": "97.5%",
+  "suite_tokens_saved": "38.4%"
+ }
+}

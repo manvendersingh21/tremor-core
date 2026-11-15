@@ -31,6 +31,7 @@
       <div class="m-stage" id="m-stage"><video id="m-v0" muted playsinline preload="auto"></video><video id="m-v1" muted playsinline preload="auto"></video><img id="m-img" alt=""></div>
       <canvas id="m-fx" aria-hidden="true"></canvas>
       <div class="m-doors" id="m-doors" hidden></div>
+      <aside class="m-board" id="m-board" hidden aria-label="Savings board"></aside>
       <div class="m-bar"><span id="m-where"></span><span id="m-fps" class="m-fps"></span>
         <button class="m-btn" id="m-mapbtn" type="button">Map (M)</button><button class="m-btn" id="m-talkbtn" type="button">Talk to the Count (T)</button></div>
       <div class="m-prompt" id="m-prompt"></div>
@@ -121,10 +122,25 @@
       if (S.hall) return; S.hall = true; S.door = 0;
       const box = $('m-doors');
       box.innerHTML = doors.map((d, k) => `<button class="m-door" data-k="${k}" type="button"><span class="m-plaque"><strong>${esc(d.title)}</strong><span>${esc(d.sub || '')}</span></span></button>`).join('');
-      box.hidden = false; markDoor();
+      box.hidden = false; markDoor(); board(true);
       say('Every door is a room. Pick one with A and D, then press E.');
     }
-    function leaveHall() { S.hall = false; $('m-doors').hidden = true; }
+    function leaveHall() { S.hall = false; $('m-doors').hidden = true; board(false); }
+    /* the savings board: live totals from /api/stats, the best measured result from /results.json (read from bench/*.md) */
+    let boardTimer = 0;
+    function board(on) {
+      const b = $('m-board'); b.hidden = !on; clearInterval(boardTimer); if (!on) return;
+      const n = (v) => Number(v || 0).toLocaleString('en-US');
+      const paint = async () => {
+        try {
+          const [st, rs] = await Promise.all([fetch('/api/stats', { cache: 'no-store' }).then((r) => r.json()), fetch(`${site}results.json`).then((r) => r.json())]);
+          const g = st.global || {};
+          b.innerHTML = `<h3>Savings board</h3><dl><dt>Tokens kept off the big model</dt><dd>${n(g.tokens_kept_off_big)}</dd><dt>Dollars saved</dt><dd>$${Number(g.dollars_saved || 0).toFixed(4)}</dd><dt>Calls, cache hit rate</dt><dd>${n(g.calls)}, ${Math.round((g.hit_rate || 0) * 100)}%</dd></dl>` +
+            `<p>Best measured: ${esc(rs.headlines.repeat_tokens_off)} fewer 763B tokens on a repeat question <a href="https://github.com/manvendersingh21/tremor-core/blob/dev/bench/results_backend.md" target="_blank" rel="noopener">bench/results_backend.md</a></p>`;
+        } catch (e) { b.innerHTML = '<h3>Savings board</h3><p>Could not read /api/stats.</p>'; }
+      };
+      paint(); boardTimer = setInterval(paint, 5000);
+    }
     function markDoor() { $('m-doors').querySelectorAll('.m-door').forEach((b, k) => b.classList.toggle('sel', k === S.door)); }
     $('m-doors').addEventListener('click', (e) => { const b = e.target.closest('.m-door'); if (b) { S.door = +b.dataset.k; markDoor(); use(); } });
 

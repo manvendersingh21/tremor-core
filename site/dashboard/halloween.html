@@ -121,7 +121,7 @@ em{font-style:italic;color:var(--accent)}
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:right;padding:6px 8px;border-top:1px solid var(--line)}th:first-child,td:first-child{text-align:left}th{color:var(--mut);font-weight:500}
 .wrap{overflow-x:auto}
 .bar{height:8px;border-radius:4px;background:var(--accent);min-width:2px}
-.lose{color:var(--bad);font-weight:600}.win{color:var(--good)}
+#evreports a{color:var(--accent);word-break:break-all}.lose{color:var(--bad);font-weight:600}.win{color:var(--good)}
 code{background:var(--card);padding:1px 6px;border-radius:4px;border:1px solid var(--line)}
 .rung{border:1px solid var(--line);border-left-width:3px;border-radius:12px;padding:12px 14px;margin:6px 0;background:var(--card)}
 .arrow{text-align:center;color:var(--mut);font-size:12px}
@@ -201,20 +201,21 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 </section>
 
 <section id="how" hidden>
-  <div class="sec-head"><div class="eyebrow acc" data-h>Four rungs</div><h2 class="serif">Climb only <em>when needed</em></h2></div>
-  <div class="card">Each call tries the cheapest rung first and climbs only when needed. Single runs, no repeats; the sources are <code>bench/results*.md</code>.</div>
-  <div class="rung" style="border-left-color:var(--cache)"><div class="eyebrow">Tier 0</div><b>The Crypt (Supabase cache)</b><br><span class="lbl">Exact hash, then meaning match (cosine ≥ 0.97). No model runs. On a second machine it avoided 48 of 60 GPU calls, 0 false hits (docs/vector-store.md).</span></div>
+  <div class="sec-head"><div class="eyebrow acc" data-h>Three rungs</div><h2 class="serif">Climb only <em>when needed</em></h2></div>
+  <div class="card" id="hw-head">reading bench/*.md numbers…</div>
+  <div class="rung" style="border-left-color:var(--cache)"><div class="eyebrow">Rung 0</div><b>The Crypt (Supabase cache)</b><br><span class="lbl">Exact hash, then meaning match (cosine ≥ 0.97). No model runs. <span id="hw-cache">&nbsp;</span></span></div>
   <div class="arrow">miss ↓</div>
-  <div class="rung" style="border-left-color:var(--gpu)"><div class="eyebrow">Tier I</div><b>The Manor (Akash 30B, self-hosted)</b><br><span class="lbl">qwen3:30b-instruct on a V100. Answers if its token confidence is ≥ 0.95, else its self-check decides. Solved examples from N+1 memory come with the prompt.</span></div>
+  <div class="rung" style="border-left-color:var(--gpu)"><div class="eyebrow">Rung 1</div><b>The Manor (the 30B: V100 today, H200 measured)</b><br><span class="lbl">qwen3:30b-instruct answers if its token confidence is ≥ 0.95, else its self-check decides. <span id="hw-30b">&nbsp;</span></span></div>
   <div class="arrow">unsure, timeout or heavy ↓</div>
-  <div class="rung" style="border-left-color:var(--cloud)"><div class="eyebrow">Tier II</div><b>The Tower (Crusoe 763B)</b>, DeepSeek-V4.1-Flash, the largest model on the key<br><span class="lbl">Ladder vs this model alone: 65.6% fewer top tokens, but a slower median (1.9 s vs 0.7 s) (bench/results_ladder.md). Its checked answers become teacher data.</span></div>
-  <div class="rung" style="border-left-color:var(--local);opacity:.7"><div class="eyebrow">Off</div><b>The Lantern (Mac 3B)</b><br><span class="lbl">The lowest rung of the first benchmarks. Switched off; kept for experiments.</span></div>
-  <div class="rung" style="opacity:.7"><div class="eyebrow">Optional, off</div><b>The Castle (Modal H200 120B)</b><br><span class="lbl">One pair of runs: cost about 20x the 763B and was slower (bench/results_modal.md).</span></div>
-  <div class="card lbl" style="margin-top:12px">Tokens saved = tokens that never reached the big model. Alpha = share of draft tokens a big model accepted (speculative path only; off in the product).</div>
+  <div class="rung" style="border-left-color:var(--cloud)"><div class="eyebrow">Rung 2</div><b>The Tower (Crusoe 763B)</b>, DeepSeek-V4.1-Flash, the largest model on the key<br><span class="lbl"><span id="hw-763">&nbsp;</span></span></div>
+  <div class="rung" style="border-left-color:var(--local);opacity:.7"><div class="eyebrow">Off</div><b>The Lantern (Mac 3B)</b><br><span class="lbl">off. Switched off in the product ladder; kept for experiments.</span></div>
+  <div class="card lbl" style="margin-top:12px">Every number on this page is read from the files in <code>bench/</code> (<code>/results.json</code>, built by <code>site/build.py</code>). Single runs, no repeats. Tokens saved = tokens that never reached the big model.</div>
 </section>
 <section id="evals" hidden>
   <div class="sec-head"><div class="eyebrow acc" data-h>Every run, one log</div><h2 class="serif">The <em>evals</em></h2></div>
   <p class="lbl" id="evnote">loading /api/evals…</p>
+  <p class="lbl">Every finished result, read from its report in <code>bench/</code>. <span class="lose">Red</span> = a loss or a cost the report itself names.</p>
+  <div class="cards3" id="evreports">loading /results.json…</div>
   <div class="card"><div class="eyebrow">Leaderboard</div>
     <p class="lbl">One row per benchmark and mode. Top tokens are tokens on the tier the baseline answers with. Red = worse than that benchmark's baseline. Single runs, no repeats.</p>
     <div class="wrap"><table id="evlb"></table></div></div>
@@ -374,6 +375,36 @@ async function loadEvals(){
     return `<tr><td>${r.dataset}</td><td>${r.mode}${r.baseline?' <span class="lbl">baseline</span>':''}</td><td>${f(r.top_tokens)}</td><td${bad('saved_pct')}>${r.saved_pct==null?'–':(r.bad||[]).includes('saved_pct')?'▼ '+r.saved_pct.toFixed(1)+'%':r.saved_pct.toFixed(1)+'%'}</td>`+
       `<td${bad('dollars')}>${r.dollars==null?'–':'$'+r.dollars.toFixed(5)}</td><td${bad('p50_ms')}>${f(r.p50_ms)}</td><td${bad('p90_ms')}>${f(r.p90_ms)}</td><td${bad('pass_rate')}>${r.graded?pct(r.pass_rate)+' of '+r.graded:'–'}</td><td>${r.n}</td></tr>`}).join('');
 }
+
+/* ---------- results.json (built from bench/*.md by site/build.py): report cards and the ladder facts ---------- */
+const REPO='https://github.com/manvendersingh21/tremor-core/blob/dev/';
+let RES=null;
+async function loadResults(){
+  if(RES)return RES;
+  try{RES=await (await fetch('/results.json',{cache:'no-store'})).json()}catch(_){return null}
+  return RES;
+}
+function money2(v){return '$'+parseFloat(String(v).replace('$','')).toFixed(2)}
+async function paintReports(){
+  const d=await loadResults(),box=$('evreports');if(!box)return;
+  if(!d){box.textContent='Could not load /results.json.';return}
+  box.innerHTML=d.reports.map(r=>`<div class="card"><div class="eyebrow acc">${esc(r.title)}</div>`+
+    r.metrics.map(m=>`<div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px"><span class="lbl">${esc(m.label)}</span><b class="${m.loss?'lose':'win'}" style="text-align:right">${esc(m.value)}</b></div>`).join('')+
+    `<div class="lbl" style="margin-top:8px"><a href="${REPO}${esc(r.file)}" target="_blank" rel="noopener">${esc(r.file)}</a></div></div>`).join('');
+}
+async function paintLadder(){
+  const d=await loadResults();if(!d||!$('hw-head'))return;
+  const h=d.headlines,a=parseFloat(h.h200_per_1k[0].slice(1)),b=parseFloat(h.h200_per_1k[1].slice(1)),lo=Math.min(a,b).toFixed(2),hi=Math.max(a,b).toFixed(2);
+  $('hw-head').innerHTML=`<div class="eyebrow">Cost per 1,000 calls (measured)</div><div class="cards3" style="margin-top:8px">`+
+    `<div><div class="big win">$${lo}-${hi}</div><div class="lbl">the 30B on a Modal H200, kept busy</div></div>`+
+    `<div><div class="big">${esc(money2(h.top763_per_1k))}</div><div class="lbl">the 763B at list price</div></div>`+
+    `<div><div class="big lose">${esc(h.gpt55_per_1k)}</div><div class="lbl">GPT-5.5 (60-item subset)</div></div>`+
+    `<div><div class="big win">${esc(h.repeat_tokens_off)}</div><div class="lbl">fewer 763B tokens on a repeat question (cache)</div></div></div>`;
+  $('hw-cache').textContent=`A repeat run kept ${h.repeat_tokens_off} of the 763B tokens off the big model (bench/results_backend.md).`;
+  $('hw-30b').textContent=`On the V100 it costs ${h.v100_per_1k} per 1,000 calls (one request at a time); on an H200 kept busy, $${lo}-${hi}. An idle H200 still bills by the day (bench/results_cost_case_h200.md).`;
+  $('hw-763').textContent=`${money2(h.top763_per_1k)} per 1,000 calls. The pool saved ${h.suite_tokens_saved} of its tokens on 300 real questions but was slower (bench/results_suite.md). Its checked answers become teacher data.`;
+}
+paintReports();paintLadder();
 
 /* ---------- Chat tab: the real ladder through world/chat.js, side stats in this style ---------- */
 let chatOn=false;
