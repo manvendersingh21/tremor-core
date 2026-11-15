@@ -16,7 +16,8 @@ HERE = pathlib.Path(__file__).resolve().parent
 BENCH = HERE.parent.parent.parent / "bench"
 SITE = HERE.parent.parent.parent / "site"
 TYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8",
-         ".json": "application/json", ".webp": "image/webp", ".png": "image/png", ".gif": "image/gif", ".svg": "image/svg+xml"}
+         ".json": "application/json", ".webp": "image/webp", ".png": "image/png", ".gif": "image/gif", ".svg": "image/svg+xml",
+         ".mp4": "video/mp4", ".jpg": "image/jpeg"}
 sys.path.insert(0, str(BENCH))
 import evallog  # noqa: E402  the one eval log (bench/evallog.py)
 # The real log every router call writes (chimera.toml [telemetry]); `make demo` points HUD_TELEMETRY at the demo file instead.
@@ -124,6 +125,24 @@ def static_file(path: str) -> pathlib.Path | None:
     return f if f.is_file() and SITE.resolve() in f.parents else None
 
 
+def byte_range(header: str | None, size: int) -> tuple[int, int] | None | bool:
+    """A "Range: bytes=a-b" header -> (start, end) inclusive, None for no/unsupported header, False if unsatisfiable.
+    Safari will not play a video without byte ranges. One range only; multi-range asks get the whole file."""
+    if not header or not header.startswith("bytes=") or "," in header:
+        return None
+    a, _, b = header[6:].strip().partition("-")
+    try:
+        if a == "":                                   # bytes=-N: the last N bytes
+            n = int(b)
+            return (max(0, size - n), size - 1) if n > 0 and size else False
+        start, end = int(a), (int(b) if b else size - 1)
+    except ValueError:
+        return None
+    if start >= size or end < start:
+        return False
+    return start, min(end, size - 1)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):  # quiet
         pass
@@ -154,9 +173,47 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/events":
             self._events()
         elif (f := static_file(path)) is not None:
-            self._send(200, f.read_bytes(), TYPES.get(f.suffix, mimetypes.guess_type(f.name)[0] or "application/octet-stream"))
+            self._static(f)
         else:
             self._send(404, b"not found", "text/plain")
+
+    def do_HEAD(self) -> None:
+        """Headers only (the walk checks which clips exist with HEAD). Static files only; the API is GET/POST."""
+        f = static_file(self.path.split("?")[0])
+        self._static(f, head=True) if f is not None else self._send(404, b"", "text/plain")
+
+    def _static(self, f: pathlib.Path, head: bool = False) -> None:
+        ctype, size = TYPES.get(f.suffix, mimetypes.guess_type(f.name)[0] or "application/octet-stream"), f.stat().st_size
+        r = byte_range(self.headers.get("Range"), size)
+        if r is False:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        start, end = r if r else (0, size - 1)
+        self.send_response(206 if r else 200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(max(0, end - start + 1)))
+        if r:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if head or size == 0:
+            return
+        with open(f, "rb") as fh:
+            fh.seek(start)
+            left = end - start + 1
+            try:
+                while left > 0:
+                    chunk = fh.read(min(left, 1 << 20))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # the browser cancels range reads while seeking
 
     def _events(self) -> None:
         self.send_response(200)

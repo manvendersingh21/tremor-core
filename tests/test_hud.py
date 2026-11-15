@@ -79,3 +79,14 @@ def test_one_page_served_on_one_port():
             assert e.code == 404
     finally:
         srv.shutdown()
+
+
+def test_byte_range_for_safari_video():
+    assert hud.byte_range(None, 100) is None
+    assert hud.byte_range("bytes=0-1", 100) == (0, 1)
+    assert hud.byte_range("bytes=10-", 100) == (10, 99)
+    assert hud.byte_range("bytes=-10", 100) == (90, 99)
+    assert hud.byte_range("bytes=50-500", 100) == (50, 99)
+    assert hud.byte_range("bytes=100-", 100) is False
+    assert hud.byte_range("bytes=0-1,5-6", 100) is None
+    assert hud.byte_range("items=0-1", 100) is None
