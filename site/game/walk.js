@@ -61,12 +61,18 @@
       const v = vidFor(i);
       if (have[s.id] && !v.src.endsWith(`${s.id}.mp4`)) { v.src = `${site}game/clips/${s.id}.mp4`; v.load(); }
     }
+    /* A stretch with no clip whose keyframe is the last frame of the clip before it: keep that clip's own video,
+       paused on its last frame, and dolly it. A still of the same frame decodes with other colours (a visible seam). */
+    function held(i) { const s = SEGS[i], p = SEGS[i - 1]; return !have[s.id] && p && have[p.id] && s.key.endsWith(`${p.id}-last.jpg`) ? vidFor(i - 1) : null; }
     function show(i) {
       const s = SEGS[i]; active = i;
-      vids.forEach((v, k) => v.classList.toggle('on', have[s.id] && k === i % 2));
-      still.classList.toggle('on', !have[s.id]);
-      if (!have[s.id]) still.src = site + s.key;
-      load(i + 1);                                   // preload the next stretch
+      const h = held(i);
+      load(i);
+      if (h) { h.pause(); const end = () => { if (h.duration && h.duration - h.currentTime > 0.1) h.currentTime = h.duration - 0.04; }; h.readyState ? end() : h.addEventListener('loadedmetadata', end, { once: true }); }
+      vids.forEach((v, k) => v.classList.toggle('on', (have[s.id] && k === i % 2) || v === h));
+      still.classList.toggle('on', !have[s.id] && !h);
+      if (!have[s.id] && !h) still.src = site + s.key;
+      if (!h) load(i + 1);                           // preload the next stretch (not into the video we are holding)
       say(s.say); $('m-where').textContent = s.where;
     }
     load(0); show(0);
@@ -201,6 +207,7 @@
       fade(); if (S.room) { S.room = null; } leaveHall();
       for (let k = 1; k <= i; k++) if (SEGS[k].lock) S.open[SEGS[k].lock] = true;
       S.seg = i; show(i); setTime(i, end ? dur(i) - 0.05 : 0);
+      if (have[SEGS[i].id]) { const v = vidFor(i); v.pause(); const go = () => { v.currentTime = end ? v.duration - 0.05 : 0; S.t = v.currentTime; }; v.readyState ? go() : v.addEventListener('loadedmetadata', go, { once: true }); }   // a jump always lands, even mid-seek
       if (end && i === SEGS.length - 1) enterHall();
     }
     function fade() { const f = $('m-fade'); f.classList.add('on'); setTimeout(() => f.classList.remove('on'), 350); }
@@ -326,13 +333,15 @@
       const bob = S.walking ? Math.sin(S.time * (k.has('shift') ? 14 : 9)) * 0.004 : 0;
       stage.style.transform = `translate(${(-S.yaw * 5.2).toFixed(2)}%, ${(-S.pitch * 3 + bob * 100).toFixed(2)}%) scale(1.12)`;
       const sg = SEGS[S.seg];
+      const hv = held(S.seg), dollyEl = hv || still;
+      vids.forEach((v) => { if (v !== hv && v.style.transform) v.style.transform = ''; });
       if (!have[sg.id] && !S.room && sg.fb) {      // the painted dolly: ease the zoom toward the focus point
         const p = clamp(S.t / dur(S.seg), 0, 1), e = p * p * (3 - 2 * p), [a, b] = sg.fb;
         const z = a[0] + (b[0] - a[0]) * e, u = a[1] + (b[1] - a[1]) * e, v = a[2] + (b[2] - a[2]) * e;
-        still.style.transformOrigin = `${(u * 100).toFixed(1)}% ${(v * 100).toFixed(1)}%`; still.style.transform = `scale(${z.toFixed(4)})`;
+        dollyEl.style.transformOrigin = `${(u * 100).toFixed(1)}% ${(v * 100).toFixed(1)}%`; dollyEl.style.transform = `scale(${z.toFixed(4)})`;
         dollyFx(sg, e);
-      } else { still.style.transform = ''; dollyFx(null, 0); }
-      if (scene) scene.update(S, sg, clamp(S.t / dur(S.seg), 0, 1), still, have[sg.id], W, H);
+      } else { dollyEl.style.transform = ''; dollyFx(null, 0); }
+      if (scene) scene.update(S, sg, clamp(S.t / dur(S.seg), 0, 1), dollyEl, have[sg.id], W, H);
       root.classList.toggle('m-inhall', S.hall);
       drawFx(dt); drawMini();
       const pr = $('m-prompt'), l = !S.panel && !S.map && !S.hall && pendingLock();
