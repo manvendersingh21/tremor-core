@@ -161,7 +161,7 @@ class Judge:
         self.b = TopBackend(JUDGE, {}, api_key=os.environ["GMI_API_KEY"], base_url=GMI, timeout=120)
 
     def complete(self, q: str, n: int) -> str:
-        return self.b.complete(q, n)
+        return self.b.complete(q, max(n, 3000))  # GLM Flash reasons first; 300 tokens ran out before the JSON
 
 
 def judge_dolly(suite: list[dict], data: dict[str, dict[str, dict]]) -> tuple[dict, dict]:
@@ -362,6 +362,22 @@ def report() -> None:
              f"Median latency went from {A['TOP']['med_ms']:.0f} ms to {A['POOL']['med_ms']:.0f} ms and p90 from "
              f"{A['TOP']['p90_ms']:.0f} ms to {A['POOL']['p90_ms']:.0f} ms. "
              f"The cache served {cs['dup_true_hit']} of {cs['dup_b']} real duplicate questions and gave {cs['neg_hit'] + cs['dup_wrong_hit'] + cs['other_hit']} wrong-source hits.")
+    hh = res.get("humaneval/hard", {}).get("POOL", {})
+    L += ["", "Failures and losses, by name:",
+          f"- Quality: POOL lost {len(lost)} graded items that TOP passed (code: humaneval and mbpp via the 30B; one MMLU) "
+          f"and won {len(won)}. On the 15 hard HumanEval items POOL passed {hh.get('passes', 0)}/{hh.get('graded', 0)}. "
+          "The 30B's confidence gate does not catch wrong code: those answers passed the gate and were served.",
+          f"- Latency is much worse: {slower} of {n} items were slower than TOP. The Akash GPU was shared with other chats and "
+          "queued, so the 30B calls took 40 to 140 s each (median 86 s). This number says the shared box was slow, not what a free GPU does; "
+          "it was not re-measured on an idle GPU.",
+          "- Open chat does not stay on the 30B: most Dolly answers had low confidence and climbed to the 763B (54 of 60), so Dolly saved "
+          "almost nothing. The savings come from MMLU, GSM8K and code.",
+          f"- The cache barely mattered here: {cs['dup_true_hit']} hits in {n} items, because this mix has only 24 repeated questions. "
+          "The 1,000-question Quora replay below is the real cache test. Its best safe setting (guard on, 0.97) still missed most paraphrases.",
+          "- Judge: GLM-5.3-Flash scored Dolly. Two Dolly items got no score (judge reply not parseable) and are left out of the pass rate. "
+          "A cheap judge is a weaker grader than tests; the 52/58 versus 52/58 tie on Dolly is not strong evidence.",
+          "- One run, no repeats, 300 items. Differences of a few points (MMLU -2, MBPP -6) are within noise.",
+          "- Kaggle Quora data was not used; GLUE QQP from Hugging Face stands in."]
     L += ["", "## Per 1,000 requests (this mix)", "",
           "This mix is 300 items, not real traffic: 1/5 of it is MMLU, 1/5 Dolly, 1/5 Quora pairs, the rest code and math. "
           "Numbers are the run's totals scaled by 1000/%d." % n, "",
