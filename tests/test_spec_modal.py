@@ -257,3 +257,10 @@ def test_run_plan_end_to_end_on_fakes(monkeypatch, tmp_path):
     (tmp_path / "s.json").write_text(json.dumps(res))
     diffs = m.mismatches(tmp_path, "big_alone", ["s", "d"])
     assert {x["run"] for x in diffs} == {"d"} and all(x["ctx"][: len(PROMPT)] == PROMPT for x in diffs)
+
+
+def test_live_apps_reads_lowercase_app_list_keys():
+    rows = [{"app_id": "ap-1", "description": "chimera-spec-qa", "state": "ephemeral"},
+            {"app_id": "ap-2", "description": "chimera-spec-qa", "state": "stopped"},
+            {"app_id": "ap-3", "description": "chimera-video-wan", "state": "deployed"}]
+    assert [a["app_id"] for a in driver.live_apps("chimera-spec-qa", rows)] == ["ap-1"]

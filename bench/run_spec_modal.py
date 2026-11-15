@@ -48,22 +48,45 @@ def modal_json(*args):
     return json.loads(subprocess.run([MODAL, *args, "--json"], capture_output=True, text=True, check=True).stdout)
 
 
-def ensure_stopped(tag: str) -> int:
-    """Stop every live chimera-spec-modal app by ID, then save `modal app list` as proof. Returns how many are live."""
+def live_apps(app: str, rows=None) -> list[dict]:
+    """Apps with this exact name that are not stopped. `modal app list --json` keys are lower case:
+    app_id, description, state, tasks, created_at, stopped_at."""
+    rows = modal_json("app", "list") if rows is None else rows
+    return [a for a in rows if a.get("description") == app and a.get("state") != "stopped"]
+
+
+def ensure_stopped(tag: str, app: str = APP) -> int:
+    """Stop every live app with this exact name by ID, then save `modal app list` as proof. Returns how many are live.
+    Only our own names are passed in, so the other chats' apps are never touched."""
+    assert app.startswith(("chimera-spec-", APP)), app
     live = []
     for _ in range(12):
-        live = [a for a in modal_json("app", "list") if a.get("Description") == APP and a.get("State") != "stopped"]
+        live = live_apps(app)
         if not live:
             break
         for a in live:
-            if a.get("State") != "stopping":
-                subprocess.run([MODAL, "app", "stop", "-y", a["App ID"]], check=False)
+            if a["state"] != "stopping":
+                subprocess.run([MODAL, "app", "stop", "-y", a["app_id"]], check=False)
         time.sleep(5)
     table = subprocess.run([MODAL, "app", "list"], capture_output=True, text=True).stdout
-    proof = f"{time.strftime('%Y-%m-%d %H:%M:%S %Z')}  live {APP} apps: {len(live)}\n{table}"
+    proof = f"{time.strftime('%Y-%m-%d %H:%M:%S %Z')}  live {app} apps: {len(live)}\n{table}"
     (OUT / f"applist_{tag}.txt").write_text(proof)
     print(proof, flush=True)
     return len(live)
+
+
+def download(keys: str) -> int:
+    """CPU-only weight download (deploy/modal/spec_download.py), then stop-and-prove."""
+    log, code = OUT / "job_download.log", 1
+    try:
+        with log.open("a") as fh:
+            fh.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} download {keys}\n")
+            fh.flush()
+            code = subprocess.run([MODAL, "run", "-q", str(ROOT / "deploy" / "modal" / "spec_download.py"), "--keys", keys],
+                                  stdout=fh, stderr=subprocess.STDOUT, cwd=ROOT).returncode
+    finally:
+        live = ensure_stopped("download", "chimera-spec-download")
+    return code or live
 
 
 def job(spec: str) -> int:
@@ -154,6 +177,8 @@ def main(argv):
               len(ps["warm"]), "warm-up")
     elif cmd == "job":
         sys.exit(job(argv[2]))
+    elif cmd == "download":
+        sys.exit(download(argv[2]))
     elif cmd == "stop":
         sys.exit(ensure_stopped("manual"))
     elif cmd == "report":
