@@ -55,7 +55,12 @@ def main(argv: list[str] | None = None) -> int:
         if name == "list":
             sp.add_argument("--mode")
             sp.add_argument("--limit", type=int, default=50)
+    from apps.replay.cli import add_parser as add_replay
+    add_replay(sub)
     args = ap.parse_args(argv)
+    if args.cmd == "replay":  # builds its own tiers; reads keys from .env
+        from apps.replay.cli import main as replay_main
+        return replay_main(args)
     if args.cmd == "evals":  # needs no config or models
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "bench"))
         import evallog
