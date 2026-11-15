@@ -1,0 +1,4 @@
+run,problems,served,served_exact,served_cosine,hint_only,miss,tests_run,wrong_caught,calls_30b,calls_big,big_usd,big_tokens,solved,median_lookup_ms
+1,80,0,0,0,11,69,0,0,80,12,0.00433,5310,75,298
+2,80,75,75,0,2,3,75,0,5,5,0.00256,2581,75,472
+3,80,24,0,24,40,16,24,0,56,7,0.00647,5770,75,336
