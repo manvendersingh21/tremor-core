@@ -38,13 +38,14 @@ async def run(js, key, browser, shot):
     have = json.loads(have)
     rows = []
     segs = await js('MovieGame.segs.map(s=>s.id)')
+    secs = await js('MovieGame.segs.map(s=>s.secs)')   # walking time of each stretch; probes stay inside one stretch
     for i, sid in enumerate(segs):
         if not have.get(sid):
             continue
         await js(f'MovieGame.jump({i}, false)'); await asyncio.sleep(1.2)
-        await key('w', True); await asyncio.sleep(0.3)
-        w = await js(f'({PROBE})(["W", 2.5])'); await key('w', False); await asyncio.sleep(0.3)
-        await key('s', True); s = await js(f'({PROBE})(["S", 1.5])'); await key('s', False)
+        await key('w', True); await asyncio.sleep(0.05)
+        w = await js(f'({PROBE})(["W", {secs[i] * 0.85:.2f}])'); await key('w', False); await asyncio.sleep(0.3)
+        await key('s', True); s = await js(f'({PROBE})(["S", {secs[i] * 0.6:.2f}])'); await key('s', False)
         # the joint into the next stretch: the last frame of this clip vs the first of the next
         await js(f'MovieGame.jump({i}, true)'); await asyncio.sleep(3.5)
         a = await grab(js, shot)
@@ -57,8 +58,7 @@ async def run(js, key, browser, shot):
         walked = None
         if i + 1 < len(segs):
             await js(f'MovieGame.jump({i}, false)'); await asyncio.sleep(1.5)
-            d = await js(f'document.querySelectorAll("#m-stage > video")[{i % 2}].duration')
-            await key('w', True); await asyncio.sleep(d + 1.0); await key('w', False); await asyncio.sleep(0.6)
+            await key('w', True); await asyncio.sleep(secs[i] * 0.97); await key('w', False); await asyncio.sleep(0.6)
             c = await grab(js, shot)
             if await js(f'MovieGame.state.seg') == i:
                 await key('e', True); await key('e', False)
