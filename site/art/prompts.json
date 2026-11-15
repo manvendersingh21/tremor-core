@@ -174,5 +174,19 @@
   "height": 1024,
   "n": 1,
   "prompt": "Seamless tileable texture, flat front view of a weathered gothic castle outer wall: big dark slate-grey and violet stone blocks, ivy traces, rain streaks, cool moonlight with a faint warm candle tint, evenly lit, no vignette, tiles cleanly."
+ },
+ "drive": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "First-person view standing at the start of a long straight cobblestone drive that leads up a hill to an enormous gothic castle with dozens of spires and warm glowing windows, under a giant glowing orange full moon in a purple and wine-red sky. The path is the clear centre of the picture: wide, moonlit, wet cobbles shining, lined on both sides by tall iron lamp posts with glowing candle lanterns that shrink into the distance, dark twisted trees and low fog beside it, a stone bridge over a misty chasm halfway, and at the far end a tall arched castle door with a glowing gold rim. Bats near the moon. Eye-level camera, strong one-point perspective toward the door. No people, no text, no letters, no logos."
+ },
+ "count-full": {
+  "aspect": "3:4",
+  "width": 768,
+  "height": 1024,
+  "n": 1,
+  "prompt": "Full-length painted figure, head to feet, of an original elegant vampire gentleman, Count Cuspid: young, pale, clean-shaven with no beard and no moustache, slicked-back dark hair, smooth face, glowing amber eyes, high-collar black cape with red satin lining, friendly half smile, tiny fangs, gold ring, one hand raised in welcome, standing on bare ground, three-quarter view facing left, cool moonlight rim from the upper right and warm candle light from the left. Glossy painterly gothic romance style. Plain flat uniform dark grey background for cutout, no floor, no shadow on the background, no props. No text, no letters, no logos."
  }
 }

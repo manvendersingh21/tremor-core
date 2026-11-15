@@ -16,9 +16,9 @@
     // fb: the painted dolly used while a clip is not made yet: [zoom, focus x, focus y] at the start and the end
     { id: 'a-approach', where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
     { id: 'b-gates', where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
-    { id: 'c-drive', where: 'The lantern drive', key: 'art/gate.webp', fb: [[1.5, 0.43, 0.5], [3.4, 0.43, 0.52]], say: 'Follow the lanterns. The door is at the top.' },
-    { id: 'd-door', where: 'The great door', key: 'art/door.webp', fb: [[1, 0.5, 0.55], [2.6, 0.5, 0.6]], lock: 'door', door: true, say: 'The door is open. Step inside.' },
-    { id: 'e-hall', where: 'The Great Hall', key: 'art/hall.webp', fb: [[1, 0.5, 0.6], [1.45, 0.5, 0.62]], say: 'Every door is a room. Pick one with A and D, then press E.' },
+    { id: 'c-drive', where: 'The lantern drive', key: 'art/drive.webp', fb: [[1, 0.5, 0.56], [2.1, 0.5, 0.5]], say: 'Follow the lanterns. The door is at the top.' },
+    { id: 'd-door', where: 'The great door', key: 'art/drive.webp', fb: [[2.1, 0.5, 0.5], [6, 0.5, 0.47]], lock: 'door', door: true, say: 'The door is open. Step inside.' },
+    { id: 'e-hall', where: 'The Great Hall', key: 'art/hall.webp', fb: [[1, 0.5, 0.55], [1.12, 0.5, 0.55]], say: 'Every door is a room. Pick one with A and D, then press E.' },
   ];
   const LOCK_AT = { gates: 'Open the iron gates', door: 'Open the great door' };
 
@@ -45,6 +45,7 @@
       <div class="m-map" id="m-map" hidden><div role="dialog" aria-modal="true" aria-labelledby="m-mtitle"><h2 id="m-mtitle">The way in</h2><ol id="m-mlist"></ol><button class="m-btn" id="m-mclose" type="button">Close (Esc)</button></div></div>
       <div class="m-fade" id="m-fade"></div>`;
     const vids = [$('m-v0'), $('m-v1')], still = $('m-img'), stage = $('m-stage');
+    const scene = window.MovieScene ? window.MovieScene.create(root, { site }) : null;   // the Count in the scene, path lights, hall (scene.js)
     const fx = $('m-fx'), g = fx.getContext('2d'), mini = $('m-mini').getContext('2d');
 
     /* ---------- clips: which exist ---------- */
@@ -122,6 +123,7 @@
       if (S.hall) return; S.hall = true; S.door = 0;
       const box = $('m-doors');
       box.innerHTML = doors.map((d, k) => `<button class="m-door" data-k="${k}" type="button"><span class="m-plaque"><strong>${esc(d.title)}</strong><span>${esc(d.sub || '')}</span></span></button>`).join('');
+      if (scene) scene.layoutDoors(box);
       box.hidden = false; markDoor(); board(true);
       say('Every door is a room. Pick one with A and D, then press E.');
     }
@@ -245,7 +247,7 @@
     /* ---------- live layers: bats, fog, fireflies ---------- */
     let W = 0, H = 0;
     function resize() { const k = Math.min(devicePixelRatio || 1, 1.25); W = fx.width = Math.round(innerWidth * k); H = fx.height = Math.round(innerHeight * k); }
-    addEventListener('resize', resize); resize();
+    addEventListener('resize', () => { resize(); if (scene && S.hall) scene.layoutDoors($('m-doors')); }); resize();
     const bats = Array.from({ length: 120 }, (_, i) => {
       const depth = i < 78 ? 0 : i < 108 ? 1 : 2;
       return { depth, size: [5 + rnd() * 4, 11 + rnd() * 7, 24 + rnd() * 22][depth], r: [0.05 + rnd() * 0.2, 0.1 + rnd() * 0.3, 0.2 + rnd() * 0.45][depth], a: rnd() * 6.3,
@@ -275,8 +277,10 @@
         }
         fogs.forEach((o) => { o.u = (o.u + o.sp * dt + 1.4) % 1.4 - 0.2; const r = W * 0.35 * o.s; g.drawImage(fog, o.u * W - r + lx, o.v * H - r * 0.4, r * 2, r * 0.8); });
       } else if (!S.room) {                          // inside: a few bats under the vault, candle motes
+        if (scene && S.seg === SEGS.length - 1) scene.hall(g, S, W, H, lx);
         for (const b of bats.slice(0, 10)) { const a = b.a + S.time * b.w * 0.6; bat(W * 0.5 + Math.cos(a) * W * 0.3 + lx, H * 0.18 + Math.sin(a) * H * 0.06, b.size * 0.8 * (R / 900), S.time * b.flap + b.ph, 0.7, 0); }
       }
+      if (scene) { const sg = SEGS[S.seg]; scene.path(g, S, sg, clamp(S.t / dur(S.seg), 0, 1), W, H, lx); scene.feet(g, S, W, H); }
       g.globalCompositeOperation = 'lighter';
       flies.forEach((o) => { const x = (o.u + Math.sin(S.time * 0.3 * o.sp + o.ph) * 0.03) * W + lx * 1.2, y = (o.v + Math.cos(S.time * 0.4 * o.sp + o.ph) * 0.02) * H; const a = 0.35 + 0.6 * Math.max(0, Math.sin(S.time * 2 * o.sp + o.ph)), r = 5 * (H / 900); g.globalAlpha = a * (S.room ? 0.4 : 1); g.drawImage(glow, x - r, y - r, r * 2, r * 2); });
       g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
@@ -287,7 +291,7 @@
     const veil = document.createElement('div'); veil.className = 'm-veil'; stage.after(veil);
     function dollyFx(sg, e) {
       if (sg && sg.gate) { veil.style.background = `linear-gradient(90deg, rgba(8,3,12,${(0.9 * (1 - e)).toFixed(3)}) ${(50 - e * 50).toFixed(1)}%, transparent ${(50 - e * 50).toFixed(1)}%, transparent ${(50 + e * 50).toFixed(1)}%, rgba(8,3,12,${(0.9 * (1 - e)).toFixed(3)}) ${(50 + e * 50).toFixed(1)}%)`; veil.style.opacity = 1; }
-      else if (sg && sg.door) { veil.style.background = `radial-gradient(ellipse at 50% 58%, rgba(255,214,140,${(e * 0.95).toFixed(3)}) ${(e * 40).toFixed(1)}%, rgba(255,160,70,${(e * 0.5).toFixed(3)}) ${(e * 70).toFixed(1)}%, transparent 100%)`; veil.style.opacity = 1; }
+      else if (sg && sg.door) { veil.style.background = `radial-gradient(ellipse at 50% 58%, rgba(255,214,140,${(e * e * 0.6).toFixed(3)}) ${(e * 22).toFixed(1)}%, rgba(255,160,70,${(e * e * 0.3).toFixed(3)}) ${(e * 50).toFixed(1)}%, transparent 100%)`; veil.style.opacity = 1; }
       else veil.style.opacity = 0;
     }
 
@@ -328,6 +332,8 @@
         still.style.transformOrigin = `${(u * 100).toFixed(1)}% ${(v * 100).toFixed(1)}%`; still.style.transform = `scale(${z.toFixed(4)})`;
         dollyFx(sg, e);
       } else { still.style.transform = ''; dollyFx(null, 0); }
+      if (scene) scene.update(S, sg, clamp(S.t / dur(S.seg), 0, 1), still, have[sg.id], W, H);
+      root.classList.toggle('m-inhall', S.hall);
       drawFx(dt); drawMini();
       const pr = $('m-prompt'), l = !S.panel && !S.map && !S.hall && pendingLock();
       if (l) { pr.innerHTML = `<kbd>E</kbd> ${LOCK_AT[l]}`; pr.classList.add('on'); }
