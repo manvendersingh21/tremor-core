@@ -1,0 +1,194 @@
+{
+ "mode": "estimate",
+ "label": "PROJECTION, not measured on this log",
+ "rates_source": "measured on a live run of 300 requests",
+ "rates": {
+  "source": "measured on a live run of 300 requests",
+  "p30": {
+   "easy_code": 0.15625,
+   "lookup": 0.05241935483870968,
+   "general": 0.0,
+   "hard": 0.0
+  },
+  "agree": 0.8333333333333334,
+  "wrong_hit": 0.845360824742268,
+  "out_tokens": 515,
+  "wrong_hit_source": "judged 97 near-repeat pairs (exact repeats excluded): 82 not interchangeable; of 13 mostly-ASCII pairs, 1"
+ },
+ "n": 5000,
+ "by_model": {
+  "gpt-5.5-class": {
+   "company_model": "gpt-5.5-class",
+   "company_price_in_out": [
+    5.0,
+    30.0
+   ],
+   "price_source": "bench/cost_case/report.py (GPT-5.5 list price used by the cost-case run)",
+   "n": 5000,
+   "classes": {
+    "lookup": 4262,
+    "easy_code": 343,
+    "general": 245,
+    "hard": 23,
+    "near_repeat": 84,
+    "repeat": 43
+   },
+   "baseline_usd": 77.996315,
+   "ladder_usd": 2.8813856211189517,
+   "baseline_tokens": 2724263,
+   "ladder_top_tokens": 2508526.1491935486,
+   "tokens_saved_pct": 7.9190904404769835,
+   "usd_saved_pct": 96.3057413403198,
+   "per_1k": {
+    "baseline_usd": 15.599263,
+    "ladder_usd": 0.5762771242237904,
+    "baseline_tokens": 544852.6,
+    "ladder_top_tokens": 501705.22983870975
+   },
+   "wrong_cache_hits": 71.01030927835052,
+   "bad_answers": 46.167506720430104,
+   "tokens_estimated": 5000,
+   "monthly": {
+    "volume": 100000,
+    "baseline_usd": 1559.9262999999999,
+    "ladder_usd": 57.627712422379034,
+    "gpu_box_usd": 365.0,
+    "ladder_total_usd": 422.62771242237903,
+    "break_even_volume": 24296
+   }
+  },
+  "claude-opus-class": {
+   "company_model": "claude-opus-class",
+   "company_price_in_out": [
+    4.0,
+    20.0
+   ],
+   "price_source": "https://developer.puter.com/tutorials/claude-api-pricing/ (Claude Opus 5.5, Oct 2026); primary: https://platform.claude.com/docs/en/about-claude/pricing",
+   "n": 5000,
+   "classes": {
+    "lookup": 4262,
+    "easy_code": 343,
+    "general": 245,
+    "hard": 23,
+    "near_repeat": 84,
+    "repeat": 43
+   },
+   "baseline_usd": 52.097052,
+   "ladder_usd": 2.8813856211189517,
+   "baseline_tokens": 2724263,
+   "ladder_top_tokens": 2508526.1491935486,
+   "tokens_saved_pct": 7.9190904404769835,
+   "usd_saved_pct": 94.46919641226734,
+   "per_1k": {
+    "baseline_usd": 10.4194104,
+    "ladder_usd": 0.5762771242237904,
+    "baseline_tokens": 544852.6,
+    "ladder_top_tokens": 501705.22983870975
+   },
+   "wrong_cache_hits": 71.01030927835052,
+   "bad_answers": 46.167506720430104,
+   "tokens_estimated": 5000,
+   "monthly": {
+    "volume": 100000,
+    "baseline_usd": 1041.94104,
+    "ladder_usd": 57.627712422379034,
+    "gpu_box_usd": 365.0,
+    "ladder_total_usd": 422.62771242237903,
+    "break_even_volume": 37081
+   }
+  },
+  "claude-sonnet-class": {
+   "company_model": "claude-sonnet-class",
+   "company_price_in_out": [
+    2.0,
+    10.0
+   ],
+   "price_source": "https://developer.puter.com/tutorials/claude-api-pricing/ (Claude Sonnet 5.5, Oct 2026); primary: https://platform.claude.com/docs/en/about-claude/pricing",
+   "n": 5000,
+   "classes": {
+    "lookup": 4262,
+    "easy_code": 343,
+    "general": 245,
+    "hard": 23,
+    "near_repeat": 84,
+    "repeat": 43
+   },
+   "baseline_usd": 26.048526,
+   "ladder_usd": 2.8813856211189517,
+   "baseline_tokens": 2724263,
+   "ladder_top_tokens": 2508526.1491935486,
+   "tokens_saved_pct": 7.9190904404769835,
+   "usd_saved_pct": 88.93839282453467,
+   "per_1k": {
+    "baseline_usd": 5.2097052,
+    "ladder_usd": 0.5762771242237904,
+    "baseline_tokens": 544852.6,
+    "ladder_top_tokens": 501705.22983870975
+   },
+   "wrong_cache_hits": 71.01030927835052,
+   "bad_answers": 46.167506720430104,
+   "tokens_estimated": 5000,
+   "monthly": {
+    "volume": 100000,
+    "baseline_usd": 520.97052,
+    "ladder_usd": 57.627712422379034,
+    "gpu_box_usd": 365.0,
+    "ladder_total_usd": 422.62771242237903,
+    "break_even_volume": 78775
+   }
+  },
+  "grok-class": {
+   "company_model": "grok-class",
+   "company_price_in_out": [
+    2.0,
+    6.0
+   ],
+   "price_source": "bench/cost_case/report.py (Grok-4.5 list price)",
+   "n": 5000,
+   "classes": {
+    "lookup": 4262,
+    "easy_code": 343,
+    "general": 245,
+    "hard": 23,
+    "near_repeat": 84,
+    "repeat": 43
+   },
+   "baseline_usd": 15.748526,
+   "ladder_usd": 2.8813856211189517,
+   "baseline_tokens": 2724263,
+   "ladder_top_tokens": 2508526.1491935486,
+   "tokens_saved_pct": 7.9190904404769835,
+   "usd_saved_pct": 81.70377582562995,
+   "per_1k": {
+    "baseline_usd": 3.1497052,
+    "ladder_usd": 0.5762771242237904,
+    "baseline_tokens": 544852.6,
+    "ladder_top_tokens": 501705.22983870975
+   },
+   "wrong_cache_hits": 71.01030927835052,
+   "bad_answers": 46.167506720430104,
+   "tokens_estimated": 5000,
+   "monthly": {
+    "volume": 100000,
+    "baseline_usd": 314.97052,
+    "ladder_usd": 57.627712422379034,
+    "gpu_box_usd": 365.0,
+    "ladder_total_usd": 422.62771242237903,
+    "break_even_volume": 141834
+   }
+  }
+ },
+ "ladder_price": {
+  "model": "DeepSeek-V4.1-Flash 763B",
+  "in_out_per_m": [
+   0.29,
+   1.2
+  ],
+  "source": "bench/results_ladder.md (Crusoe DeepSeek-V4.1-Flash 763B list; cached-input discount ignored)"
+ },
+ "gpu_box": {
+  "usd_per_hour": 0.5,
+  "source": "bench/cost_case/report.py V100_HR (an assumption, not an invoice)"
+ },
+ "skipped_lines": 0
+}
