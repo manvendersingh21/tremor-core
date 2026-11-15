@@ -99,6 +99,8 @@ def generate(name, spec, plan):
         first = last_frame(prev, LOG / f"{name}-first.png")
     else:
         first = ROOT / spec["first"]
+    if os.environ.get("VIDEO_PROVIDER") == "modal":
+        return generate_modal(name, spec, first, out)
     payload = {"prompt": spec["prompt"], "first_frame": data_url(first), "duration": spec.get("seconds", 5),
                "resolution": spec.get("resolution", "720p"), "ratio": "16:9", "generate_audio": False, "watermark": False}
     if spec.get("last"):
@@ -125,6 +127,27 @@ def generate(name, spec, plan):
     log({"ts": time.strftime("%F %T"), "clip": name, "model": model, "seconds": secs, "resolution": res,
          "usd": round(secs * PRICE.get(res, 0), 3), "wall_s": round(time.time() - t0), "bytes": out.stat().st_size})
     print(name, "done", out.stat().st_size // 1024, "KB")
+    return out
+
+
+def generate_modal(name, spec, first, out):
+    """Open model on Modal (deploy/modal/wan_video.py). Same output place and encode as the GMI path."""
+    import modal
+    t0 = time.time()
+    buf = io.BytesIO(); Image.open(first).convert("RGB").save(buf, "PNG")
+    prompt = spec["prompt"] + " Smooth steady forward camera motion, painterly gothic style, no warping."
+    raw = modal.Cls.from_name("chimera-video-wan", "Wan")().clip.remote(
+        buf.getvalue(), prompt, steps=int(os.environ.get("VIDEO_STEPS", 40)))
+    LOG.mkdir(parents=True, exist_ok=True)
+    tmp = LOG / f"{name}.raw.mp4"; tmp.write_bytes(raw)
+    walk = spec.get("resolution") == "1080p"
+    scale = "scale=1920:1080:flags=lanczos" if walk else "scale=1280:-2"
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(tmp), "-an", "-vf", scale, "-c:v", "libx264", "-preset", "slow",
+                    "-crf", "22", "-g", "6", "-bf", "0", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)], check=True)
+    wall = round(time.time() - t0)
+    log({"ts": time.strftime("%F %T"), "clip": name, "model": "Wan2.1-I2V-14B-720P", "seconds": 5.06, "resolution": "720p" + ("->1080p" if walk else ""),
+         "usd": round(wall / 3600 * 4.54, 3), "wall_s": wall, "bytes": out.stat().st_size})  # H200 list price ~$4.54/h
+    print(name, "done", out.stat().st_size // 1024, "KB", wall, "s")
     return out
 
 
