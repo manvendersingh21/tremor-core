@@ -1,0 +1,8 @@
+**Verdict (single run, 60 prompts per pass).**
+
+- **The shared cache works.** On the second pass, 57 of 60 prompts were answered from Supabase. That pass used 97.5% fewer 763B tokens and 98.2% fewer 763B dollars than BASE. Lookups took 122 ms at p50 and 145 ms at p90, inside the 300 ms budget. There were 0 false hits in 50 graded cache answers. Accuracy held: 46/48 against 45/48 for BASE.
+- **Failure: the cold path barely beats the 763B alone.** COLD saved only 12.2% of 763B tokens and 13.0% of dollars, while p50 rose from 896 ms to 2,340 ms and p90 from 3.0 s to 91.6 s. The GPU 30B was the cause. The V100 box is shared and busy, and one short answer took 25 to 48 s even when called directly. In the logged telemetry, 13 of 23 calls to the 30B hit the 90 s timeout and climbed to the 763B. The 30B answered only 12 of 60 prompts. Until that box is fast, the 30B tier adds wait time and saves little.
+- **Failure: the gate test is inconclusive.** 0.85 and 0.95 gave the same accuracy (40/43) and nearly the same cost ($0.01095 vs $0.01113). The 30B timeouts, not the gate, decided most climbs, so this run cannot measure the gate. The default stays at 0.95, based on the earlier 180-prompt measurement (70.0% -> 82.8%, `docs/research.md` 4.2).
+- **The guard is worth keeping on.** On 500 labeled Quora pairs at 0.97 it cut wrong hits 2 -> 1 and right hits 26 -> 22. At 0.94 without the guard there were 8 wrong hits, which confirms 0.97.
+- **MBPP is the weak spot on every path (2-3/5).** The two COLD answers that failed their tests were not cached, which is the intended behaviour, so WARM re-asked them.
+- **Not measured here:** N+1 memory (no teacher pairs were stored in this run: `teacher_pairs` rows = 0), and the Modal H200 tier (left off).
