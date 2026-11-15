@@ -1,4 +1,5 @@
 """N+1 memory. See docs/memory.md."""
+from .bank import Bank, InMemoryBankStore, Lookup, PgBankStore
 from .extract import heuristic_extract, llm_extractor
 from .graph import GraphStore, InMemoryStore, PgGraphStore
 from .memory import Example, Memory, MemoryContext
@@ -10,5 +11,5 @@ def build(embedder, tenant: str = "default", extractor=None, **kw) -> Memory:
     return Memory(default_store(), embedder, tenant, **({"extractor": extractor} if extractor else {}), **kw)
 
 
-__all__ = ["build", "Memory", "MemoryContext", "Example", "GraphStore", "InMemoryStore", "PgGraphStore", "Neo4jGraphStore",
+__all__ = ["Bank", "Lookup", "InMemoryBankStore", "PgBankStore", "build", "Memory", "MemoryContext", "Example", "GraphStore", "InMemoryStore", "PgGraphStore", "Neo4jGraphStore",
            "default_store", "scrub", "llm_extractor", "heuristic_extract"]

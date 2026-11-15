@@ -78,5 +78,35 @@ on every node and edge, and every query filters on it.
 
 Concept extraction on `store`: the 30B itself (`llm_extractor`), falling back to a code-pattern heuristic. No GMI call.
 
-Live check (opt-in test, needs the Aura variables): `pytest tests/test_memory.py -k live` writes and reads a problem
-in a test tenant, checks another tenant sees nothing, then purges it.
+Tests use fakes only (`tests/test_memory.py`); the Aura round trip (write, read, purge in a test tenant) was checked by hand once.
+
+## Solved-problem bank (`memory/bank.py`, `deploy/sql/006_bank.sql`)
+
+Verified problem/solution pairs, looked up before any model call. Supabase `solved_bank` holds the text, the 384-d
+embedding (pgvector, cosine), the answer and the tests it passed. Each banked pair is also written through
+`Memory.store`, so the same problem and solution land in the Aura graph and in `teacher_pairs`.
+
+```
+problem -> bank.lookup(problem, tests) -> served   exact hash or cosine >= 0.90, answer passed the tests just now
+                                       -> hint     cosine 0.70-0.90, or a close one whose tests failed: give it to the 30B
+                                       -> miss     go down the ladder (30B, then 763B)
+passing answer from the ladder -> bank.add(problem, answer, tests, source, model, tier)
+```
+
+Call it from `chimera code` (or any caller that has tests):
+
+```python
+from chimera_core.memory import Bank, PgBankStore
+bank = Bank(PgBankStore(os.environ["CHIMERA_DB_URL"]), embedder, tenant, verify)   # verify(answer, tests) -> bool
+hit = bank.lookup(problem, tests)          # tests: a JSON-able dict, the new problem's own tests
+if hit.kind == "served":  answer = hit.answer
+else:                     prompt = hit.hint_text() + problem   # empty on a miss
+...                                          # ladder call, then run the tests
+bank.add(problem, answer, tests, source="humaneval", model="763b", tier="top")   # refused unless the tests pass again
+```
+
+Rules: a cosine match with no tests to run is never served, only offered as a hint. An exact match without new tests
+re-runs the tests stored with it. `add` re-runs the tests itself and ignores the caller's flag. Problem, answer and
+tests pass through `scrub()` before storing. Everything is per tenant (RLS plus a tenant filter) and `bank.purge()`
+removes a tenant. `lookup` and `add` never raise: a store failure is a miss or a skipped write. Pass `memory=Memory(...)`
+to link the pairs into the graph. Numbers: `bench/results_bank.md`. Test: `tests/test_bank.py`.
