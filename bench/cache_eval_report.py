@@ -14,7 +14,7 @@ def section() -> list[str]:
         return []
     d = json.loads(p.read_text())
     rows = d["rows"]
-    src = json.loads(next(open(ROOT / "bench/datasets/cache_eval.jsonl")))["src"]
+    src = json.loads(next(open(ROOT / "bench/datasets/cache_eval.jsonl"))).get("src", "hf")  # build_cache_eval.py (HF path) writes no src
     n, poss, ans = rows[0]["queries"], rows[0]["possible_hits"], d["answer_tokens"]
     k = 1000 / n
     L = ["## Token savings: what this means for users", "",
