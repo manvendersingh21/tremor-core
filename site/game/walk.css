@@ -1,9 +1,9 @@
 /* The walk-in movie. The video frame is a little wider than the screen, so turning your head pans it. */
 .m-root { position: fixed; inset: 0; z-index: 50; background: #0b0510; color: #f1e6da; overflow: hidden; font-family: "Cormorant Garamond", Georgia, serif; }
 .m-stage { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
-.m-stage video, .m-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s; }
-.m-stage video.on, .m-stage img.on { opacity: 1; }
-.m-stage img { transform-origin: 50% 58%; transition: opacity .25s, transform .2s linear; }
+.m-stage > video, .m-stage > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s; }
+.m-stage > video.on, .m-stage > img.on { opacity: 1; }
+.m-stage > img { transform-origin: 50% 58%; transition: opacity .25s, transform .2s linear; }
 #m-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .m-bar { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: .6rem; align-items: center; padding: .7rem 1rem; background: linear-gradient(#0b0510b0, #0b051000); }
 #m-where { font: 700 1.05rem Cinzel, Georgia, serif; letter-spacing: .08em; color: #f4d58d; text-shadow: 0 1px 8px #000; margin-right: auto; }
@@ -69,3 +69,53 @@
 .m-board dl { margin: 0; } .m-board dt { color: #cdb9d6; font-size: .72rem; } .m-board dd { margin: 0 0 .25rem; font: 600 1.15rem Georgia, serif; color: #ffb44a; }
 .m-board p { margin: .3rem 0 0; font-size: .72rem; color: #cdb9d6; } .m-board a { color: #ffd27a; }
 @media (max-width: 600px) { .m-board { top: 12.6rem; right: .6rem; width: 46vw; font-size: .7rem; padding: .4rem .5rem; } .m-board dd { font-size: .95rem; } .m-board p { display: none; } }
+
+/* the Count in the scene (scene.js): a cut-out standing on the painted ground, lit like the painting */
+.m-anchor { position: absolute; inset: 0; pointer-events: none; transform-origin: 50% 50%; }
+.m-count { position: absolute; aspect-ratio: 449 / 959; transform: translate(-50%, -100%); opacity: 0; pointer-events: none; }
+.m-count img { display: block; height: 100%; width: 100%; object-fit: contain; transform-origin: 50% 100%;
+  filter: brightness(.95) saturate(.9) contrast(1.04) drop-shadow(-1px 0 2px rgba(255, 176, 100, .7)) drop-shadow(2px -1px 3px rgba(205, 180, 255, .75)) drop-shadow(0 0 14px rgba(150, 120, 210, .35));
+  animation: m-breathe 4.6s ease-in-out infinite alternate; }
+.m-count.flip img { transform: scaleX(-1); }
+.m-count.half { aspect-ratio: 3 / 4; }
+.m-count.half img { -webkit-mask-image: linear-gradient(#000 62%, transparent 96%); mask-image: linear-gradient(#000 62%, transparent 96%); }
+.m-count[data-where="e-hall"] img { filter: brightness(.86) saturate(.9) drop-shadow(-2px 0 6px rgba(255, 190, 110, .5)) drop-shadow(2px -1px 5px rgba(200, 170, 255, .3)); }
+.m-shadow { position: absolute; left: 8%; right: 8%; bottom: -3%; height: 7%; border-radius: 50%; background: radial-gradient(closest-side, #05020acc, #05020a00); }
+@keyframes m-breathe { from { scale: 1 1; } to { scale: 1.004 1.012; } }
+/* his bubble hangs by his head */
+.m-say { transition: left .25s ease-out, top .25s ease-out; }
+.m-say.m-attached { max-width: 300px; z-index: 2; }
+.m-say.m-attached::before { content: ""; position: absolute; left: -10px; top: 62%; border: 10px solid transparent; border-right-color: #f3e9dcf0; border-left: 0; }
+.m-say.m-attached.m-tail-r::before { left: auto; right: -10px; border-right: 0; border-left: 10px solid #f3e9dcf0; }
+/* the Great Hall feels big: a slow drift of the painting and everything standing in it */
+.m-root.m-inhall #m-img, .m-root.m-inhall .m-anchor { animation: m-hall 28s ease-in-out infinite alternate; }
+@keyframes m-hall { from { scale: 1; translate: 0 0; } to { scale: 1.04; translate: 0 -0.6%; } }
+/* the doors along both walls, in perspective (wide screens) */
+.m-doors.m-persp { left: 0; top: 0; right: 0; bottom: 0; transform: none; display: block; pointer-events: none; }
+.m-doors.m-persp .m-door { position: absolute; width: auto; aspect-ratio: 3 / 4.6; pointer-events: auto; transform-origin: 50% 100%;
+  transform: translateX(-50%) perspective(700px) rotateY(var(--ry)); }
+.m-doors.m-persp .m-door.sel, .m-doors.m-persp .m-door:hover, .m-doors.m-persp .m-door:focus-visible { transform: translateX(-50%) perspective(700px) rotateY(calc(var(--ry) * .55)) scale(1.07); z-index: 200 !important; }
+.m-doors.m-persp .m-plaque { max-width: 14vw; padding: .15rem .4rem; }
+.m-doors.m-persp .m-plaque strong { font-size: max(.55rem, calc(.74rem * var(--fs))); }
+.m-doors.m-persp .m-door.sel .m-plaque span { max-width: 16vw; }
+/* a phone: a two-row arcade low in the hall, every sign readable */
+.m-doors.m-arcade { left: 12%; right: 12%; bottom: 22%; transform: none; flex-wrap: wrap; justify-content: center; gap: 2.4vh 3%; pointer-events: auto; }
+.m-doors.m-arcade .m-door { width: 16%; }
+.m-doors.m-arcade .m-plaque { max-width: 24vw; padding: .1rem .3rem; }
+.m-doors.m-arcade .m-plaque strong { font-size: .55rem; }
+.m-doors.m-arcade .m-door.sel .m-plaque span { display: none; }
+.m-doors.m-persp .m-door.m-far:not(.sel) .m-plaque { opacity: 0; }
+@media (max-width: 600px) {
+  #m-mini { width: 126px; height: 91px; }
+  .m-doors.m-arcade { left: 6%; right: 6%; bottom: 23%; gap: 3.2vh 4%; }
+  .m-doors.m-arcade .m-door { width: 15%; }
+  .m-doors.m-arcade .m-door:not(.sel) .m-plaque { opacity: 0; }
+  .m-doors.m-arcade .m-door.sel .m-plaque { max-width: none; white-space: nowrap; z-index: 3; }
+  .m-doors.m-arcade .m-door.sel .m-plaque strong { font-size: .72rem; }
+}
+@media (max-width: 600px) {
+  .m-board { top: 11.2rem; left: .6rem; right: .6rem; width: auto; }
+  .m-board dl { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-flow: column; grid-template-rows: auto auto; column-gap: .5rem; }
+  .m-board dt { font-size: .6rem; line-height: 1.15; } .m-board dd { font-size: .85rem; margin: 0; }
+  .m-board h3 { font-size: .65rem; margin-bottom: .15rem; }
+}
