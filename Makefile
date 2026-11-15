@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 HUD = apps/phantom-phone/hud-web
 
-.PHONY: setup test demo web bench serve-local site loop modal-up modal-down web-keep
+.PHONY: setup test demo web bench serve-local site loop modal-up modal-down modal-qwen-up modal-qwen-down web-keep
 
 setup:
 	python3 -m venv .venv
@@ -37,4 +37,11 @@ modal-up:  # deploy the H200 tier (scales to zero by itself). First call after t
 
 modal-down:  # stop the app so nothing can start again, then show what is left
 	.venv/bin/modal app stop -y chimera-gpu-large
+	.venv/bin/modal app list
+
+modal-qwen-up:  # deploy the Qwen3-30B-A3B H200 app (cost case, bench/results_cost_case_h200.md)
+	.venv/bin/modal deploy deploy/modal/vllm_qwen30b.py
+
+modal-qwen-down:
+	.venv/bin/modal app stop -y chimera-qwen30b
 	.venv/bin/modal app list

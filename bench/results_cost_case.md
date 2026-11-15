@@ -166,3 +166,7 @@ for t in gpu top; do   # mac only for the reference row .venv/bin/python bench/c
 ```
 
 API spend for this run at list price: $0.3914 (763B raw run + router run + premium subsets). Warm-up and retried calls excluded.
+
+## H200 follow-up
+
+The V100 30B rows above are single-stream. The same model family on a Modal H200 with vLLM batching: 90% pass, 0.6 to 1.3 s per call, $0.07 to $1.09 per 1,000 calls depending on concurrency. See `bench/results_cost_case_h200.md`.

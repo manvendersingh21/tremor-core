@@ -331,6 +331,8 @@ def main() -> None:
     api += sum(usd(t, r) for t in sub for r in RAW[t].values())
     api += sum(r["per_tier"].get("cloud-deepseek", {}).get("dollars", 0) for r in r_all)
     L += [f"API spend for this run at list price: {money(api)} (763B raw run + router run + premium subsets). Warm-up and retried calls excluded.", ""]
+    L += ["## H200 follow-up", "", "The V100 30B rows above are single-stream. The same model family on a Modal H200 with vLLM batching: 90% pass, "
+          "0.6 to 1.3 s per call, $0.07 to $1.09 per 1,000 calls depending on concurrency. See `bench/results_cost_case_h200.md`.", ""]
     (ROOT / "bench/results_cost_case.md").write_text("\n".join(L))
     with open(ROOT / "bench/results_cost_case.csv", "w", newline="") as fh:
         w = csv.writer(fh)
