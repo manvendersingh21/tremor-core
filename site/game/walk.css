@@ -62,3 +62,10 @@
 .m-joy i { position: absolute; left: 36px; top: 36px; width: 48px; height: 48px; border-radius: 50%; background: #e9c46acc; }
 .m-act { position: absolute; right: 1rem; bottom: 9.5rem; width: 64px; height: 64px; border-radius: 50%; background: #8a1a3acc; color: #fff; font: 700 1.2rem Inter, sans-serif; border: 2px solid #e9c46a; display: none; }
 @media (pointer: coarse) { .m-joy, .m-act { display: block; } .m-help { display: none; } }
+
+.m-board { position: absolute; right: 1.2rem; top: 4.2rem; width: min(300px, 44vw); background: #1a0f1fe6; color: #f3e9dc; border: 2px solid #c8962e; border-radius: 12px; padding: .6rem .8rem; box-shadow: 0 8px 30px #000a; font: 500 .8rem/1.35 Inter, sans-serif; }
+.m-board[hidden] { display: none; }
+.m-board h3 { margin: 0 0 .3rem; font: 700 .8rem Cinzel, serif; letter-spacing: .12em; color: #ffd27a; }
+.m-board dl { margin: 0; } .m-board dt { color: #cdb9d6; font-size: .72rem; } .m-board dd { margin: 0 0 .25rem; font: 600 1.15rem Georgia, serif; color: #ffb44a; }
+.m-board p { margin: .3rem 0 0; font-size: .72rem; color: #cdb9d6; } .m-board a { color: #ffd27a; }
+@media (max-width: 600px) { .m-board { top: 3.4rem; width: 40vw; font-size: .7rem; padding: .4rem .5rem; } .m-board dd { font-size: .95rem; } .m-board p { display: none; } }

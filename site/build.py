@@ -1,6 +1,6 @@
 """Write the no-JS fallback (doors and rooms) into index.html from rooms.js.
 
-Usage: python3 site/build.py          rewrite index.html
+Usage: python3 site/build.py          rewrite index.html and results.json (numbers from bench/*.md)
        python3 site/build.py --check  exit 1 if index.html is out of date
 """
 import json
@@ -54,7 +54,12 @@ def build():
 
 
 if __name__ == "__main__":
+    sys.path.insert(0, str(HERE))
+    import results
     out, path = build(), HERE / "index.html"
+    res, rpath = results.build(), HERE / "results.json"   # numbers read from bench/*.md, never typed
     if "--check" in sys.argv:
-        sys.exit(0 if out == path.read_text(encoding="utf-8") else 1)
+        ok = out == path.read_text(encoding="utf-8") and rpath.is_file() and res == rpath.read_text(encoding="utf-8")
+        sys.exit(0 if ok else 1)
     path.write_text(out, encoding="utf-8")
+    rpath.write_text(res, encoding="utf-8")
