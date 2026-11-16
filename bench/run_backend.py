@@ -36,7 +36,8 @@ from chimera_core.cache.semantic_cache import OnnxMiniLMEmbedder, SemanticCache 
 from chimera_core.config import CacheCfg, ChimeraConfig, Thresholds, build_router, load_env  # noqa: E402
 from chimera_core.tiers import TierCfg  # noqa: E402
 
-STORE = ROOT / "bench/.scratch/backend"  # in the repo, git-ignored: $KIROCREW_SCRATCH is lost on a gateway restart
+# in the repo, git-ignored: $KIROCREW_SCRATCH is lost on a gateway restart. BENCH_STORE: another run's folder
+STORE = pathlib.Path(os.environ.get("BENCH_STORE") or ROOT / "bench/.scratch/backend")
 STORE.mkdir(parents=True, exist_ok=True)
 ROWS = STORE / "backend_rows.jsonl"
 PAIRS = STORE / "backend_pairs.json"
