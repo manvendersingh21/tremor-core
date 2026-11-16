@@ -1,5 +1,7 @@
 # N+1 memory: does the 30B get better when the big model's solved problems are remembered?
 
+> **Correction, 2026-11-16 ([`results_akash_tuning.md`](results_akash_tuning.md)).** Earlier reports, this one included, said the Akash V100 was shared and busy, and blamed it for the slow 30B calls. That was wrong. The GPU was ours, and no one else used it. The 30B was slow because the box gives our container 4 CPUs, while Ollama ran the model with 149 threads, so it decoded 20 tokens/s instead of 98. In some runs our own jobs on the same box (other chats, the speculative-decoding verifier) may also have queued calls or held GPU memory; that part is not proven. Tuned (`num_thread = 4`, then our own Ollama with flash attention, q8 KV cache, 4 slots, `keep_alive = -1`), the 30B passes 270/301 cost-case tasks (was 269/301) at a median 2.7 s per call (was 78.0 s) and $0.18 to $0.52 per 1,000 calls (was $11.02). The numbers below are kept as measured, before tuning.
+
 Single run, temperature 0, one try per problem (pass@1). All code was graded by running its unit tests in the sandbox (`bench/datasets/grade.py`). Test set: 80 coding problems. Memory is filled from a separate train stream of 260 problems; no problem is in both (checked by prompt text). Near-duplicate families (same concept, different problem) can sit on both sides on purpose.
 
 ## Plain words

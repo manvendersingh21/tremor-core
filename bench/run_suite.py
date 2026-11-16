@@ -303,6 +303,7 @@ def report() -> None:
     bad_hits = cs["neg_hit"] + cs["dup_wrong_hit"] + cs["other_hit"]
 
     L = ["# Real-dataset suite: TOP-only vs POOL", "",
+         (ROOT / "bench/akash_correction_note.md").read_text().strip(), "",
          "Single run, no repeats. Items: %d of %d in suite.jsonl. Quality is graded by tests, exact match or choice letter; "
          "Dolly rows (open QA) are scored 1-5 by the cheap GMI model `%s` (blind, both answers in one call), pass = score >= 4. Pair rows are "
          "not graded for quality; they feed the cache table." % (len(done), len(suite), JUDGE), "",

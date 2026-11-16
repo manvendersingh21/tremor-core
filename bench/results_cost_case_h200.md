@@ -1,5 +1,7 @@
 # Cost case on a fast GPU: Qwen3-30B on a Modal H200 (vLLM, batched)
 
+> **Correction, 2026-11-16 ([`results_akash_tuning.md`](results_akash_tuning.md)).** Earlier reports, this one included, said the Akash V100 was shared and busy, and blamed it for the slow 30B calls. That was wrong. The GPU was ours, and no one else used it. The 30B was slow because the box gives our container 4 CPUs, while Ollama ran the model with 149 threads, so it decoded 20 tokens/s instead of 98. In some runs our own jobs on the same box (other chats, the speculative-decoding verifier) may also have queued calls or held GPU memory; that part is not proven. Tuned (`num_thread = 4`, then our own Ollama with flash attention, q8 KV cache, 4 slots, `keep_alive = -1`), the 30B passes 270/301 cost-case tasks (was 269/301) at a median 2.7 s per call (was 78.0 s) and $0.18 to $0.52 per 1,000 calls (was $11.02). The numbers below are kept as measured, before tuning.
+
 Question: the V100 run (`bench/results_cost_case.md`) found the 30B nearly as good as the 763B but about 70x the cost, because one V100 serves one request at a time (~78 s per call). Does a GPU that serves many requests at once change that?
 
 Answer: yes for speed and cost per call. On the H200 the 30B costs $0.07 to $0.10 per 1,000 calls when the GPU is kept full, less than the 763B's $0.158. The quality gap is unchanged. The win exists only while the GPU is busy; an idle H200 costs $108.96 a day.
