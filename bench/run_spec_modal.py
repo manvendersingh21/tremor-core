@@ -235,7 +235,8 @@ def job_tables(job: str, runs: dict) -> str:
     cfg = JOBS[job]
     big = cfg["big"]
     eos = family(cfg["tok"])["eos"]
-    names = [p["name"] for p in cfg["plans"] if p["mode"] in ("big_alone", "draft_alone", "spec")]
+    plans = cfg["plans"] + [p for j in cfg.get("report_with", []) for p in JOBS[j]["plans"]]  # follow-up jobs
+    names = [p["name"] for p in plans if p["mode"] in ("big_alone", "draft_alone", "spec")]
     tag = names[0].split("_")[0]
     base = runs.get(f"{tag}_big_alone")
     bs = summarize(base) if base else None

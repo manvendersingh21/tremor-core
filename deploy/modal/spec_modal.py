@@ -468,7 +468,7 @@ def main():
     print("big up:", json.dumps(meta["big_health"]), flush=True)
     keep = Pinger(lambda: httpx.get(url + "/health", timeout=60, follow_redirects=True), 30)
     keep.start()
-    failures, required, current, failed_modes = 0, "plain", "plain", set()
+    failures, required, current, failed_modes, failed_drafters = 0, "plain", "plain", set(), set()
     meta["switches"] = []
 
     def save_meta():
@@ -485,6 +485,9 @@ def main():
                 continue
             if required in failed_modes:
                 print(f"skip ({required} did not start):", plan["name"], flush=True)
+                continue
+            if plan.get("drafter") in failed_drafters:  # one failed boot is enough: do not pay for it again
+                print(f"skip (drafter {plan['drafter']} did not start):", plan["name"], flush=True)
                 continue
             block = []  # the plans still to run in this mode block, for pre-warming the next drafter
             for p in plans[i + 1:]:
@@ -519,7 +522,14 @@ def main():
                     if nxt and os.environ.get("SPEC_PREWARM", "1") == "1":
                         warm_drafter(nxt)  # the next drafter boots while this plan runs (one more L40S for a while)
                     d = Draft(drafter=plan["drafter"])
-                    meta["drafters"].setdefault(plan["drafter"], {"first_use": time.time(), **d.info.remote()})
+                    if plan["drafter"] not in meta["drafters"]:
+                        try:
+                            meta["drafters"][plan["drafter"]] = {"first_use": time.time(), **d.info.remote()}
+                        except Exception:
+                            failed_drafters.add(plan["drafter"])
+                            if plan["drafter"] in warmers:
+                                warmers.pop(plan["drafter"]).stop.set()
+                            raise
                     res = d.run.remote(prompts, warm, plan, url)
                     meta["drafters"][plan["drafter"]]["last_use"] = time.time()
                     later = [p.get("drafter") for p in plans[i + 1:] if not (out / f"{p['name']}.json").exists()]

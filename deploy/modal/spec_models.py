@@ -102,7 +102,7 @@ def phase_a(t, mid, small, chain, same, extra=()):
 
 
 def resume_235(t):
-    """235B runs in account C, in order of value: baseline, the runs account B never reached, then repeats."""
+    """235B runs in account C that account B never reached, in order of value; ends in the draft-model mode."""
     new = [P(f"{t}_big_alone", None, "big_alone"), P(f"{t}_rescore", None, "rescore", base=f"{t}_big_alone"),
            P(f"{t}_chain_alone", "q3_30b+4b", "draft_alone"), P(f"{t}_chain_spec_k4", "q3_30b+4b", "spec", k=4),
            P(f"{t}_chain_specplus", "q3_30b+4b", "spec", **PLUS),
@@ -111,15 +111,25 @@ def resume_235(t):
            P(f"{t}_big_alone_rep", None, "big_alone")]
     first = [p["name"] for p in new if p["mode"] in ("spec", "big_alone") and p["name"] != f"{t}_big_alone"]
     new.append(P(f"{t}_margins", None, "margins", base=f"{t}_big_alone", runs=first))
-    same = [SW("draft_q3_4b", t), P(f"{t}_big_draft_q3_4b", None, "big_alone")]
-    more = [SW("eagle_q3_235b", t), P(f"{t}_big_eagle_q3_235b", None, "big_alone"),
-            SW("ngram", t), P(f"{t}_big_ngram", None, "big_alone"), SW("plain", t),
+    return new + [SW("draft_q3_4b", t), P(f"{t}_big_draft_q3_4b", None, "big_alone")]
+
+
+def repeat_235(t):
+    """Only if credits allow, after the 480B and 397B jobs: account B's runs again in account C, against the same
+    baseline (a third big-alone run checks the box decodes the same as in qb_235b)."""
+    more = [P(f"{t}_big_alone_rep2", None, "big_alone"),
             P(f"{t}_spec_k4", "q3_30b", "spec", k=4), P(f"{t}_specplus", "q3_30b", "spec", **PLUS),
             P(f"{t}_small_specplus", "q3_4b", "spec", **PLUS), P(f"{t}_spec_k8", "q3_30b", "spec", k=8),
             P(f"{t}_mideagle_alone", "q3_30b+eagle", "draft_alone"),
-            P(f"{t}_mideagle_specplus", "q3_30b+eagle", "spec", **PLUS)]
-    rest = [p["name"] for p in same + more if p["mode"] in ("spec", "big_alone")]
-    return new + same + more + [P(f"{t}_margins_more", None, "margins", base=f"{t}_big_alone", runs=rest)]
+            P(f"{t}_mideagle_specplus", "q3_30b+eagle", "spec", **PLUS),
+            P(f"{t}_margins_more", None, "margins", base=f"{t}_big_alone",
+              runs=[f"{t}_big_alone_rep2", f"{t}_big_draft_q3_4b", f"{t}_spec_k4", f"{t}_specplus", f"{t}_small_specplus",
+                    f"{t}_spec_k8", f"{t}_mideagle_specplus"]),
+            SW("eagle_q3_235b", t), P(f"{t}_big_eagle_q3_235b", None, "big_alone"),
+            SW("ngram", t), P(f"{t}_big_ngram", None, "big_alone"), SW("plain", t),
+            P(f"{t}_margins_same", None, "margins", base=f"{t}_big_alone",
+              runs=[f"{t}_big_eagle_q3_235b", f"{t}_big_ngram"])]
+    return more
 
 
 JOBS = {
@@ -144,15 +154,40 @@ JOBS = {
     # measured there). Own baseline first (every comparison stays inside one account and one box), then the runs
     # account B never reached, then (time allows) repeats of what account B measured. Same GPU type first (4 H100).
     "qb_235b": {"app": "chimera-spec-qb-235b", "big": "q3_235b", "gpu": "H100:4", "gpu_fallback": ["H200:2"],
-                "tok": "q3_235b", "plans": resume_235("b235")},
+                "tok": "q3_235b", "plans": resume_235("b235"), "report_with": ["qc_235b"]},
+    "qc_235b": {"app": "chimera-spec-qc-235b", "big": "q3_235b", "gpu": "H100:4", "gpu_fallback": ["H200:2"],
+                "tok": "q3_235b", "plans": repeat_235("b235"), "report_in": "qb_235b"},
+    # Coder-480B: code prompts only. Its restarts are the most expensive (482 GB to load), so one same-box mode
+    # (EAGLE-3) comes early and the rest only if credits allow. The Coder-30B is the natural drafter (same Coder
+    # training and chat template); the Instruct 30B shows what a general drafter gives.
     "qa_480b": {"app": "chimera-spec-qa-480b", "big": "q3c_480b", "gpu": "H200:4", "gpu_fallback": ["H100:8"],
                 "tok": "q3c_480b", "subset": "code",
-                "plans": phase_a("c480", "q3_30b", "q3_4b", "q3_30b+4b", ["eagle_q3c_480b", "ngram", "draft_q3_4b"],
-                                 extra=[P("c480_coder_alone", "q3c_30b", "draft_alone"),
-                                        P("c480_coder_spec_k4", "q3c_30b", "spec", k=4),
-                                        P("c480_coder_specplus", "q3c_30b", "spec", **PLUS)])},
+                "plans": [P("c480_big_alone", None, "big_alone"), P("c480_rescore", None, "rescore", base="c480_big_alone"),
+                          P("c480_coder_alone", "q3c_30b", "draft_alone"), P("c480_coder_spec_k4", "q3c_30b", "spec", k=4),
+                          P("c480_coder_specplus", "q3c_30b", "spec", **PLUS),
+                          P("c480_mid_alone", "q3_30b", "draft_alone"), P("c480_spec_k4", "q3_30b", "spec", k=4),
+                          P("c480_big_alone_rep", None, "big_alone"),
+                          P("c480_margins", None, "margins", base="c480_big_alone",
+                            runs=["c480_coder_spec_k4", "c480_coder_specplus", "c480_spec_k4", "c480_big_alone_rep"]),
+                          SW("eagle_q3c_480b", "c480"), P("c480_big_eagle_q3c_480b", None, "big_alone"),
+                          SW("ngram", "c480"), P("c480_big_ngram", None, "big_alone"), SW("plain", "c480"),
+                          P("c480_specplus", "q3_30b", "spec", **PLUS),
+                          P("c480_chain_alone", "q3_30b+4b", "draft_alone"), P("c480_chain_spec_k4", "q3_30b+4b", "spec", k=4),
+                          P("c480_margins_more", None, "margins", base="c480_big_alone",
+                            runs=["c480_big_eagle_q3c_480b", "c480_big_ngram", "c480_specplus", "c480_chain_spec_k4"])]},
+    # Qwen3.5 (own tokenizer): 35B-A3B and 4B drafters, 397B-A17B verifier; its built-in MTP is the same-box mode
     "qa_397b": {"app": "chimera-spec-qa-397b", "big": "q35_397b", "gpu": "H200:4", "gpu_fallback": ["H100:8"],
                 "tok": "q35_397b",
-                "plans": phase_a("q397", "q35_35b", "q35_4b", "q35_35b+mtp",
-                                 ["mtp2", "eagle_q35_397b", "ngram", "draft_q35_4b"])},
+                "plans": [P("q397_big_alone", None, "big_alone"), P("q397_rescore", None, "rescore", base="q397_big_alone"),
+                          P("q397_mid_alone", "q35_35b", "draft_alone"), P("q397_spec_k4", "q35_35b", "spec", k=4),
+                          P("q397_specplus", "q35_35b", "spec", **PLUS),
+                          P("q397_small_alone", "q35_4b", "draft_alone"), P("q397_small_spec_k4", "q35_4b", "spec", k=4),
+                          P("q397_big_alone_rep", None, "big_alone"),
+                          P("q397_margins", None, "margins", base="q397_big_alone",
+                            runs=["q397_spec_k4", "q397_specplus", "q397_small_spec_k4", "q397_big_alone_rep"]),
+                          SW("mtp2", "q397"), P("q397_big_mtp2", None, "big_alone"),
+                          SW("eagle_q35_397b", "q397"), P("q397_big_eagle_q35_397b", None, "big_alone"), SW("plain", "q397"),
+                          P("q397_chain_alone", "q35_35b+mtp", "draft_alone"), P("q397_chain_spec_k4", "q35_35b+mtp", "spec", k=4),
+                          P("q397_margins_more", None, "margins", base="q397_big_alone",
+                            runs=["q397_big_mtp2", "q397_big_eagle_q35_397b", "q397_chain_spec_k4"])]},
 }
