@@ -221,3 +221,121 @@ def test_unpathed_search_goes_to_matching_file_and_file_wrapped_search(tmp_path)
     s.task("a to 3")
     assert (tmp_path / "b.py").read_text() == "B = 2\n" and (tmp_path / "a.py").read_text() == "A = 3\n"
     assert s.client.keys[0] != s.client.keys[1]   # file text changed in between: other cache key
+
+
+# ---- solved-problem bank ------------------------------------------------------------------------
+import hashlib  # noqa: E402
+import math  # noqa: E402
+import re  # noqa: E402
+
+from apps.terminal.cli import make_bank  # noqa: E402
+from chimera_core.memory import Bank, InMemoryBankStore  # noqa: E402
+
+X2 = f"{sys.executable} -c \"import mod; assert mod.x == 2\""
+
+
+class BagEmbedder:
+    def embed(self, text):
+        v = [0.0] * 64
+        for w in re.findall(r"[a-z0-9]+", text.lower()):
+            v[int(hashlib.md5(w.encode()).hexdigest(), 16) % 64] += 1.0
+        n = math.sqrt(sum(x * x for x in v)) or 1.0
+        return [x / n for x in v]
+
+
+def banked(tmp_path, texts, store=None, verify=None, **kw):
+    """A session on mod.py (x = 1) with a bank whose verify is the session's own sandbox run."""
+    (tmp_path / "mod.py").write_text("x = 1\n")
+    s, out = sess(tmp_path, texts, test_cmd=kw.pop("test_cmd", X2), **kw)
+    s.add("mod.py")
+    s.bank = Bank(store if store is not None else InMemoryBankStore(), BagEmbedder(), "t", verify or s.verify)
+    return s, out
+
+
+def problem_and_tests(s, request):
+    return request + "\n" + s._file_blocks(), {"cmd": s.test_cmd, "files": {"mod.py": "x = 1\n"}}
+
+
+def test_bank_hit_that_passes_is_served_without_a_model_call(tmp_path):
+    s, out = banked(tmp_path, [])
+    p, t = problem_and_tests(s, "make x 2")
+    assert s.bank.add(p, "FILE: mod.py\nx = 2\nEND FILE", t)
+    r = s.task("make x 2")
+    assert r.ok is True and s.client.calls == [] and (tmp_path / "mod.py").read_text() == "x = 2\n"
+    assert any(o.startswith("-> bank (exact) · 0 tok · $0 · ") and o.endswith("served after tests passed") for o in out)
+    assert r.calls == [dict(r.calls[0], tier="bank", tokens=0, dollars=0.0, baseline_dollars=0.0)]
+    handle(s, "/cost")
+    assert re.search(r"^bank\s+1\s+0\s+0\.00000\s+0\.00000", out[-1], re.M)
+
+
+def test_bank_hit_that_fails_its_tests_is_not_served(tmp_path):
+    store = InMemoryBankStore()
+    # A bad row in the store (written past the gate); the sandbox run catches it, the model answers.
+    s, _ = banked(tmp_path, [SR], store=store)
+    p, t = problem_and_tests(s, "make x 2")
+    Bank(store, BagEmbedder(), "t", lambda a, t: True).add(p, "FILE: mod.py\nx = 7\nEND FILE", t)
+    r = s.task("make x 2")
+    assert r.ok is True and len(s.client.calls) == 1 and (tmp_path / "mod.py").read_text() == "x = 2\n"
+    assert "bank" not in s.tally
+    # The sandbox says yes but the tests here say no: the bank edit is undone before the model call.
+    seen, store2 = [], InMemoryBankStore()
+    s2, out = banked(tmp_path, [SR], store=store2, verify=lambda a, t: True)
+    s2.bank.add(p, "FILE: mod.py\nx = 7\nEND FILE", t)
+    s2.client.generate = lambda *a, **k: (seen.append((tmp_path / "mod.py").read_text()),
+                                          FakeClient.generate(s2.client, *a, **k))[1]
+    r2 = s2.task("make x 2")
+    assert seen == ["x = 1\n"] and r2.ok is True and (tmp_path / "mod.py").read_text() == "x = 2\n"
+    assert "bank" not in s2.tally and any("undone" in o for o in out)
+
+
+def test_passing_model_answer_is_written_back_and_served_next_time(tmp_path):
+    store = InMemoryBankStore()
+    bad = "mod.py\n<<<<<<< SEARCH\nx = 1\n=======\nx = 5\n>>>>>>> REPLACE"
+    fix = "mod.py\n<<<<<<< SEARCH\nx = 5\n=======\nx = 2\n>>>>>>> REPLACE"
+    s, out = banked(tmp_path, [bad, fix], store=store)   # one repair round: the answer is the final file text
+    assert s.task("make x 2").ok is True and len(s.client.calls) == 2
+    assert "bank: saved the passing answer" in out
+    (rec, _), = store.rows.values()
+    assert rec.answer == "FILE: mod.py\nx = 2\n\nEND FILE" and rec.source == "chimera-code" and rec.tests["files"] == {"mod.py": "x = 1\n"}
+    s2, _ = banked(tmp_path, [], store=store)               # same starting files, a new session
+    r = s2.task("make x 2")
+    assert r.ok is True and s2.client.calls == [] and (tmp_path / "mod.py").read_text() == "x = 2\n"
+
+
+def test_failing_model_answer_is_never_written_back(tmp_path):
+    store = InMemoryBankStore()
+    s, _ = banked(tmp_path, ["mod.py\n<<<<<<< SEARCH\nx = 1\n=======\nx = 3\n>>>>>>> REPLACE"], store=store, max_repairs=0)
+    assert s.task("make x 2").ok is False and store.rows == {}
+    # A bank that raises never fails the task.
+    s2, out = banked(tmp_path, [SR])
+    s2.bank.add = lambda *a, **k: 1 / 0
+    assert s2.task("make x 2").ok is True and any(o.startswith("bank: write skipped") for o in out)
+
+
+def test_verify_never_modifies_root(tmp_path):
+    s, _ = banked(tmp_path, [])
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "keep.txt").write_text("k\n")
+    snap = lambda: {str(p): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}  # noqa: E731
+    before = snap()
+    t = {"cmd": X2, "files": {"mod.py": "x = 1\n"}}
+    assert s.verify("FILE: mod.py\nx = 2\nEND FILE", t) is True
+    assert s.verify("FILE: mod.py\nx = 3\nEND FILE", t) is False
+    assert s.verify("FILE: new.py\nx = 2\nEND FILE", t) is False           # tests fail: mod.x is still 1
+    assert s.verify("FILE: ../escape.py\nx = 2\nEND FILE", t) is False     # outside the copy: refused
+    assert s.verify("no edits here", t) is False and s.verify("FILE: mod.py\nx = 2\nEND FILE", {}) is False
+    assert snap() == before and not (tmp_path.parent / "escape.py").exists()
+
+
+def test_make_bank_needs_dsn_and_embedder(tmp_path, monkeypatch):
+    monkeypatch.setattr("chimera_core.config.load_env", lambda *a, **k: None)
+    monkeypatch.setattr("apps.terminal.cli.PgBankStore", lambda dsn: InMemoryBankStore())  # never a real DB
+    monkeypatch.delenv("CHIMERA_CONFIG", raising=False)
+    s, _ = sess(tmp_path, [])
+    client = type("C", (), {"router": type("R", (), {"embedder": BagEmbedder()})()})()
+    monkeypatch.delenv("CHIMERA_DB_URL", raising=False)
+    assert make_bank(None, client, s) is None
+    monkeypatch.setenv("CHIMERA_DB_URL", "postgres://fake")
+    assert make_bank(None, type("C", (), {"router": type("R", (), {"embedder": None})()})(), s) is None
+    b = make_bank(None, client, s)
+    assert b.tenant.endswith(":terminal") and b.verify == s.verify

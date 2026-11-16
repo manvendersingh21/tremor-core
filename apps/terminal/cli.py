@@ -10,6 +10,9 @@ import sys
 from .agent import Session
 from .routing import MODES, Cascade
 
+from chimera_core.config import load_config  # noqa: E402  (routing registers chimera_core)
+from chimera_core.memory import Bank, PgBankStore  # noqa: E402
+
 HELP = """/add <file>      add a file to the context      /drop [file|all]  remove one or all
 /files           list the context files         /diff             git diff (or what this session changed)
 /undo            undo the last write            /run <cmd>        run a command (risk-scored)
@@ -72,6 +75,20 @@ def handle(s: Session, line: str, *, test_first: bool = False) -> bool:
     return True
 
 
+def make_bank(config_path, client, s: Session) -> Bank | None:
+    """The solved-problem bank in Supabase, or None: no DSN in the env, no embedder on the router, or no driver."""
+    cfg = load_config(config_path)
+    dsn = os.environ.get(cfg.cache.dsn_env, "")
+    emb = getattr(getattr(client, "router", None), "embedder", None)
+    if not dsn or emb is None:
+        return None
+    try:
+        return Bank(PgBankStore(dsn), emb, tenant=f"{cfg.cache.tenant}:terminal", verify=s.verify)
+    except Exception as e:  # noqa: BLE001  e.g. the optional `postgres` extra is not installed
+        print(f"bank off: {type(e).__name__}", file=sys.stderr)
+        return None
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="chimera code", description="terminal coding agent on the cascade")
     ap.add_argument("files", nargs="*", help="files to add to the context")
@@ -84,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-repairs", type=int, default=3)
     ap.add_argument("--namespace", default="terminal", help="cache namespace")
     ap.add_argument("--no-cache", action="store_true", help="skip the Supabase cache (there is no local cache)")
+    ap.add_argument("--no-bank", action="store_true", help="skip the solved-problem bank (Supabase)")
     ap.add_argument("--config", help="path to chimera.toml")
     ap.add_argument("--gpu-url", default=os.environ.get("CHIMERA_GPU_URL"), help="override the gpu-small tier URL")
     ap.add_argument("--stats-json", help="write per-call stats of this run to a file")
@@ -104,6 +122,8 @@ def main(argv: list[str] | None = None) -> int:
                 test_cmd="" if a.no_test else a.test_cmd)
     if a.no_test or a.test_cmd == "":
         s.test_cmd = None
+    if not a.no_bank:
+        s.bank = make_bank(a.config, client, s)  # after the Session: the bank's verify runs in a copy of s.root
     for f in a.files:
         s.add(f)
 

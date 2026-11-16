@@ -5,8 +5,10 @@ import ast
 import hashlib
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -81,8 +83,9 @@ class Session:
     def __init__(self, root: pathlib.Path, client, *, ask: Callable[[str], str] = input,
                  say: Callable[[str], None] = print, yes: bool = False, mode: str = "auto",
                  test_cmd: str | None = None, max_repairs: int = 3, color: bool = False,
-                 runner: Callable[..., subprocess.CompletedProcess] | None = None) -> None:
+                 runner: Callable[..., subprocess.CompletedProcess] | None = None, bank=None) -> None:
         self.root, self.client, self.ask, self.say = root.resolve(), client, ask, say
+        self.bank = bank  # chimera_core.memory.Bank or None: solved-problem bank, looked up before any model call
         self.yes, self.mode, self.max_repairs, self.color = yes, mode, max_repairs, color
         self.test_cmd = test_cmd if test_cmd is not None else self._detect_tests()
         self.files: list[str] = []
@@ -274,12 +277,13 @@ class Session:
         return (r.stdout or r.stderr).strip().splitlines()[0] if (r.stdout or r.stderr).strip() else "nothing to commit"
 
     # ---- run and test --------------------------------------------------------------------------
-    def run(self, cmd: str, timeout: int = 120) -> tuple[bool, str]:
+    def run(self, cmd: str, timeout: int = 120, cwd: pathlib.Path | None = None) -> tuple[bool, str]:
         v = risk(cmd)
         if not approved(v, cmd, self.ask, self.say):
             return False, "refused by the risk gate"
         try:
-            p = self._run(cmd, shell=True, cwd=self.root, capture_output=True, text=True, timeout=timeout, env=clean_env())
+            p = self._run(cmd, shell=True, cwd=cwd or self.root, capture_output=True, text=True, timeout=timeout,
+                          env=clean_env())
         except subprocess.TimeoutExpired:
             return False, f"timed out after {timeout} s"
         out = redact((p.stdout or "") + (p.stderr or ""))
@@ -291,6 +295,84 @@ class Session:
             return True, "no tests found"
         return self.run(self.test_cmd)
 
+    # ---- solved-problem bank (chimera_core.memory.Bank) ----------------------------------------
+    def verify(self, answer: str, tests: dict) -> bool:
+        """True only if `answer`'s edits apply cleanly to the problem's files and tests["cmd"] exits 0.
+        Runs in a throwaway copy of the project; self.root is never touched. Any exception counts as a fail."""
+        try:
+            with tempfile.TemporaryDirectory(prefix="chimera-verify-") as td:
+                box = (pathlib.Path(td) / "p").resolve()
+                shutil.copytree(self.root, box, ignore=shutil.ignore_patterns(
+                    ".git", ".venv", "node_modules", "__pycache__", ".pytest_cache"))
+
+                def inside(rel: str) -> pathlib.Path:
+                    p = (box / rel).resolve()
+                    if not p.is_relative_to(box) or blocked_reason(p):
+                        raise ValueError(f"refused path {rel}")
+                    return p
+
+                files = tuple(tests.get("files") or {})
+                for rel, text in (tests.get("files") or {}).items():  # back to the problem's file state
+                    p = inside(rel)
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_text(text)
+
+                def read(rel: str) -> str | None:
+                    p = inside(rel)
+                    return p.read_text(errors="replace") if p.is_file() else None
+
+                found = ed.parse_edits(answer, files[0] if len(files) == 1 else None)
+                state, errs = ed.plan(found, read, files) if found else ({}, ["no edits"])
+                if errs or not state:
+                    return False
+                for rel, (_, new) in state.items():
+                    p = inside(rel)
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_text(new)
+                return self.run(tests["cmd"], cwd=box)[0]
+        except Exception:  # noqa: BLE001  a crashing check is a failed check
+            return False
+
+    def _bank_serve(self, problem: str, tests: dict, res: Result) -> bool:
+        """Try the bank. True when its answer was written here and the tests passed here too."""
+        t0 = time.perf_counter()
+        hit = self.bank.lookup(problem, tests)  # runs verify() on each close candidate; never raises
+        if hit.kind != "served":
+            return False
+        found = ed.parse_edits(hit.answer, self.files[0] if len(self.files) == 1 else None)
+        state, errs = ed.plan(found, self._read, tuple(self.files)) if found else ({}, ["no edits"])
+        if errs or not state:
+            self.say("bank answer did not apply; asking the model")
+            return False
+        if not self.review(state):
+            self.say("bank answer refused; asking the model")
+            return False
+        self.write(state)
+        ok, _ = self.test()
+        if not ok:
+            self.undo()
+            self.say("bank answer failed the tests here; undone, asking the model")
+            return False
+        ms = (time.perf_counter() - t0) * 1000
+        how = "exact" if hit.how == "exact" else f"cosine {hit.score:.2f}"
+        self.tally.setdefault("bank", Tally()).calls += 1
+        res.calls.append({"tier": "bank", "model": "", "tokens": 0, "dollars": 0.0, "ms": round(ms, 1), "cache": None,
+                          "kept": 0, "baseline_dollars": 0.0, "tried": [], "bank": hit.how})
+        res.applied += 1
+        res.ok = True
+        self.say(f"-> bank ({how}) · 0 tok · $0 · {ms / 1000:.1f} s · served after tests passed")
+        return True
+
+    def _bank_add(self, problem: str, tests: dict, changed: list[str], rep: Reply, tok: dict) -> None:
+        """Write a passing model answer back as full-file blocks (they apply to the start state after repairs too)."""
+        try:
+            blocks = [f"FILE: {rel}\n{text}\nEND FILE" for rel in changed if (text := self._read(rel)) is not None]
+            rid = self.bank.add(problem, "\n".join(blocks), tests, source="chimera-code", model=rep.model,
+                                tier=rep.tier or "cache", tokens=tok)  # add() re-runs the tests through verify()
+            self.say("bank: saved the passing answer" if rid else "bank: not saved (tests did not pass on re-run)")
+        except Exception as e:  # noqa: BLE001  the bank never fails the task
+            self.say(f"bank: write skipped ({type(e).__name__})")
+
     # ---- one request, with at most `max_repairs` repair rounds ---------------------------------
     def task(self, request: str, *, test_first: bool = False) -> Result:
         res = Result()
@@ -301,6 +383,15 @@ class Session:
                 self.say("tests already pass")
             else:
                 failure = out
+        problem, tests0 = "", None
+        if self.bank is not None and self.test_cmd:
+            problem = request + "\n" + self._file_blocks()
+            tests0 = {"cmd": self.test_cmd,
+                      "files": {rel: t for rel in self.files if (t := self._read(rel)) is not None}}
+            if self._bank_serve(problem, tests0, res):
+                return res
+        changed: list[str] = []          # files this task wrote, for the bank write-back
+        tok = {"in": 0, "out": 0}        # tokens the model spent on this task
         for rnd in range(self.max_repairs + 1):
             try:
                 rep = self.call(self.prompt(request, failure), floor, res)
@@ -308,6 +399,8 @@ class Session:
                 res.note = str(e)
                 self.say(f"error: {e}")
                 return res
+            tok["in"] += rep.tokens_in
+            tok["out"] += rep.tokens_out
             found = ed.parse_edits(rep.text, self.files[0] if len(self.files) == 1 else None)
             if not found and rnd < self.max_repairs and self.test_cmd:
                 failure = "Your reply had no edit blocks. Reply only with SEARCH/REPLACE or FILE blocks."
@@ -326,6 +419,7 @@ class Session:
                     res.note = "edits refused"
                     return res
                 self.write(state)
+                changed += [rel for rel in state if rel not in changed]
                 res.applied += 1
             if errs:
                 failure = "Your edit could not be applied: " + "; ".join(errs)
@@ -337,6 +431,8 @@ class Session:
                 res.ok = ok
                 if ok:
                     self.say("tests pass")
+                    if tests0 is not None and changed:
+                        self._bank_add(problem, tests0, changed, rep, tok)
                     return res
                 failure = out
                 self.say("tests fail" + ("" if rnd < self.max_repairs else ": out of repair rounds"))
