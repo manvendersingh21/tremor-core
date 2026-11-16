@@ -28,6 +28,7 @@ class SpecStats:
     free_drafted: int = 0
     free_accepted: int = 0
     reused: int = 0  # rounds whose draft came (partly) from a pipelined pre-draft
+    capped: int = 0  # rounds whose K was cut by cap_new
     draft_ms: float = 0.0  # drafting time on the critical path
     verify_ms: float = 0.0  # verify wall time (network + server)
     ks: list = field(default_factory=list)
@@ -44,16 +45,29 @@ class SpecStats:
         return self.accepted / t if t else 0.0
 
 
+def cached_prefix(matched: int, block: int) -> int:
+    """Tokens the verifier's prefix cache will hold for the next round: whole blocks of the part of the last
+    request that the next request repeats."""
+    return matched // block * block
+
+
 def spec_generate(draft, verify, prompt_ids, max_tokens, k=4, eos=frozenset(), choose=None, pipeline=False,
-                  free=None, kmax=16):
-    """choose(stats, k) -> next K (None = fixed K). free(ctx) -> extra free draft tokens (None = off)."""
+                  free=None, kmax=16, cap_new=None, block=16):
+    """choose(stats, k) -> next K (None = fixed K). free(ctx) -> extra free draft tokens (None = off).
+    cap_new: keep the tokens the verifier must compute per round (context after its last cached block, plus the
+    draft) at or under this many. On the 235B a round that computes more than 16 tokens took about 6x longer
+    (bench/results_spec_modal.md), so cap_new=16 shrinks K in the rounds that would cross that line."""
     ctx, out, st = list(prompt_ids), [], SpecStats()
     pool = ThreadPoolExecutor(2) if pipeline else None  # 2: a stale pre-draft never blocks the next one
     carry: list[int] = []
+    hit = 0  # what the verifier's cache holds of ctx (nothing before the first round)
     try:
         while len(out) < max_tokens:
             room = max_tokens - len(out)
             kk = max(1, min(k, room))
+            if cap_new:
+                kk = max(1, min(kk, cap_new - (len(ctx) - hit)))
+                st.capped += kk < min(k, room)
             t0 = time.perf_counter()
             d = carry[:kk]
             if len(d) < kk and not (d and d[-1] in eos):
@@ -77,6 +91,7 @@ def spec_generate(draft, verify, prompt_ids, max_tokens, k=4, eos=frozenset(), c
                     new = new[: i + 1]
                     break
             new = new[:room]
+            hit = cached_prefix(len(ctx) + m, block)  # the request just sent repeats into the next one this far
             out += new
             ctx += new
             st.rounds += 1

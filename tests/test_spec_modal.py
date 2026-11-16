@@ -359,3 +359,31 @@ def test_rescore_finds_where_one_pass_disagrees_with_the_decode():
     rep = v.rescore(PROMPT, bad, "r2")
     assert rep["n"] == 6 and rep["flips"][0][:3] == [3, 13, out[3]] and rep["flips"][0][3] > 0
     assert set(rep["ties"]) == {0.01, 0.05, 0.1, 0.5}
+
+
+def test_cap_new_keeps_each_round_small_and_predicts_the_cache():
+    big = core.VLLM("big", client=fake_vllm(big_model, block=4))
+    big.selftest(PROMPT)
+    assert big.fast
+    small = core.VLLM("small", client=fake_vllm(noisy_model))
+    seen = []
+
+    def verify(c, d):
+        m, nxt, info = big.verify_info(c, d, "v")
+        seen.append((len(c), len(d), info["hit"]))
+        return m, nxt
+
+    out, st = core.spec_generate(lambda c, k: small.gen(c, k, "d"), verify, PROMPT, 40, k=8, eos=set(core.EOS),
+                                 cap_new=6, block=4)
+    assert out == big.gen(PROMPT, 40, "ref")  # still lossless
+    assert st.capped > 0
+    hit = 0
+    for i, (n_ctx, n_d, server_hit) in enumerate(seen):
+        if i:  # the client's prediction of the cache equals what the server read
+            assert server_hit == hit, (i, server_hit, hit)
+            assert n_ctx + n_d - server_hit <= 6
+        hit = None  # recomputed below from the accepted count
+        nxt_ctx = seen[i + 1][0] if i + 1 < len(seen) else None
+        if nxt_ctx is not None:
+            m = nxt_ctx - n_ctx - 1  # the next context grew by the accepted tokens plus one
+            hit = core.cached_prefix(n_ctx + m, 4)

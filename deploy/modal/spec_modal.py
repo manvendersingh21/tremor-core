@@ -368,9 +368,10 @@ def run_plan(prompts, warm, plan, url, tok, local):
             out, st = core.spec_generate(
                 lambda c, k: local.gen(c, k, salt), lambda c, d: verify(c, d, salt), ids, mt, k=plan.get("k", 4),
                 eos=eos, choose=core.make_choose(specplus.choose_k) if plan.get("adaptive") else None,
-                pipeline=plan.get("pipeline", False), free=(lambda c: fd.propose(c, 1)) if plan.get("free") else None)
+                pipeline=plan.get("pipeline", False), free=(lambda c: fd.propose(c, 1)) if plan.get("free") else None,
+                cap_new=plan.get("cap"))
             rec.update({k: getattr(st, k) for k in ("rounds", "drafted", "accepted", "misses", "free_drafted",
-                                                    "free_accepted", "reused", "draft_ms", "verify_ms", "ks")})
+                                                    "free_accepted", "reused", "capped", "draft_ms", "verify_ms", "ks")})
         rec.update(wall_s=time.perf_counter() - t0, out=out)
         return rec
 

@@ -191,6 +191,8 @@ def describe(plan: dict, big: str) -> tuple[str, str]:
     if plan["mode"] == "draft_alone":
         return f"{lab} alone (L40S)", "no speculation" + (" (same-box helper on the drafter)" if d["mode"] != "plain" else "")
     how = "Spec+ (adaptive K, pipelined, free drafts)" if plan.get("adaptive") else f"plain spec, K={plan.get('k', 4)}"
+    if plan.get("cap"):
+        how += f", K cut so the big box computes <= {plan['cap']} tokens per round"
     if plan.get("extra_rtt_ms"):
         how += f", +{plan['extra_rtt_ms']} ms added per round"
     return f"{lab} (L40S) -> {short(big)}", how
@@ -224,11 +226,15 @@ def trace_stats(run: dict) -> dict:
         return {}
     cols = run.get("trace_cols") or ["n_ctx", "n_draft", "accepted", "server_ms", "round_trip_ms", "cache_hit", "fallback"]
     rows = [dict(zip(cols, x)) for x in t]
-    fast = [x["server_ms"] for x in rows if not x["fallback"]]
     full = [x["server_ms"] for x in rows if x["fallback"]]
-    new = [x["n_ctx"] + x["n_draft"] - x["cache_hit"] for x in rows if x["cache_hit"] is not None and not x["fallback"]]
-    return {"fallback_share": len(full) / len(rows), "server_fast_p50": pct(fast, 0.5), "server_full_p50": pct(full, 0.5),
-            "new_tokens_p50": pct(new, 0.5)}
+    ok = [x for x in rows if not x["fallback"] and x["cache_hit"] is not None]
+    for x in ok:
+        x["new"] = x["n_ctx"] + x["n_draft"] - x["cache_hit"]  # tokens the big box computes this round
+    small = [x["server_ms"] for x in ok if x["new"] <= 16]
+    big = [x["server_ms"] for x in ok if x["new"] > 16]
+    return {"fallback_share": len(full) / len(rows), "server_full_p50": pct(full, 0.5),
+            "new_tokens_p50": pct([x["new"] for x in ok], 0.5), "over16_share": len(big) / max(1, len(ok)),
+            "server_le16_p50": pct(small, 0.5), "server_gt16_p50": pct(big, 0.5)}
 
 
 def job_tables(job: str, runs: dict) -> str:
@@ -247,8 +253,9 @@ def job_tables(job: str, runs: dict) -> str:
              "| Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
     rounds = ["Where a cross-box round goes (medians per round; network = round trip minus the big box's own time; "
-              "full-scoring rounds = the cache-reading verify failed and the round was scored again from scratch):", "",
-              "| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | full-scoring rounds | big box ms cached / full | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |",
+              "new tokens = tokens the big box computes in a round: the context after its last cached 16-token block, "
+              "plus the draft):", "",
+              "| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | rounds with > 16 new tokens | big box ms at <= 16 / > 16 new tokens | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |",
               "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     missing = []
     for n in names:
@@ -268,8 +275,10 @@ def job_tables(job: str, runs: dict) -> str:
             rows_n = sum(x["rounds"] for x in r["rows"])
             ping = f1(pct(r["ping_ms"], 0.5), 0) if r.get("ping_ms") else ""
             ts = trace_stats(r)
-            fb = f"{ts['fallback_share']:.0%}" if ts else "not traced"
-            cf = f"{f1(ts.get('server_fast_p50'), 0)} / {f1(ts.get('server_full_p50'), 0)}" if ts else ""
+            fb = f"{ts['over16_share']:.0%}" if ts else "not traced"
+            cf = f"{f1(ts.get('server_le16_p50'), 0)} / {f1(ts.get('server_gt16_p50'), 0)}" if ts else ""
+            if ts and ts["fallback_share"]:
+                fb += f" (and {ts['fallback_share']:.0%} scored again in full)"
             rounds.append(f"| `{n}` | {rows_n} | {f1(s['draft_ms_per_round'], 0)} | {f1(s['net_p50_ms'], 0)} | "
                           f"{f1(s['server_p50_ms'], 0)} | {f1(s['rtt_p50_ms'], 0)} / {f1(s['rtt_p90_ms'], 0)} | {ping} | "
                           f"{f1(s['k_mean'])} | {fb} | {cf} | {f1(project(r, 20))} | {f1(project(r, 0))} |")
