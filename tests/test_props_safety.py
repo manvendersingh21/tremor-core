@@ -50,14 +50,17 @@ def test_scrub_removes_secrets_next_to_punctuation(a, secret, b):
     assert secret not in scrub(a + secret + b)
 
 
-@pytest.mark.xfail(strict=True, reason="FOUND: a Luhn-valid card number glued to an underscore or letter is not scrubbed, "
-                   "because _CARD starts and ends with \\b. Owner: memory/safety.py. Counterexample: '000000000000000' + '_'.")
 @PBT
 @example("", "00000000000000", "_")
 @given(st.sampled_from(["", "_", "x", "card_"]), st.text(alphabet="0123456789", min_size=14, max_size=15), st.sampled_from(["", "_", "x"]))
 def test_scrub_removes_cards_glued_to_word_characters(a, body, b):
     c = luhn_complete(body)
     assert c not in scrub(a + c + b)
+
+
+def test_scrub_card_glued_to_underscores_but_not_longer_digit_runs():
+    assert "4111111111111111" not in scrub("id_4111111111111111_x")
+    assert "12345678901234567890" in scrub("order 12345678901234567890")  # 20 digits is not a card length
 
 
 @PBT
