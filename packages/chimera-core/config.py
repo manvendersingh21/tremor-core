@@ -18,7 +18,7 @@ from .inference.cloud_verifier import CrusoeBackend, OllamaBackend
 from .inference.local_draft import LlamaCppBackend
 from .inference.telemetry import TelemetryTracker
 from .router import RouterConfig, SpeculativeCascadeRouter
-from .tiers import TierCfg, TierPool
+from .tiers import PROBES, TierCfg, TierPool
 from .ladder import LadderConfig, LadderRouter, TopBackend
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -114,6 +114,14 @@ class ChimeraConfig(BaseModel):
 def tier_checks(cfg: ChimeraConfig) -> list[tuple[str, str, str, dict]]:
     """(name, base_url, probe_url, headers) for each configured tier. Used by `chimera doctor` and /readyz."""
     load_env()
+    if cfg.use_pool and cfg.tiers:  # the pool is what routes; [local]/[gpu] are not used then
+        out = []
+        for t in cfg.tiers:
+            if t.enabled:
+                k = os.environ.get(t.api_key_env, "") if t.backend == "openai" else ""
+                url = os.path.expandvars(t.url)
+                out.append((t.name, url, url.rstrip("/") + PROBES[t.backend], {"Authorization": f"Bearer {k}"} if k else {}))
+        return out
     key = os.environ.get("CRUSOE_API_KEY", "")
     checks = [("local", cfg.local.url, f"{cfg.local.url.rstrip('/')}/health", {})]
     if cfg.gpu.enabled:
