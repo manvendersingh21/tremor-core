@@ -282,6 +282,21 @@ class Draft:
         return run_plan(prompts, warm, plan, url, self.tok(CFG["tok"]), self.v)
 
 
+NEAR = {}  # filled by main() with the big box's own region, so every other box runs next to it
+
+
+def draft_for(key):
+    """The drafter box for this key, in the big box's region; with_options also sets the GPU when a drafter needs
+    more than one L40S."""
+    gpu = DRAFTERS[key]["gpu"]
+    opts = {**({"gpu": gpu} if gpu != "L40S" else {}), **({"region": NEAR["region"]} if NEAR.get("region") else {})}
+    return (Draft.with_options(**opts) if opts else Draft)(drafter=key)
+
+
+def client_fn():
+    return client.with_options(region=NEAR["region"]) if NEAR.get("region") else client
+
+
 @app.function(image=image, secrets=[token], cpu=1, memory=1024, timeout=60 * MINUTES, scaledown_window=IDLE,
               region=REGION)
 def switch_mode(url, mode):
@@ -448,7 +463,7 @@ def main():
 
     def warm_drafter(key):  # boot the drafter box while something else runs, and keep it from idling out
         if key and key not in warmers:
-            d = Draft(drafter=key)
+            d = draft_for(key)
             d.info.spawn()
             warmers[key] = Pinger(lambda: d.info.remote(), 60)
             warmers[key].start()
@@ -458,7 +473,6 @@ def main():
     if not any(p["mode"] != "switch" for p in todo):
         print("nothing to do: every plan of this job has a result file", flush=True)
         return
-    warm_drafter(first)  # boots next to the big box's cold start
     url = Big().api.get_web_url()
     with httpx.Client(follow_redirects=True, max_redirects=20, timeout=httpx.Timeout(200, connect=60)) as h:
         r = h.get(url + "/health")
@@ -466,6 +480,11 @@ def main():
         meta["big_first_health_s"] = round(time.time() - t0, 1)
         meta["big_health"] = r.json()
     print("big up:", json.dumps(meta["big_health"]), flush=True)
+    # every other box goes to the big box's region (account C's first job put the client in us-east and the big box
+    # in us-west: 93 ms per bare call instead of 46 ms); the first drafter boots during big alone and the rescore
+    NEAR["region"] = (meta["big_health"].get("where") or {}).get("MODAL_REGION")
+    meta["near_region"] = NEAR["region"]
+    warm_drafter(first)
     keep = Pinger(lambda: httpx.get(url + "/health", timeout=60, follow_redirects=True), 30)
     keep.start()
     failures, required, current, failed_modes, failed_drafters = 0, "plain", "plain", set(), set()
@@ -513,15 +532,15 @@ def main():
                     t1 = time.time()
                 if plan["mode"] == "margins":
                     items = mismatches(out, plan["base"], plan["runs"])
-                    res = {"rows": client.remote(items, [], plan, url) if items else []}
+                    res = {"rows": client_fn().remote(items, [], plan, url) if items else []}
                 elif plan["mode"] == "rescore":  # the big model's own answers, scored again in one pass
                     base_rows = json.loads((out / f"{plan['base']}.json").read_text())["rows"]
-                    res = {"rows": client.remote(base_rows, [], plan, url)}
+                    res = {"rows": client_fn().remote(base_rows, [], plan, url)}
                 elif plan.get("drafter"):
                     warm_drafter(plan["drafter"])
                     if nxt and os.environ.get("SPEC_PREWARM", "1") == "1":
                         warm_drafter(nxt)  # the next drafter boots while this plan runs (one more L40S for a while)
-                    d = Draft(drafter=plan["drafter"])
+                    d = draft_for(plan["drafter"])
                     if plan["drafter"] not in meta["drafters"]:
                         try:
                             meta["drafters"][plan["drafter"]] = {"first_use": time.time(), **d.info.remote()}
@@ -536,7 +555,7 @@ def main():
                     if plan["drafter"] not in later and plan["drafter"] in warmers:
                         warmers.pop(plan["drafter"]).stop.set()  # done with it: let it scale down
                 else:
-                    res = client.remote(prompts, warm, plan, url)
+                    res = client_fn().remote(prompts, warm, plan, url)
             except Exception as e:  # noqa: BLE001
                 failures += 1
                 (out / f"{plan['name']}.error.json").write_text(json.dumps({"plan": plan, "mode": required,
