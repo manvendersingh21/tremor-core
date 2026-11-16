@@ -195,9 +195,6 @@ def test_guard_is_symmetric(a, b):
     assert consistent(a, b) == consistent(b, a)
 
 
-@pytest.mark.xfail(strict=True, reason="FOUND: consistent(a, a) is False when a capitalised word holds an apostrophe, because "
-                   "the entity keeps the apostrophe but the word set strips it. A cosine hit on the same prompt is then "
-                   "guard-rejected. Owner: cache/guard.py _signature(). Counterexample: \"What is Python's GIL\".")
 @PBT
 @example("What is Python's GIL")
 @given(text)
