@@ -1,6 +1,6 @@
 # CHIMERA: product requirements and architecture
 
-Date: 2026-11-16 (refreshed with the company cost repeats, Phase A on Modal and the hackathon pack). Owner: manvendersingh21. Repo: [github.com/manvendersingh21/tremor-core](https://github.com/manvendersingh21/tremor-core) (public, MIT, branch `dev`).
+Date: 2026-11-16 (refreshed with the company cost repeats, Phase A on Modal, the hackathon pack and the Akash V100 tuning correction). Owner: manvendersingh21. Repo: [github.com/manvendersingh21/tremor-core](https://github.com/manvendersingh21/tremor-core) (public, MIT, branch `dev`).
 
 This file is the source. `docs/PRD_chimera.pdf` is built from it by `scripts/prd_pdf.py`. The workbook `docs/chimera_tracker.xlsx` holds the same numbers as sheets. Every number here comes from a file in the repo, and the file is named next to it. Almost every test ran once. Read small gaps as noise.
 
@@ -10,7 +10,7 @@ CHIMERA answers each AI call at the cheapest place that can get it right, and sh
 
 ## 2. Problem and who it is for
 
-Companies send every AI call to one big, paid model. That includes easy work like FizzBuzz. A self-hosted 30B model passes 98% of trivial coding tasks (`bench/results_cost_case.md`). GPT-5.5 costs $4.02 per 1,000 coding calls. A busy H200 running the 30B costs $0.070 (`bench/results_company_cost.md`).
+Companies send every AI call to one big, paid model. That includes easy work like FizzBuzz. A self-hosted 30B model passes 98% of trivial coding tasks (`bench/results_cost_case.md`). GPT-5.5 costs $4.02 per 1,000 coding calls. A busy H200 running the 30B costs $0.070 (`bench/results_company_cost.md`). The same 30B on our own old V100, once tuned, answers a coding task in a median 2.7 s, passes 270 of 301 tasks (90%) and costs $0.18 to $0.52 per 1,000 calls when kept busy (`bench/results_akash_tuning.md`).
 
 Who it is for:
 
@@ -48,7 +48,7 @@ Each call climbs only as far as it must. Heavy prompts (complexity 0.6 or more) 
 | 1 | Solved-problem bank: served only if its tests pass now | measured | `bench/results_bank.md` |
 | 2 | N+1 memory: solved examples as hints for the 30B (Supabase `teacher_pairs` + Neo4j Aura graph) | measured, no gain | `bench/results_memory.md` |
 | 3a | Modal H200 30B (`gpu-h200`), used only while warm | measured | `bench/results_backend_v2.md`, `bench/results_cost_case_h200.md` |
-| 3b | Akash V100 30B (Ollama `qwen3:30b-instruct`), over an SSH tunnel | measured | `bench/results_cost_case.md` |
+| 3b | Akash V100 30B (Ollama `qwen3:30b-instruct`), over an SSH tunnel, tuned (`num_thread = 4`, own Ollama, 4 slots) | measured | `bench/results_cost_case.md`, `bench/results_akash_tuning.md` |
 | 4 | Modal H200 120B (`gpt-oss-120b`), off by default | measured, lost | `bench/results_modal.md` |
 | 5 | Crusoe 763B (`DeepSeek-V4.1-Flash`), the top | measured | `bench/results_cost_case.md` |
 
@@ -112,15 +112,16 @@ Every row is one run unless it says repeats. Win means the cascade beat the big 
 |---|---|---|---|---|
 | Shared cache on repeats | 60 repeats, second pass | 57 of 60 from cache, 97.5% fewer 763B tokens, 0 wrong of 50 graded | win | `bench/results_backend.md` |
 | Cache, 3 repeats | second client asks 60 | 49 of 60 hits in all 3, 0 wrong, lookup 122 ms | win | `bench/results_company_cost.md` |
-| Ladder on new prompts (v1) | 60 prompts, shared V100 | 763B tokens -12.2%, p90 91.6 s vs 3.0 s | loss | `bench/results_backend.md` |
-| Ladder on new prompts (v2) | same 60, idle V100 | 763B tokens -53.0%, 48/48 graded, p50 8.6 s vs 1.2 s | mixed | `bench/results_backend_v2.md` |
+| Ladder on new prompts (v1) | 60 prompts, V100 before tuning | 763B tokens -12.2%, p90 91.6 s vs 3.0 s | loss | `bench/results_backend.md` |
+| Ladder on new prompts (v2) | same 60, idle V100 before tuning | 763B tokens -53.0%, 48/48 graded, p50 8.6 s vs 1.2 s | mixed | `bench/results_backend_v2.md` |
 | Ladder on new prompts, 3 repeats | same 60, empty cache each time | 763B tokens -56.2% ± 4.6%, p50 6.7 s vs 1.3 s | mixed | `bench/results_company_cost.md` |
 | Same 60 again, 3 repeats | second pass | 58 to 59 of 60 from cache, p50 112 ms, 0 wrong cache answers | win | `bench/results_company_cost.md` |
 | Bank, same problems | 80 problems, 3 repeats | 75 of 80 served in all 3, 0 wrong | win | `bench/results_company_cost.md` |
 | Bank, reworded problems | 80 reworded, 3 repeats | 24 of 80 served in all 3 | mixed | `bench/results_company_cost.md` |
 | N+1 memory | 80 coding problems | 68 to 70 of 80; 3 random examples also gave 70 | loss | `bench/results_memory.md` |
 | LoRA on 763B answers | 566 held-out problems | pass 92.2% to 88.3% | loss | `bench/results_distill.md` |
-| Cost case, V100 30B | 301 coding tasks | pass 89% vs 95% (763B), $11.02 vs $0.158 per 1,000 | loss | `bench/results_cost_case.md` |
+| Cost case, V100 30B before tuning | 301 coding tasks, one at a time | pass 89% vs 95% (763B), p50 78.0 s, $11.02 vs $0.158 per 1,000 | loss | `bench/results_cost_case.md` |
+| Tuned V100 30B | 301 coding tasks, 4 at once | pass 90% (270/301), p50 2.7 s, $0.18 to $0.52 per 1,000 when busy | mixed: beats GPT-5.5, not the 763B | `bench/results_akash_tuning.md` |
 | Cost case, H200 30B | 301 tasks, 64 at once | pass 90%, $0.070 per 1,000 | win only while busy | `bench/results_cost_case_h200.md` |
 | Router with no check | 301 tasks | pass 87.7% vs 95.0%, 37 wrong answers served | loss | `bench/results_cost_case.md` |
 | Real-dataset suite | 300 items | 763B tokens -38.4%, $ -28.1%, pass 90% vs 93%, median 86 s vs 1.1 s | mixed | `bench/results_suite.md` |
@@ -141,7 +142,7 @@ Every row is one run unless it says repeats. Win means the cascade beat the big 
 | Spec+ vs plain spec | 17 prompts, stand-in target | 1.14x to 1.22x over plain, below big model alone | mixed | `bench/results_specplus.md` |
 | GPU link self-heal | killed and frozen tunnel | back in 5 s and 17 s | win | `bench/results_backend_v2.md` |
 
-The single-run caveat: only the cache, bank and 60-prompt ladder tests in `bench/results_company_cost.md` were repeated (3 times). Every other row is one run. Several 30B runs used a shared V100, so their latency says more about the box than the model.
+The single-run caveat: only the cache, bank and 60-prompt ladder tests in `bench/results_company_cost.md` were repeated (3 times). Every other row is one run. Several 30B runs used the V100 before it was tuned, so their latency says more about that setup than the model. Earlier versions of this file blamed a shared GPU. That was wrong: the GPU was ours and idle, and the 30B was held back by a 4-CPU quota against 149 Ollama threads (`bench/results_akash_tuning.md`).
 
 ![Tokens kept off the big model](prd/tokens_saved.png)
 
@@ -158,6 +159,8 @@ Cost per 1,000 coding calls, from `bench/results_company_cost.md`:
 An idle H200 still bills $4.54 an hour, so $108.96 a day. Its price per call is the full price divided by how busy it is: `$ per 1k = $0.0700 / busy share` at 64 at once. One H200 serves about 1,557,269 short coding calls a day at 100% busy (`bench/results_company_cost.md`).
 
 Break-even busy share = H200 $ per 1k when full / API $ per 1k. Against the 763B: 44%. Against GPT-5.5: 1.7% (`bench/results_company_cost.md`).
+
+Our tuned V100 follows the same math at a smaller size. It costs $0.52 to $1.53 an hour, always on, and serves about 70,307 calls a day at 100% busy (301 calls in 369.9 s, 4 at once). Full, that is $0.178 to $0.522 per 1,000 calls. It beats GPT-5.5 per call at 4.4% busy ($0.52/hr) or 13% ($1.53/hr). It never beats the 763B per call. An H200 must be 39% busy to beat a full tuned V100 at $0.52/hr (`bench/results_company_cost.md`).
 
 The math (30 days a month, D = calls a day, h = share served by cache or bank):
 
@@ -182,6 +185,14 @@ Worked example, 1,000,000 calls a day, h = 0, failures to GPT-5.5: GPU 2 x $108.
 | 1,000,000 (h = 30%) | $120,600 | $16,351 | $104,249 (86%) | $4,728 | $3,772 | $956 (+20%) |
 | 10,000,000 (h = 30%) | $1,206,000 | $160,021 | $1,045,979 (87%) | $47,280 | $34,228 | $13,052 (+28%) |
 
+Same math with the 30B on tuned V100s instead of H200s (h = 0, `V100s = ceil(D / (70,307 x 0.5))`, its own 31 failures re-asked):
+
+| Calls a day | V100s | 30B + GPT-5.5 at $0.52/hr | Saved | at $1.53/hr | Saved | 30B + 763B at $0.52/hr | Saved |
+|---|---|---|---|---|---|---|---|
+| 100,000 | 3 | $3,083 | $8,977 (74%) | $5,264 | $6,796 (56%) | $1,218 | -$746 |
+| 1,000,000 | 29 | $30,227 | $90,373 (75%) | $51,316 | $69,284 (57%) | $11,585 | -$6,857 |
+| 10,000,000 | 285 | $300,174 | $905,826 (75%) | $507,426 | $698,574 (58%) | $113,757 | -$66,477 |
+
 Monthly dollars, from `bench/results_company_cost.md`. h = 30% is the bank's rate on reworded problems, not a measured company rate. Open chat repeated under 1% (`bench/results_replay.md`).
 
 ![Monthly cost at 100k, 1M and 10M calls a day](prd/monthly_cost.png)
@@ -189,6 +200,7 @@ Monthly dollars, from `bench/results_company_cost.md`. h = 30% is the bank's rat
 What this says in plain words:
 
 - Against GPT-5.5, the cascade saves 57% to 87% a month at every volume.
+- At 100k calls a day, 3 tuned V100s cost less than one H200 ($3,083 against $5,159 a month with GPT-5.5 for failures). Above about 280,000 a day ($0.52/hr) the H200 is cheaper: one H200 does the work of about 22 V100s.
 - Against the 763B, the cascade loses money unless repeats are high and volume is 1M a day or more.
 - The 30B fails about 10% of tasks. Tests must catch them, or users get wrong code.
 
@@ -278,14 +290,14 @@ Result: memory moved the 30B from 68 to 70 of 80. Three random stored answers al
 ## 12. Risks and failures
 
 1. **The 763B is too cheap to beat.** At $0.1576 per 1,000 calls, the cascade loses money against it unless the H200 is 44% busy (`bench/results_company_cost.md`).
-2. **The V100 30B is slow.** About 78 s per call on the shared box (`bench/results_cost_case.md`). Every failed 30B try adds that wait before the 763B.
+2. **The V100 30B was slow until it was tuned.** About 78 s per call in the cost case (`bench/results_cost_case.md`). Earlier reports blamed a shared box; the cause was CPU threads (a 4-CPU quota against 149 Ollama threads). Tuned, the median is 2.7 s at 4 calls at once (`bench/results_akash_tuning.md`). A failed 30B try still adds its wait before the 763B.
 3. **The confidence gate does not catch wrong code.** Wrong 30B code passed the gate in the suite (`bench/results_suite.md`). With no check, the router served 37 wrong answers (`bench/results_cost_case.md`).
 4. **Open chat climbs anyway.** The 30B answered 18 of 300 chats (`bench/results_replay.md`).
 5. **Non-English cache hits are wrong.** 81 of 84 non-ASCII near pairs were not interchangeable (`bench/results_replay.md`). The embedder and guard read English only.
 6. **Real traffic repeats little.** 24 of 1,000 Quora questions hit the cache. 181 could have (`bench/results_suite.md`).
 7. **H200 cold starts are long.** 845 s, about $1.07 before the first answer (`bench/results_backend_v2.md`).
 8. **Memory and LoRA did not help.** No real gain, and LoRA lost 3.9 points (`bench/results_memory.md`, `bench/results_distill.md`).
-9. **Most tests ran once.** Several used a shared GPU.
+9. **Most tests ran once.** Several ran on the V100 before it was tuned.
 10. **Docs drift.** `.kiro/steering/tech.md` still calls the bank planned, and `docs/architecture.md` still names a SQLite fallback. Both are out of date (`docs/memory.md`, `docs/vector-store.md`).
 11. **Modal spend.** Speculative decoding used $64.57 over three accounts. Each account's $30 of credits paid for about one big job. Account C now refuses jobs ("exceeded its spend limit") (`bench/results_spec_modal.md`). Weight volumes cost about $110 a month per account while kept (`docs/spec_architecture.md`, section 7).
 12. **The 30B fails about 10% of coding tasks.** 31 of 301 on the H200, against 15 for the 763B. The savings assume tests catch every failure (`bench/results_company_cost.md`).
@@ -293,14 +305,14 @@ Result: memory moved the 30B from 68 to 70 of 80. Three random stored answers al
 
 ## 13. Roadmap, in order
 
-1. Make the H200 30B the main 30B tier, and keep it warm only under steady traffic (`bench/results_cost_case_h200.md`).
+1. Make the H200 30B the main 30B tier, and keep it warm only under steady traffic (`bench/results_cost_case_h200.md`). Tuned V100s cost less up to about 280,000 calls a day at $0.52/hr (70,000 at $1.53/hr) (`bench/results_company_cost.md`).
 2. Put a test gate in front of every coding answer. The bound was 96.0% pass with 81.7% of 763B tokens kept off (`bench/results_cost_case.md`).
 3. Send open chat straight to the 763B with a cheap pre-check (`bench/results_replay.md`).
 4. Pitch against frontier APIs, not the 763B (`bench/results_company_cost.md`).
 5. Use same-box spec decoding (EAGLE-3) for any big model we host. Drop two-box drafting: it lost by 4x to 12x on the 235B (`bench/results_spec_modal.md`, `docs/spec_architecture.md`).
 6. Fix non-English cache hits: a multilingual embedder, or reject mostly non-ASCII near hits (`docs/handoff/replay.md`).
 7. Build the 30B yes/no check on cosine hits (planned).
-8. Repeat the key tests 3 times on an idle GPU.
+8. Repeat the key tests 3 times on the tuned V100.
 9. Ship the hackathon build (section 14).
 10. Stop memory hints and LoRA in their current form.
 11. Finish Phase A (480B, 397B: about $25) and Phase B (about $100 to $150) only if you approve the spend (`docs/spec_architecture.md`, section 9).

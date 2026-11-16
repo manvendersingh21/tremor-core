@@ -16,6 +16,8 @@ It is a monster stitched from parts: a Supabase cache, a Neo4j graph, a Qwen 30B
 
 **Against a frontier price, the savings are real.** I priced a company that sends coding calls to GPT-5.5. A 30B on rented H200s, with GPT-5.5 re-asked for each call the 30B fails, costs 57% to 81% less a month at 100,000 to 10 million calls a day. If 3 in 10 calls are repeats, it is 62% to 87% less.
 
+**My own old GPU was fine all along.** For days I wrote that the 30B was slow because my V100 was shared and busy. That was wrong. The GPU was mine and idle. The box gives my container 4 CPUs, and Ollama ran the model with 149 threads, so it crawled at 20 tokens a second instead of 98. With 4 threads and my own Ollama (flash attention, 4 slots, model kept loaded), the 30B answers a coding task in a median 2.7 seconds, passes 90% of 301 tasks, and costs 18 to 52 cents per 1,000 calls when the box is busy (`bench/results_akash_tuning.md`). Before, it was 78 seconds and $11.02. At 100,000 coding calls a day, three such boxes at $0.52 an hour plus GPT-5.5 for the failures cost 74% less than GPT-5.5 alone (`bench/results_company_cost.md`).
+
 ## What did not work
 
 I promised myself I would write the losses next to the wins.
@@ -24,7 +26,7 @@ I promised myself I would write the losses next to the wins.
 
 **The 30B is wrong about 1 time in 10.** It failed 31 of 301 coding tasks. The 763B failed 15. The savings above assume tests catch every failure and send it up. Most real requests have no tests. Without them, the cheap bill comes with about one wrong answer in ten.
 
-**New prompts are slower.** With an empty cache, the ladder cut big-model tokens by 56%. But the median call took 6.7 seconds on a shared GPU, against 1.3 seconds for the big model alone.
+**New prompts are slower.** With an empty cache, the ladder cut big-model tokens by 56%. But the median call took 6.7 seconds on the 30B before I tuned it, against 1.3 seconds for the big model alone. I have not rerun this test on the tuned box.
 
 **Some ideas just failed.** Solved examples as hints moved the 30B from 68 to 70 of 80, but three random examples also gave 70 (`bench/results_memory.md`). Fine-tuning the 30B on the big model's answers made it worse, from 92.2% to 88.3% (`bench/results_distill.md`).
 

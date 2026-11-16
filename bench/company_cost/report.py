@@ -357,6 +357,12 @@ def report() -> None:
           f"763B ${escalation_per_1k('763B', FAILS_V100):.3f} per 1k.", "",
           "### h = 0: no repeats at all (the cautious case)", "", "30B on H200s:", ""] + projection(0.0)
     L += ["", "30B on our tuned V100s (Akash), same math:", ""] + v100_projection(0.0)
+    cross = {p: max((d for d in range(10_000, 2_000_001, 10_000)
+                     if v100_monthly(d, "GPT-5.5", 0.0, p)["total"] < monthly(d, "GPT-5.5")["total"]), default=0)
+             for p in V100_HOURS}
+    L += ["", f"V100s or H200s (h = 0, failures to GPT-5.5, checked every 10,000 calls a day): tuned V100s cost less up to about "
+          f"{cross[V100_HOURS[0]]:,} calls a day at ${V100_HOURS[0]:.2f}/hr and {cross[V100_HOURS[1]]:,} at ${V100_HOURS[1]:.2f}/hr; "
+          f"above that the H200s cost less, since one H200 serves about {H200_CAP[64] / V100_CAP:.0f} times the calls of one V100."]
     L += ["", "### h = 30%: three in ten calls are repeats or rewordings of solved problems", "",
           "30% is the share the bank served on reworded copies of problems it had already solved (bank run 3 below). "
           "It is not a measured rate of company traffic. On open chat (oasst1, `results_replay.md`) under 1% of requests were repeats.", "",

@@ -15,7 +15,8 @@ def test_prd_pdf_exists():
 def test_tracker_xlsx_opens_with_live_cost_formulas():
     openpyxl = pytest.importorskip("openpyxl")
     wb = openpyxl.load_workbook(ROOT / "docs" / "chimera_tracker.xlsx")
-    assert wb.sheetnames == ["Results", "Features", "Costs", "Modal spend", "Tasks and next steps",
+    assert wb.sheetnames == ["Results", "Features", "Costs", "Tuned V100", "Modal spend", "Tasks and next steps",
                              "Hackathon checklist"]
     assert str(wb["Costs"]["H2"].value).startswith("=")
     assert wb["Results"].max_row > 10
+    assert str(wb["Tuned V100"]["B8"].value).startswith("=")  # V100 $ per 1k is a live formula

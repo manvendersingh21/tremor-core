@@ -1,4 +1,4 @@
-"""Build docs/chimera_tracker.xlsx: results, features, costs (live formulas), Modal spend, tasks, hackathon.
+"""Build docs/chimera_tracker.xlsx: results, features, costs (live formulas), tuned V100, Modal spend, tasks, hackathon.
 
 Results, Features and the hackathon needs are read from the tables in docs/PRD_chimera.md, so the
 workbook and the PRD cannot drift apart. Cost inputs are copied from the bench files named in each row.
@@ -87,7 +87,9 @@ TIERS = [
     ("30B on H200, 100% busy, 64 at once", 0.070, "270/301 = 90%", "bench/results_company_cost.md"),
     ("30B on H200, 100% busy, 32 at once", 0.096, "271/301 = 90%", "bench/results_company_cost.md"),
     ("30B on H200, one request at a time", 1.089, "270/301 = 90%", "bench/results_cost_case_h200.md"),
-    ("30B on shared V100 (Akash), one at a time", 11.02, "269/301 = 89%", "bench/results_cost_case.md"),
+    ("30B on tuned V100 (Akash), 100% busy, 4 at once, $0.52/hr", 0.1775, "270/301 = 90% ($0.5223 at $1.53/hr)",
+     "bench/results_akash_tuning.md"),
+    ("30B on V100 (Akash) before tuning, one at a time", 11.02, "269/301 = 89%", "bench/results_cost_case.md"),
     ("763B DeepSeek-V4.1-Flash (Crusoe list)", 0.1576, "286/301 = 95%", "bench/results_cost_case.md"),
     ("Grok-4.5 (60-task subset)", 1.71, "60/60 = 100%", "bench/results_cost_case.md"),
     ("GPT-5.5 (60-task subset)", 4.02, "60/60 = 100%", "bench/results_cost_case.md"),
@@ -121,8 +123,8 @@ def costs(wb):
     ws["A17"], ws["B17"] = "H200 $ per 1,000 when 100% busy (64 at once)", 0.0700
     ws["A18"], ws["B18"] = "Busy share (try 1.0, 0.5, 0.1, 0.01)", 0.5
     ws["A19"], ws["B19"] = "H200 $ per 1,000 at that busy share", "=B17/B18"
-    ws["A20"], ws["B20"] = "Break-even busy share vs 763B", "=B17/B8"
-    ws["A21"], ws["B21"] = "Break-even busy share vs GPT-5.5", "=B17/B10"
+    ws["A20"], ws["B20"] = "Break-even busy share vs 763B", "=B17/B9"
+    ws["A21"], ws["B21"] = "Break-even busy share vs GPT-5.5", "=B17/B11"
     ws["D15"] = "bench/results_cost_case_h200.md, bench/results_company_cost.md"
     for c in ("B15", "B17", "B18"):
         ws[c].fill = INPUT_FILL
@@ -178,6 +180,87 @@ def costs(wb):
             r += 1
     ws.cell(row=r + 1, column=1, value="The file's inputs are rounded as printed, so the formula columns can differ "
                                          "from the 'File' columns by a few dollars. Yellow cells are inputs.")
+
+
+# reference values printed in bench/results_company_cost.md (30B on tuned V100s), for checking the formulas
+V100_FILE = {(100_000, 0, 0.52): (3083, 1218), (100_000, 0, 1.53): (5264, 3400),
+             (1_000_000, 0, 0.52): (30227, 11585), (1_000_000, 0, 1.53): (51316, 32674),
+             (10_000_000, 0, 0.52): (300174, 113757), (10_000_000, 0, 1.53): (507426, 321009),
+             (100_000, 0.3, 0.52): (2128, 823), (100_000, 0.3, 1.53): (3582, 2277),
+             (1_000_000, 0.3, 0.52): (21054, 8005), (1_000_000, 0.3, 1.53): (35598, 22549),
+             (10_000_000, 0.3, 0.52): (210317, 79825), (10_000_000, 0.3, 1.53): (355757, 225265)}
+
+
+def tuned_v100(wb):
+    """Same cascade math as the Costs sheet, with the 30B on our tuned V100s (bench/results_akash_tuning.md)."""
+    ws = wb.create_sheet("Tuned V100")
+    ws["A1"] = ("30B on our own V100 (Akash) after tuning: num_thread 4, own Ollama, flash attention, q8 KV, 4 slots. "
+                "Before tuning: $11.02 per 1,000 calls, p50 78.0 s (bench/results_cost_case.md).")
+    ws["A1"].font = Font(bold=True)
+    header(ws, ["Input or result", "$0.52 an hour", "$1.53 an hour", "Source"], [52, 16, 16, 40], row=2)
+    rows = [
+        ("Box $ per hour (always on, billed busy or idle)", 0.52, 1.53, "bench/results_akash_tuning.md", True),
+        ("Box $ per day", "=B3*24", "=C3*24", "", False),
+        ("Calls in the 301-task run", 301, 301, "bench/results_akash_tuning.md", True),
+        ("Wall seconds of that run, 4 at once", 369.9, 369.9, "bench/results_akash_tuning.md", True),
+        ("Calls a day at 100% busy", "=B5/B6*86400", "=C5/C6*86400", "", False),
+        ("$ per 1,000 calls at 100% busy", "=B4/B7*1000", "=C4/C7*1000", "", False),
+        ("Busy share (try 1.0, 0.5, 0.1)", 0.5, 0.5, "", True),
+        ("$ per 1,000 at that busy share", "=B8/B9", "=C8/C9", "", False),
+        ("Break-even busy share vs 763B (over 100% = never)", "=B8/Costs!$B$9", "=C8/Costs!$B$9", "", False),
+        ("Break-even busy share vs GPT-5.5", "=B8/Costs!$B$11", "=C8/Costs!$B$11", "", False),
+        ("Calls a day to beat GPT-5.5 per call", "=B12*B7", "=C12*C7", "", False),
+        ("Planned load per box (headroom for peaks)", 0.5, 0.5, "bench/results_company_cost.md", True),
+        ("30B failure share (31 of 301 fail)", "=31/301", "=31/301", "bench/results_akash_tuning.md", True),
+        ("GPT-5.5 $ per 1,000 where this 30B fails (P_fail)", 6.26, 6.26, "bench/results_company_cost.md", True),
+        ("763B $ per 1,000 where this 30B fails (P_fail)", 0.227, 0.227, "bench/results_company_cost.md", True),
+        ("Supabase Pro base fee, $ a month", 25, 25, "bench/results_company_cost.md", True),
+    ]
+    for r, (label, b, c, src, is_input) in enumerate(rows, start=3):
+        ws.cell(row=r, column=1, value=label)
+        for col, v in ((2, b), (3, c)):
+            cell = ws.cell(row=r, column=col, value=v)
+            if is_input:
+                cell.fill = INPUT_FILL
+        ws.cell(row=r, column=4, value=src)
+    for col in "BC":
+        for k in (4, 8, 10):
+            ws[f"{col}{k}"].number_format = MONEY4
+        for k in (11, 12):
+            ws[f"{col}{k}"].number_format = "0.0%"
+        ws[f"{col}7"].number_format = ws[f"{col}13"].number_format = "#,##0"
+    top = 21
+    cols = ["Calls a day", "Share served by cache or bank (h)", "$ per hour column", "V100s", "GPT-5.5 only",
+            "30B + GPT-5.5", "Saved vs GPT-5.5", "763B only", "30B + 763B", "Saved vs 763B", "File: 30B + GPT-5.5",
+            "File: 30B + 763B"]
+    for i, c in enumerate(cols, start=1):
+        cell = ws.cell(row=top, column=i, value=c)
+        cell.font, cell.fill = HEAD, HEAD_FILL
+    r = top + 1
+    for h in (0, 0.3):
+        for d in (100_000, 1_000_000, 10_000_000):
+            for col, price in (("B", 0.52), ("C", 1.53)):
+                ws.cell(row=r, column=1, value=d).fill = INPUT_FILL
+                ws.cell(row=r, column=2, value=h).fill = INPUT_FILL
+                ws.cell(row=r, column=3, value=f"={col}$3").number_format = MONEY
+                ws.cell(row=r, column=4, value=f"=ROUNDUP(A{r}*(1-B{r})/(${col}$7*${col}$14),0)")
+                gpu = f"D{r}*${col}$4*30"
+                fail = f"A{r}*(1-B{r})*${col}$15*30"
+                ws.cell(row=r, column=5, value=f"=A{r}*30*Costs!$B$11/1000")
+                ws.cell(row=r, column=6, value=f"={gpu}+{fail}*${col}$16/1000+${col}$18")
+                ws.cell(row=r, column=7, value=f"=E{r}-F{r}")
+                ws.cell(row=r, column=8, value=f"=A{r}*30*Costs!$B$9/1000")
+                ws.cell(row=r, column=9, value=f"={gpu}+{fail}*${col}$17/1000+${col}$18")
+                ws.cell(row=r, column=10, value=f"=H{r}-I{r}")
+                ws.cell(row=r, column=11, value=V100_FILE[(d, h, price)][0])
+                ws.cell(row=r, column=12, value=V100_FILE[(d, h, price)][1])
+                for c in range(5, 13):
+                    ws.cell(row=r, column=c).number_format = '"$"#,##0'
+                ws.cell(row=r, column=2).number_format = "0%"
+                r += 1
+    ws.cell(row=r + 1, column=1, value="Inputs are rounded as printed, so formula columns can differ from the 'File' "
+                                         "columns by a few dollars. Yellow cells are inputs. The V100 never beats the "
+                                         "763B per call: even 100% busy it costs more per 1,000 calls.")
 
 
 # (item, app, $, kind, source)
@@ -304,6 +387,7 @@ def build(out: Path = OUT) -> Path:
     results(wb, md)
     features(wb, md)
     costs(wb)
+    tuned_v100(wb)
     modal(wb)
     tasks(wb)
     hackathon(wb, md)

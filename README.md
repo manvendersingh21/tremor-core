@@ -106,9 +106,21 @@ One pass per mode, same 30 prompts. T is the top model alone, L is the ladder ([
 | DeepSeek-V4.1-Flash, 763B | L4 (ladder) | 4/30 | 2,192 (-65.6%) | $0.00213 (-67.3%) | 1,851 ms | 16,006 ms |
 
 - **Win:** fewer top-model tokens and dollars, and the dearer the top model, the larger the dollar saving. Code checks passed 6/6 in every mode. Mean heavy-code grade (one model grader, noisy): T 3.83, L 4.00, T4 4.17, L4 4.17.
-- **Loss:** the ladder is slower. Median 2.2 s against 0.9 s, p90 46 s against 3.9 s. The slow calls are the shared GPU 30B (25 to 90 s each). Two prompts (h2, h6) hit the 90 s timeout and climbed.
+- **Loss:** the ladder is slower. Median 2.2 s against 0.9 s, p90 46 s against 3.9 s. The slow calls are the GPU 30B (25 to 90 s each), measured before tuning. Two prompts (h2, h6) hit the 90 s timeout and climbed.
 - **Loss:** a 30B-written brief cost the same dollars and was 4.4x slower, with a lower heavy grade (3.50). Briefs are off by default.
 - The 120B saving is $0.0012 on 30 prompts, because that model costs little per token.
+
+## Self-hosted 30B after tuning
+
+Earlier reports here blamed slow 30B calls on a shared, busy GPU. That was wrong. The V100 was ours and idle. The box gives our container 4 CPUs, but Ollama ran the 30B with 149 threads, so it decoded 20 tokens/s instead of 98 ([results_akash_tuning.md](bench/results_akash_tuning.md)).
+
+| 30B on our V100, 301 coding tasks | Pass | Median per call | $ per 1,000 calls |
+|---|---|---|---|
+| Before tuning, one call at a time ([results_cost_case.md](bench/results_cost_case.md)) | 269/301 = 89% | 78.0 s | $11.02 |
+| Tuned: `num_thread = 4`, own Ollama, flash attention, q8 KV, 4 slots, 4 calls at once | 270/301 = 90% | 2.7 s | $0.18 to $0.52 (box kept busy, $0.52 to $1.53 an hour) |
+
+- **Win:** against GPT-5.5 ($4.02 per 1,000), one tuned V100 is cheaper per call once it serves about 3,100 calls a day at $0.52/hr. At 100k coding calls a day, 3 tuned V100s plus GPT-5.5 for the 30B's failures cost $3,083 a month against $12,060 for GPT-5.5 alone ([results_company_cost.md](bench/results_company_cost.md)).
+- **Loss:** it never beats the 763B per call ($0.178 per 1,000 even when full, against $0.158). An idle box still bills.
 
 ## Speculative decoding
 
