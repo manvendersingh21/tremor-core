@@ -245,3 +245,18 @@
   .m-pb .fn, .m-pb .fn a, .m-poster p, .m-poster li { font-size: 15px; }
   .m-keys b { font-size: 1.8rem; } .m-keys span, .m-cost-g h4 small, .m-seg button { font-size: 14px; }
 }
+/* round 2 fixes: panels above the hall doors, one voice during the tour, a two-row phone bar, doors that fit */
+.m-panel, .m-map { z-index: 20; }
+.m-touring .m-say { visibility: hidden; }
+@media (pointer: coarse) { .m-say small { display: none; } }
+@media (max-width: 600px) {
+  .m-k { display: none; }
+  .m-bar .mode-badge { order: 0; }
+  #m-where { flex: 1 1 30%; }
+  .m-bar .m-btn { flex: 1 1 28%; }
+  .m-btn { font-size: 14px; white-space: nowrap; }
+  .m-doors.m-arcade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .m-doors.m-arcade .m-door .m-plaque, .m-doors.m-arcade .m-door.sel .m-plaque { white-space: normal; overflow: hidden; }
+}
+@media (max-width: 860px) { .m-pb.m-chat { display: block; } .m-chatbox { display: block; } }
+.m-touring .m-prompt, .m-touring .m-help { visibility: hidden; }

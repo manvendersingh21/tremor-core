@@ -52,7 +52,9 @@
   }
   function tower(D) {
     const s = D.spec, x = (v) => parseFloat(v);
-    return `<h3 class="m-h3">${esc(s.title)}</h3><table class="m-t"><tr><th>Run</th><th>Who drafts, who checks</th><th>tok/s</th><th>vs 235B alone</th><th>Same output</th></tr>` +
+    const pick = (re) => s.rows.find((r) => re.test(r.run)), big = pick(/alone$/), e = pick(/EAGLE/), k4 = pick(/^Cross-box, 30B drafter, K=4$/);
+    const keys = [[big, 'tok/s, the 235B alone', big && big.tok_s, ''], [e, 'same box, EAGLE-3 head', e && e.vs, 'm-win'], [k4, 'a 30B drafter on a second box, K=4', k4 && k4.vs, 'm-lose']].filter((x) => x[0]);
+    return `<div class="m-keys">${keys.map(([, l, v, c]) => `<div><b class="${c}">${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div><h3 class="m-h3">${esc(s.title)}</h3><table class="m-t"><tr><th>Run</th><th>Who drafts, who checks</th><th>tok/s</th><th>vs 235B alone</th><th>Same output</th></tr>` +
       s.rows.map((r) => `<tr><td>${esc(r.run)}</td><td>${esc(r.how)}</td><td>${esc(r.tok_s)}</td><td class="${x(r.vs) > 1.001 ? 'm-win' : x(r.vs) < 0.999 ? 'm-lose' : ''}">${esc(r.vs)}</td><td>${esc(r.same)}</td></tr>`).join('') +
       '</table>' + note(s.rows) + src(s.file);
   }

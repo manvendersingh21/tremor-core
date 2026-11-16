@@ -18,7 +18,7 @@
      walks up to the door; d-door and e-hall clips are planned to end on the old hall.webp, not the hall painted now. */
   const SEGS = [
     // fb: the painted dolly used while a clip is not made yet: [zoom, focus x, focus y] at the start and the end
-    { id: 'a-approach', secs: 1.5, where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
+    { id: 'a-approach', secs: 1.35, where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
     { id: 'b-gates', secs: 0.8, win: [0, 2.4], where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
     { id: 'c-drive', secs: 0.7, clip: false, where: 'The lantern drive', key: 'art/drive.webp', fb: [[1, 0.5, 0.56], [3.3, 0.5, 0.485]], say: 'Follow the lanterns. The door is at the top.' },
     { id: 'd-door', secs: 0.5, clip: false, where: 'The great door', key: 'art/drive.webp', fb: [[3.3, 0.5, 0.485], [3.3, 0.5, 0.485]], lock: 'door', rig: true, say: 'The door opens for you. Step inside.' },
@@ -28,6 +28,7 @@
 
   async function start(root, opts = {}) {
     const site = opts.site || '';
+    const touch = matchMedia('(pointer: coarse)').matches;   // phones: the stick and taps, not keys
     const ROOMS = window.ROOMS || [];
     const ORDER = (window.MovieScene && window.MovieScene.ORDER) || [];   // the hall's painted doors, in A/D order
     const rank = (id) => { const k = ORDER.indexOf(id); return k < 0 ? 99 : k; };
@@ -39,7 +40,7 @@
       <div class="m-doors" id="m-doors" hidden></div>
       <aside class="m-board" id="m-board" hidden aria-label="Savings board"></aside>
       <div class="m-bar"><span id="m-mode" class="mode-badge" role="status">…</span><span id="m-where"></span><span id="m-fps" class="m-fps"></span>
-        <button class="m-btn m-gold" id="m-tourbtn" type="button">Tour (T)</button><button class="m-btn" id="m-mapbtn" type="button">Map (M)</button><button class="m-btn" id="m-talkbtn" type="button">Talk to the Count (C)</button></div>
+        <button class="m-btn m-gold" id="m-tourbtn" type="button">Tour<span class="m-k"> (T)</span></button><button class="m-btn" id="m-mapbtn" type="button">Map<span class="m-k"> (M)</span></button><button class="m-btn" id="m-talkbtn" type="button">Talk<span class="m-k"> to the Count (C)</span></button></div>
       <div class="m-prompt" id="m-prompt"></div>
       <div class="m-say" id="m-say"><b>Count Cuspid</b><span id="m-saytext"></span><small>Press <kbd>C</kbd> to talk to me · <kbd>T</kbd> for a tour</small></div>
       <canvas id="m-mini" width="180" height="130" aria-hidden="true"></canvas>
@@ -270,7 +271,7 @@
         o.connect(f); f.connect(v); v.connect(ac.destination); o.start(); o.stop(ac.currentTime + 1.9);
       } catch (e) { /* sound waits for a key press */ }
     }
-    function say(t) { $('m-saytext').textContent = t; }
+    function say(t) { $('m-saytext').textContent = touch ? String(t).replace('Hold W', 'Push the stick up').replace('Pick one with A and D, then press E.', 'Tap one to open it.') : t; }
 
     /* ---------- live layers: bats, fog, fireflies ---------- */
     let W = 0, H = 0;

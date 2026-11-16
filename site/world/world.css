@@ -129,3 +129,13 @@
   .c-msg { font-size: 15px; }
   .c-cmpt td, .c-cmpt th { white-space: normal; }
 }
+/* round 2 fixes */
+.c-mon[hidden] { display: none; }
+@media (max-width: 860px) { .c-wrap { grid-template-columns: 1fr; } }
+.c-wrap > *, .c-col { min-width: 0; }
+@media (max-width: 860px) {
+  .m-pb.m-chat { display: block; }
+  .m-chatbox, .m-chatbox .c-wrap { display: block; height: auto; }
+  .m-chatbox .c-col { margin-bottom: .8rem; }
+  .m-chatbox .c-log { max-height: 55vh; }
+}
