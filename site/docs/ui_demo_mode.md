@@ -39,9 +39,9 @@ The Count chat moved from T to C, because the brief gives T to the tour. `.kiro/
 |---|---|---|
 | ![phone landing](rounds/r5_chromium_phone_demo_01_landing.jpg) | ![phone hall](rounds/r3fix_webkit_phone_demo_03_hall.jpg) | ![phone chat](rounds/r5_chromium_phone_demo_30_chat_cache_test.jpg) |
 
-Videos: [the walk-in](ui_walk_in.mp4) and [the whole tour](ui_tour.mp4), recorded headless on the public link.
+Videos: [the walk-in](ui_walk_in.mp4) (10 s) and [the whole tour](ui_tour.mp4) (188 s), recorded headless on the public link, build 4ce39ac.
 
-## Measured (round 5, the Pages build)
+## Measured (round 5, the Pages build of 7e54761; the final build 4ce39ac gave 0 automatic defects again: Chromium desktop full tour 182 s, WebKit phone walk-in 3.90 s)
 
 | Browser | View | First paint | W held to the Great Hall | fps (median) | Automatic defects |
 |---|---|---|---|---|---|
