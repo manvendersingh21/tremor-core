@@ -60,7 +60,7 @@ Speed, 0 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all
 | Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |
 |---|---|---|---|---|---|---|---|---|---|---|
 
-Not measured in this account: `b235_big_alone` (not reached), `b235_chain_alone` (not reached), `b235_chain_spec_k4` (not reached), `b235_chain_specplus` (not reached), `b235_mid_alone` (not reached), `b235_small_alone` (not reached), `b235_small_spec_k4` (not reached), `b235_big_alone_rep` (not reached), `b235_big_draft_q3_4b` (not reached), `b235_big_eagle_q3_235b` (not reached), `b235_big_ngram` (not reached), `b235_spec_k4` (not reached), `b235_specplus` (not reached), `b235_small_specplus` (not reached), `b235_spec_k8` (not reached), `b235_mideagle_alone` (not reached), `b235_mideagle_specplus` (not reached).
+Not measured in this account: `b235_big_alone` (not reached), `b235_chain_alone` (not reached), `b235_chain_spec_k4` (not reached), `b235_chain_specplus` (not reached), `b235_mid_alone` (not reached), `b235_small_alone` (not reached), `b235_small_spec_k4` (not reached), `b235_big_alone_rep` (not reached), `b235_big_draft_q3_4b` (not reached), `b235_big_alone_rep2` (not reached), `b235_spec_k4` (not reached), `b235_specplus` (not reached), `b235_small_specplus` (not reached), `b235_spec_k8` (not reached), `b235_mideagle_alone` (not reached), `b235_mideagle_specplus` (not reached), `b235_big_eagle_q3_235b` (not reached), `b235_big_ngram` (not reached).
 <!-- /tables:qb_235b -->
 
 ### Qwen3-Coder-480B-A35B verifier (4 H200), code prompts only
@@ -71,7 +71,7 @@ Speed, 0 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all
 | Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |
 |---|---|---|---|---|---|---|---|---|---|---|
 
-Not measured in this account: `c480_big_alone` (not reached), `c480_mid_alone` (not reached), `c480_spec_k4` (not reached), `c480_specplus` (not reached), `c480_spec_k8` (not reached), `c480_spec_k4_rtt100` (not reached), `c480_specplus_rtt100` (not reached), `c480_big_eagle_q3c_480b` (not reached), `c480_big_ngram` (not reached), `c480_big_draft_q3_4b` (not reached), `c480_small_alone` (not reached), `c480_small_spec_k4` (not reached), `c480_small_specplus` (not reached), `c480_chain_alone` (not reached), `c480_chain_spec_k4` (not reached), `c480_chain_specplus` (not reached), `c480_coder_alone` (not reached), `c480_coder_spec_k4` (not reached), `c480_coder_specplus` (not reached), `c480_big_alone_rep` (not reached).
+Not measured in this account: `c480_big_alone` (not reached), `c480_coder_alone` (not reached), `c480_coder_spec_k4` (not reached), `c480_coder_specplus` (not reached), `c480_mid_alone` (not reached), `c480_spec_k4` (not reached), `c480_big_alone_rep` (not reached), `c480_big_eagle_q3c_480b` (not reached), `c480_big_ngram` (not reached), `c480_specplus` (not reached), `c480_chain_alone` (not reached), `c480_chain_spec_k4` (not reached).
 <!-- /tables:qa_480b -->
 
 ### Qwen3.5: 4B / 35B-A3B drafters, 397B-A17B verifier (4 H200)
@@ -82,7 +82,7 @@ Speed, 0 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all
 | Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |
 |---|---|---|---|---|---|---|---|---|---|---|
 
-Not measured in this account: `q397_big_alone` (not reached), `q397_mid_alone` (not reached), `q397_spec_k4` (not reached), `q397_specplus` (not reached), `q397_spec_k8` (not reached), `q397_spec_k4_rtt100` (not reached), `q397_specplus_rtt100` (not reached), `q397_big_mtp2` (not reached), `q397_big_eagle_q35_397b` (not reached), `q397_big_ngram` (not reached), `q397_big_draft_q35_4b` (not reached), `q397_small_alone` (not reached), `q397_small_spec_k4` (not reached), `q397_small_specplus` (not reached), `q397_chain_alone` (not reached), `q397_chain_spec_k4` (not reached), `q397_chain_specplus` (not reached), `q397_big_alone_rep` (not reached).
+Not measured in this account: `q397_big_alone` (not reached), `q397_mid_alone` (not reached), `q397_spec_k4` (not reached), `q397_specplus` (not reached), `q397_small_alone` (not reached), `q397_small_spec_k4` (not reached), `q397_big_alone_rep` (not reached), `q397_big_mtp2` (not reached), `q397_big_eagle_q35_397b` (not reached), `q397_chain_alone` (not reached), `q397_chain_spec_k4` (not reached).
 <!-- /tables:qa_397b -->
 
 ### Code-path check (smoke): Qwen3-30B-A3B as the "big" model on one L40S, Qwen3-4B drafts, 3 prompts, 48 tokens

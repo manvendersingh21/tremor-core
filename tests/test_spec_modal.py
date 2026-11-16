@@ -297,8 +297,12 @@ def test_jobs_are_consistent():
     for name, cfg in sm.JOBS.items():
         assert cfg["app"].startswith("chimera-spec-") and cfg["big"] in sm.MODELS and cfg["tok"] in sm.MODELS
         assert sm.MODELS[cfg["tok"]]["family"] == sm.MODELS[cfg["big"]]["family"], name  # one tokenizer per job
-        names = [p["name"] for p in cfg["plans"]]
-        assert len(names) == len(set(names)), name
+        own = [p["name"] for p in cfg["plans"]]
+        assert len(own) == len(set(own)), name
+        # a follow-up job (report_in) may refer to the plans of the job it continues, on the same big model
+        host = sm.JOBS.get(cfg.get("report_in", ""), {})
+        assert not host or host["big"] == cfg["big"]
+        names = own + [p["name"] for p in host.get("plans", [])]
         for p in cfg["plans"]:
             assert p["mode"] in ("draft_alone", "big_alone", "spec", "margins", "switch", "rescore"), p
             if p["mode"] == "rescore":
