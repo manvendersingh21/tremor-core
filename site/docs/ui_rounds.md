@@ -17,7 +17,8 @@ Raw results (every screenshot, `result.json` per run): `bench/.scratch/ui/rounds
 | 2 | Pages (e46c884), all 4 pairs | 11 | af4f106 |
 | 3 | Pages (af4f106): full tour with video, WebKit phone, a slow line (4 Mbit/s, 150 ms, cache off) | 7 (6 fixed, 1 is clip art) | 75d8dff |
 | 4 | Pages (75d8dff): Chromium phone, WebKit desktop and phone; live backend locally | 6 (4 fixed, 1 handled, 1 found by the recheck and fixed) | 7e54761 |
-| 5 | Pages (7e54761): all 4 pairs, full tour with video | 3 | round 5 commit |
+| 5 | Pages (7e54761): all 4 pairs, full tour with video | 3 | 4ce39ac |
+| check | Pages (4ce39ac): Chromium desktop full tour with video, WebKit phone | 0 automatic; by eye, the round 5 fixes hold (tour end, below) | none needed |
 
 ## Timings
 
@@ -130,7 +131,7 @@ Slow line (4 Mbit/s, 150 ms, cache off): first paint 696 ms, W held to the hall 
 |---|---|
 | ![slow mid walk](rounds/r3_chromium_desktop_demo_slow_02_mid_walk.jpg) | ![slow hall](rounds/r3_chromium_desktop_demo_slow_03_hall.jpg) |
 
-Videos from the Pages build of af4f106 (before the round 3 fixes): [the 4 s walk-in](ui_walk_in.mp4), [the whole tour](ui_tour.mp4). The final tour video is re-recorded in round 4.
+The videos were first cut from this round; they were re-recorded on the final Pages build (see the end of this file).
 
 ## Round 4 (the Pages build of 75d8dff, plus the live backend)
 
@@ -181,3 +182,12 @@ All automatic checks passed on all four pairs (0 automatic defects for the secon
 | Automatic checks failing (sum over runs) | 31 | 23 | 0 | 1 (a Pages 503) | 0 |
 
 Known and not fixed: the gates clip's own cross-fade ghost (clip art, owned by the video chat). WebKit headless reports about 100 fps because it does not sync to a display, so its fps numbers say "no slowdown", not 60.
+
+## Final check (the Pages build of 4ce39ac)
+
+| Browser | View | Mode | First paint ms | W held to Great Hall s | fps (median) | Automatic defects |
+|---|---|---|---|---|---|---|
+| chromium | desktop | demo, full tour (182 s) | 816 (cold) | 3.75 | 60 | 0 |
+| webkit | phone | demo | 456 | 3.90 | 100 | 0 |
+
+Videos recorded on this build, headless Chromium at 1280 x 760, cut with ffmpeg: [the walk-in, W held](ui_walk_in.mp4) (10 s) and [the whole guided tour](ui_tour.mp4) (188 s, ends on the bill with the top bar in place).
