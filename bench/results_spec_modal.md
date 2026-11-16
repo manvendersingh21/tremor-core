@@ -109,6 +109,8 @@ Hardware and cold starts (not in any number above): big box 4x H100 80GB HBM3, r
 
 ### Qwen3-Coder-480B-A35B verifier (4 H200), code prompts only
 
+First try (account C, 02:30 to 03:10 PST): Modal had no 4 H200 free for 20 minutes and then gave the 8x H100 fallback. On 8 GPUs vLLM must split experts across GPUs (2,560 / 8 is not a multiple of FP8's 128-wide blocks), and it hung for 7 minutes building a FlashInfer communication module while capturing CUDA graphs. The app was stopped by hand (0 live at 03:10:45). The retry asks for 4 H200 only.
+
 <!-- tables:qa_480b -->
 Speed, 0 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all output tokens / all wall time; median = median of the per-prompt tok/s):
 
@@ -196,5 +198,8 @@ Billed by Modal per app (`modal billing report --show-resources`, GPU + CPU + me
 | B | `chimera-spec-qa-397b` | an L40S drafter that waited for 4 H200, stopped | 0.13 |
 | C | `chimera-spec-download-b1`, `-b2` | 12 weight sets again (new account, empty volumes) | 2.31 |
 | C | `chimera-spec-qb-235b` | 235B runs B did not reach (4 H100 + L40S drafters, 65 min) | 21.32 |
+| C | `chimera-spec-qa-480b`, first try | waited 20 min for 4 H200, got the 8x H100 fallback, loaded, then hung 7 min in a FlashInfer JIT build; stopped by hand at 03:10:38 PST, no result | 8.94 |
+
+Account C's $30 of credits were used up at about 03:03 PST; from then on Modal billed real money ($2.01 billed at 03:11).
 
 Every job ends with the driver stopping its app by ID and saving `modal app list` to `bench/.scratch/spec_modal/applist_<job>.txt`. Last proofs: `qb_235b` stopped 02:30:40 PST (0 live), `download_b1` and `download_b2` 0 live. Account B's apps were stopped by Modal when its credits ran out (01:03:19 PST); the driver's check after that also showed 0 live.

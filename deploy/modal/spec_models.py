@@ -187,7 +187,9 @@ JOBS = {
     # Coder-480B: code prompts only. Its restarts are the most expensive (482 GB to load), so one same-box mode
     # (EAGLE-3) comes early and the rest only if credits allow. The Coder-30B is the natural drafter (same Coder
     # training and chat template); the Instruct 30B shows what a general drafter gives.
-    "qa_480b": {"app": "chimera-spec-qa-480b", "big": "q3c_480b", "gpu": "H200:4", "gpu_fallback": ["H100:8"],
+    # H200:4 only: the H100:8 fallback needs expert parallel (2560 / 8 is not a multiple of 128) and hung 7 minutes
+    # in a FlashInfer JIT build while capturing CUDA graphs (account C, 03:03 PST), so it was dropped
+    "qa_480b": {"app": "chimera-spec-qa-480b", "big": "q3c_480b", "gpu": "H200:4",
                 "tok": "q3c_480b", "subset": "code",
                 "plans": [P("c480_big_alone", None, "big_alone"), P("c480_rescore", None, "rescore", base="c480_big_alone"),
                           P("c480_coder_alone", "q3c_30b", "draft_alone"), P("c480_coder_spec_k4", "q3c_30b", "spec", k=4),
@@ -207,7 +209,7 @@ JOBS = {
                             runs=["c480_big_eagle_q3c_480b", "c480_big_ngram", "c480_coder_specplus", "c480_spec_k4",
                                   "c480_chain_spec_k4"])]},
     # Qwen3.5 (own tokenizer): 35B-A3B and 4B drafters, 397B-A17B verifier; its built-in MTP is the same-box mode
-    "qa_397b": {"app": "chimera-spec-qa-397b", "big": "q35_397b", "gpu": "H200:4", "gpu_fallback": ["H100:8"],
+    "qa_397b": {"app": "chimera-spec-qa-397b", "big": "q35_397b", "gpu": "H200:4",
                 "tok": "q35_397b",
                 "plans": [P("q397_big_alone", None, "big_alone"), P("q397_rescore", None, "rescore", base="q397_big_alone"),
                           P("q397_mid_alone", "q35_35b", "draft_alone"), P("q397_spec_k4", "q35_35b", "spec", k=4),
