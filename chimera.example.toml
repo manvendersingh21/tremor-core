@@ -85,7 +85,8 @@ max_complexity = 0.6
 timeout_s = 90
 api_key_env = "MODAL_VLLM_TOKEN"
 logprobs = true              # gate on mean token probability, like the Ollama tier
-warm_only = true             # flag: tried first only while a container runs; cold -> skipped and woken in the background
+warm_only = true             # flag: tried first only while a container runs; cold -> skipped
+wake = false                 # true: a cold check starts the app (bills $4.54/hr). false: start it by hand (make modal-qwen-up)
 modal_app = "chimera-qwen30b"   # scales to zero after 2 idle minutes (scaledown_window=120)
 enabled = true               # false: the ladder is cache -> gpu-small -> cloud-deepseek again
 # Cost is H200 seconds ($4.54/hr) while a container is up, not per token, so per-token prices stay 0 here.
@@ -98,7 +99,7 @@ url = "$CHIMERA_GPU_URL"      # from .env: the local end of an SSH tunnel to you
 model = "qwen3:30b-instruct"
 family = "qwen"
 max_complexity = 0.6
-timeout_s = 180
+timeout_s = 90                # the 90 s GPU rule: over it the call climbs (tuned p90 is 11 s)
 options = { num_thread = 4 }   # the box has a 4-CPU quota; Ollama's default thread count (host cores) ran 5x slower
 keep_alive = -1              # keep the 30B loaded (a cold load is ~37 s). bench/results_akash_tuning.md
 

@@ -59,9 +59,14 @@ def top_cost(tin: int, tout: int, cached: int = 0) -> float:
 
 # ---- models ------------------------------------------------------------------------------------------------
 def call30(prompt: str, max_tokens: int = MAX_TOKENS) -> tuple[str, int, int]:
-    body = json.dumps({"model": "qwen3:30b-instruct", "stream": False, "think": False,
-                       "options": {"num_predict": max_tokens, "temperature": 0, "seed": 1},
-                       "messages": [{"role": "user", "content": prompt}]}).encode()
+    from chimera_core.config import product_tier
+    t = product_tier("gpu-small")  # same runner options as the product: other options reload the model on the box
+    msg = {"model": t.model, "stream": False, "think": False,
+           "options": {**t.options, "num_predict": max_tokens, "temperature": 0, "seed": 1},
+           "messages": [{"role": "user", "content": prompt}]}
+    if t.keep_alive is not None:
+        msg["keep_alive"] = t.keep_alive
+    body = json.dumps(msg).encode()
     for attempt in range(2):
         try:
             req = urllib.request.Request(GPU + "/api/chat", body, {"Content-Type": "application/json"})

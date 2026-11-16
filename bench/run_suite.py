@@ -32,12 +32,14 @@ from chimera_core import RouterConfig, SpeculativeCascadeRouter  # noqa: E402
 from chimera_core.cache.guard import make_guard  # noqa: E402
 from chimera_core.cache.pgvector_cache import PgStore, PgVectorCache  # noqa: E402
 from chimera_core.cache.semantic_cache import CachedEmbedder, OnnxMiniLMEmbedder  # noqa: E402
+from chimera_core.config import product_tier  # noqa: E402
 from chimera_core.inference.local_draft import LlamaCppBackend  # noqa: E402
 from chimera_core.ladder import TopBackend  # noqa: E402
 from chimera_core.tiers import TierCfg, TierPool  # noqa: E402
 from run_bench import load_env  # noqa: E402
 
-STORE = ROOT / "bench/.scratch"  # in the repo, git-ignored; not $KIROCREW_SCRATCH (lost on a gateway restart)
+# in the repo, git-ignored; not $KIROCREW_SCRATCH (lost on a gateway restart). BENCH_STORE: another run's folder
+STORE = pathlib.Path(os.environ.get("BENCH_STORE") or ROOT / "bench/.scratch")
 SUITE = ROOT / "bench/datasets/suite.jsonl"
 TOP_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
 JUDGE = "zai-org/GLM-5.3-Flash"  # cheap GMI model; wrote none of the graded answers; used only for the Dolly rows
@@ -58,9 +60,7 @@ TOP_TIER = TierCfg(name="cloud-deepseek", device="cloud", backend="openai", url=
 def pool_tiers() -> list[TierCfg]:
     tiers = [
         # shortcut: the Mac 3B tier (127.0.0.1:8080) is removed, the user stopped it; the 30B is the first model tier.
-        TierCfg(name="gpu-small", device="gpu", backend="ollama",
-                url=os.environ.get("CHIMERA_GPU_URL", ""), model="qwen3:30b-instruct",
-                family="qwen", max_complexity=0.6, timeout_s=180),
+        product_tier("gpu-small"),  # the product's tuned entry (num_thread, keep_alive, timeout)
         TOP_TIER,
     ]
     if os.environ.get("MODAL_VLLM_URL"):  # shortcut: the Modal tier is wired by its own worker; off here

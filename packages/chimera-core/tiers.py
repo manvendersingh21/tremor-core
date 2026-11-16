@@ -4,7 +4,10 @@ Routing: cheapest enabled, healthy tier whose max_complexity >= the task's compl
 confidence, a timeout or an error, climb to the next tier that fits. A tier that keeps failing is
 skipped for a cooldown (circuit breaker); health probes are cached, and a failed call marks the tier
 down until its next probe. A `warm_only` tier (Modal H200) goes first, but only while warm: its warm
-check runs in the background, and a cold check wakes it while the call falls through to the next tier.
+check runs in the background, and a cold tier is skipped. A cold check starts the app only when the tier sets
+`wake = true`; without it the router never starts a paid GPU.
+OpenAI-style tiers (the 763B) retry up to RETRIES times on HTTP 429 or 5xx before they climb.
+A tier that answers with empty text climbs too; an empty answer is never served.
 Speculative verify is allowed only between tiers of the same `family`.
 Every call returns per-tier token usage in `PoolResult.per_tier` (Telemetry has no per_tier field yet).
 """
@@ -17,6 +20,7 @@ import shutil
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.request
 from typing import Callable, Literal
 
@@ -27,6 +31,8 @@ from .router import complexity_score
 HUD_KEYS = {"phone_3b", "mac_3b", "gpu_small", "gpu_large", "gpu_h200", "crusoe"}
 DEVICE_LABEL = {"phone": "Phone", "laptop": "Mac", "gpu": "GPU", "cloud": "Crusoe"}  # HUD labels
 PROBES = {"llamacpp": "/health", "ollama": "/api/tags", "openai": "/v1/models"}
+RETRIES, BACKOFF_S = 2, 1.0  # openai tiers: retries on 429/5xx, seconds of backoff per retry (Retry-After wins, max 10 s)
+_sleep = time.sleep  # test seam
 
 
 class TierCfg(BaseModel):
@@ -48,6 +54,7 @@ class TierCfg(BaseModel):
     # second while up, so a call costs nothing extra). Cold: skipped at once and woken in the background.
     warm_only: bool = False
     modal_app: str = ""  # warm_only: Modal app name; warm = a running container (read-only `modal container list`)
+    wake: bool = False  # warm_only: a cold check may start a container (it bills). Off: cold stays cold until started by hand
     logprobs: bool = False  # openai backend: ask for token logprobs and gate on mean token probability (vLLM)
     # ollama backend: runtime options sent with every call, e.g. {num_thread = 4} (bench/results_akash_tuning.md)
     options: dict = Field(default_factory=dict)
@@ -118,7 +125,18 @@ def build_backend(t: TierCfg):
                         base_url=os.path.expandvars(t.url), timeout=t.timeout_s, logprobs=t.logprobs)
 
         def run(prompt: str, n: int):
-            text = cb.complete(prompt, n)
+            for i in range(RETRIES + 1):
+                try:
+                    text = cb.complete(prompt, n)
+                    break
+                except urllib.error.HTTPError as e:  # 429 rate limit or 5xx: wait (Retry-After, capped), try again
+                    if i == RETRIES or not (e.code == 429 or e.code >= 500):
+                        raise
+                    try:
+                        wait = float(e.headers.get("Retry-After") or 0)
+                    except (TypeError, ValueError):  # an HTTP date or junk: use the backoff
+                        wait = 0.0
+                    _sleep(min(wait or BACKOFF_S * (i + 1), 10.0))
             return text, cb.last_usage["prompt_tokens"], cb.last_usage["completion_tokens"], cb.last_confidence
 
     class _B:
@@ -230,7 +248,7 @@ class TierPool:
         self._health[t.name] = (self._clock(), warm)
         with self._bg:
             self._refreshing.discard(t.name)
-            wake_now = not warm and t.name not in self._waking
+            wake_now = not warm and t.wake and t.name not in self._waking
             if wake_now:
                 self._waking.add(t.name)
         if wake_now:
@@ -310,6 +328,9 @@ class TierPool:
             u.dollars = tin / 1000 * t.cost_per_1k_in + tout / 1000 * t.cost_per_1k_out
             ev("call", {"tier": t.name, "model": t.model, "ok": True, "ms": round(ms, 1), "tokens_in": tin,
                         "tokens_out": tout, "cached_tokens": u.cached_tokens})
+            if not (text or "").strip():  # never served: climb (the tier is up, so no health strike)
+                why, skipped = f"climb: {t.name} gave an empty answer", []
+                continue
             if conf is not None:
                 ev("draft", {"tier": t.name, "model": t.model, "confidence": round(conf, 4), "gate": self.min_confidence})
             if conf is not None and conf < self.min_confidence:

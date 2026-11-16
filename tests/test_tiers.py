@@ -89,7 +89,7 @@ def h200(**kw):
 
 def test_warm_only_tier_cold_falls_through_and_wakes_once_then_serves_when_warm():
     now, warm, woke, later = [0.0], [False], [], []
-    p, log = pool([cfg("gpu-small", 0.6), h200(), cfg("top", 1.0, 1, family="ds")], clock=lambda: now[0],
+    p, log = pool([cfg("gpu-small", 0.6), h200(wake=True), cfg("top", 1.0, 1, family="ds")], clock=lambda: now[0],
                   warm_check=lambda t: warm[0], waker=lambda t: woke.append(t.name), spawn=later.append)
     assert [t.name for t in p.tiers] == ["h200", "gpu-small", "top"]
     assert p.generate("x", 0.1).tier == "gpu-small"  # unknown = cold: no wait, next tier answers
@@ -106,6 +106,74 @@ def test_warm_only_tier_cold_falls_through_and_wakes_once_then_serves_when_warm(
     while later:
         later.pop(0)()
     assert p.generate("x", 0.1).tier == "h200" and woke == ["h200"]
+
+
+def test_cold_warm_only_tier_is_never_started_without_wake():
+    woke, later = [], []
+    p, log = pool([h200(), cfg("gpu-small", 0.6)], warm_check=lambda t: False, waker=lambda t: woke.append(t.name),
+                  spawn=later.append)
+    assert p.generate("x", 0.1).tier == "gpu-small"
+    while later:
+        later.pop(0)()
+    assert woke == [] and "h200" not in log  # default wake = false: a paid GPU is never started by the router
+
+
+def test_example_config_never_auto_starts_the_h200():
+    from chimera_core.config import ROOT, load_config
+    h = next(t for t in load_config(ROOT / "chimera.example.toml").tiers if t.name == "gpu-h200")
+    assert h.warm_only and not h.wake
+
+
+def test_empty_answer_climbs_and_is_never_served():
+    class Empty(Fake):
+        def complete(self, prompt, n):
+            self.log.append(self.name)
+            return "  ", 10, 0, 0.99
+    p, log = pool([cfg("a", 0.5), cfg("b", 1.0, 1)], {"a": Empty("a")})
+    r = p.generate("x", 0.1)
+    assert r.tier == "b" and r.text == "b-answer" and log == ["a", "b"]
+    with pytest.raises(AllTiersFailed):  # nothing else to climb to: fail, never an empty answer
+        pool([cfg("a", 0.5)], {"a": Empty("a")})[0].generate("x", 0.1)
+
+
+def test_openai_tier_retries_429_then_answers(monkeypatch):
+    import io
+    import urllib.error
+
+    from chimera_core import ladder, tiers
+    calls, slept = [], []
+
+    def post(self, path, body):
+        calls.append(1)
+        if len(calls) < 3:
+            code = 429 if len(calls) == 1 else 503
+            raise urllib.error.HTTPError("u", code, "busy", {"Retry-After": "2"} if code == 429 else {}, io.BytesIO())
+        return {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": 3, "completion_tokens": 1}}
+    monkeypatch.setattr(ladder.TopBackend, "_post", post)
+    monkeypatch.setattr(tiers, "_sleep", slept.append)
+    monkeypatch.setenv("CRUSOE_API_KEY", "test")
+    t = TierCfg(name="top", device="cloud", backend="openai", url="http://x", model="m")
+    assert tiers.build_backend(t).complete("q", 8)[:3] == ("ok", 3, 1)
+    assert len(calls) == 3 and slept == [2.0, 2.0]  # Retry-After first, then the backoff for the second retry
+    calls.clear()
+
+    def bad(self, path, body):
+        calls.append(1)
+        raise urllib.error.HTTPError("u", 400, "bad", {}, io.BytesIO())
+    monkeypatch.setattr(ladder.TopBackend, "_post", bad)
+    with pytest.raises(urllib.error.HTTPError):
+        tiers.build_backend(t).complete("q", 8)
+    assert len(calls) == 1  # a 400 is not retried
+
+
+def test_product_tier_reads_the_tuned_30b_entry(monkeypatch, tmp_path):
+    from chimera_core.config import product_tier
+    monkeypatch.setenv("CHIMERA_CONFIG", str(tmp_path / "none.toml"))
+    (tmp_path / "none.toml").write_text("")  # a config with no tiers: the example file's entry is used
+    t = product_tier("gpu-small")
+    assert t.options == {"num_thread": 4} and t.keep_alive == -1 and t.timeout_s == 90
+    with pytest.raises(KeyError):
+        product_tier("no-such-tier")
 
 
 def test_low_confidence_skips_a_same_family_tier_that_is_no_stronger():

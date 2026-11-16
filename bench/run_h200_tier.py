@@ -40,6 +40,8 @@ def row(**kw):
 
 
 cfg = load_config()
+# this check tests the wake, so it turns it on explicitly (the product default is wake = false: never auto-start)
+cfg.tiers = [t.model_copy(update={"wake": True}) if t.name == "gpu-h200" else t for t in cfg.tiers]
 router = build_router(cfg)
 router.cfg = router.cfg.model_copy(update={"namespace": f"bench-h200-{run}"})  # fresh namespace: no cache hits
 h200 = next(t for t in cfg.tiers if t.name == "gpu-h200")

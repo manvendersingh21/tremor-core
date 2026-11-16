@@ -142,6 +142,17 @@ def load_config(path: str | os.PathLike | None = None) -> ChimeraConfig:
     return ChimeraConfig.model_validate(tomllib.loads(p.read_text()))
 
 
+def product_tier(name: str) -> TierCfg:
+    """The [[tiers]] entry `name` as the product runs it (chimera.toml, else chimera.example.toml).
+    Benches take their GPU tier from here so num_thread, keep_alive and timeout cannot drift from the product:
+    an Ollama call with other runner options (num_thread) also reloads the model on the GPU box."""
+    tiers = load_config().tiers or load_config(ROOT / "chimera.example.toml").tiers
+    for t in tiers:
+        if t.name == name:
+            return t
+    raise KeyError(f"no [[tiers]] entry named {name!r}")
+
+
 def load_env(env_file: pathlib.Path = ROOT / ".env") -> None:
     """Fill os.environ from .env without overriding real environment variables."""
     if env_file.exists():
