@@ -114,9 +114,6 @@ def test_ladder_cache_only_holds_answers_that_passed_the_check(conf, mid_mode, p
     assert first.text == "top" or first.telemetry.tier_used in CACHE_TIERS
 
 
-@pytest.mark.xfail(strict=True, reason="FOUND: LadderRouter never runs `check` on the top answer, so a top answer that "
-                   "fails the check is cached anyway (_emit(cache=True) on the top path). Owner: ladder.py generate(). "
-                   "Counterexample: conf=0.0, mid_mode='ok', check=lambda t: False, prompt='a#'.")
 @PBT
 @given(st.floats(0, 1), st.sampled_from(["ok", "escalate", "oserror"]), prompts())
 def test_ladder_does_not_cache_an_answer_that_failed_the_check(conf, mid_mode, prompt):
