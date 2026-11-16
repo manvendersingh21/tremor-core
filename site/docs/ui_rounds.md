@@ -15,7 +15,8 @@ Raw results (every screenshot, `result.json` per run): `bench/.scratch/ui/rounds
 |---|---|---|---|
 | 1 | local, all 4 browser/view pairs + live | 12 | e46c884 |
 | 2 | Pages (e46c884), all 4 pairs | 11 | af4f106 |
-| 3 | Pages (af4f106): full tour with video, WebKit phone, a slow line (4 Mbit/s, 150 ms, cache off) | 7 (6 fixed, 1 is clip art) | round 3 commit |
+| 3 | Pages (af4f106): full tour with video, WebKit phone, a slow line (4 Mbit/s, 150 ms, cache off) | 7 (6 fixed, 1 is clip art) | 75d8dff |
+| 4 | Pages (75d8dff): Chromium phone, WebKit desktop and phone; live backend locally | 6 (4 fixed, 1 handled, 1 found by the recheck and fixed) | round 4 commit |
 
 ## Timings
 
@@ -38,6 +39,12 @@ Raw results (every screenshot, `result.json` per run): `bench/.scratch/ui/rounds
 | r3 | chromium | desktop | demo, slow line | Pages | 696 | 3.89 | 60 | 0 |
 | r3 fixes | webkit | phone | demo | local | 252 | 3.97 | 100 | 0 |
 | r3 fixes | chromium | desktop | demo, full tour | local | 272 | 3.80 | 60 | 0 (tour 179 s) |
+| r4 | chromium | desktop | live | local | 268 | 3.76 | 60 | 0 |
+| r4 | chromium | phone | demo | Pages | 480 | 3.93 | 60 | 1 (a 503 from Pages) |
+| r4 | webkit | desktop | demo | Pages | 369 | 3.72 | 101 | 0 |
+| r4 | webkit | phone | demo | Pages | 397 | 3.89 | 100 | 0 |
+| r4 fixes | chromium | phone | demo | local | 232 | 3.98 | 60 | 0 |
+| r4 fixes | webkit | desktop | demo | local | 236 | 3.77 | 100 | 0 |
 
 "W held" is measured from key-down to the hall flag with a 50 ms poll, so it reads up to 0.05 s long.
 
@@ -117,3 +124,28 @@ Slow line (4 Mbit/s, 150 ms, cache off): first paint 696 ms, W held to the hall 
 | ![slow mid walk](rounds/r3_chromium_desktop_demo_slow_02_mid_walk.jpg) | ![slow hall](rounds/r3_chromium_desktop_demo_slow_03_hall.jpg) |
 
 Videos from the Pages build of af4f106 (before the round 3 fixes): [the 4 s walk-in](ui_walk_in.mp4), [the whole tour](ui_tour.mp4). The final tour video is re-recorded in round 4.
+
+## Round 4 (the Pages build of 75d8dff, plus the live backend)
+
+Live, against the real backend on 127.0.0.1:8765: Ask twice with a new question went to the GPU 30B (17,220 ms, 45 model tokens), then came back from the Supabase cache in 217 ms with 0 tokens. With `/api/stats` cut to 503 mid-session, the badge fell to "DEMO · saved results" within 7 s and the board switched to the saved run. Nothing broke.
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | The Observatory, Ladder and Ledger dashboards showed a second CHIMERA brand and a second DEMO badge inside the room (a page inside a page) | embedded, the dashboard shows only its Halloween/Standard switch |
+| 2 | The Manor's lead said "The Castle's H200 never answered" while its own poster says the H200 took all 25 calls off the 763B | "answered every call it was given, but it cost far more than the 763B" |
+| 3 | The tour quotes the 30B's cost per 1,000 calls in the Manor, but the room did not show that number | five cost cards from `bench/results_company_cost.md`: H200 busy $0.070 (green), H200 10% busy $0.700, tuned V100 $0.178 (green), H200 one at a time $1.089 (red), V100 before tuning $11.02 (red) |
+| 4 | Phone, Ledger: the cost chart, the room's focal point, started below the fold under a long lead | lead at 16 px on phones |
+| 5 | Ledger chart: "1 (6%) H200s busy" | "1 H200, 6% busy" |
+| 6 | Pages answered one door clip with 503 once (`room-observatory.mp4`) | handled already: the room opened on its painted still. Not a UI fix |
+
+While fixing 3, the cost report changed under me (another chat renamed "the shared V100" to "the Akash V100 before tuning" and added tuned V100 rows). The room now matches the new rows by name; the build would have failed loudly if a row were gone.
+
+| Before (round 4, Pages) | After (round 4 fixes, local) |
+|---|---|
+| ![r4 ladder](rounds/r4_webkit_desktop_demo_10_room_02_ladder.jpg) | ![r4 fixed ladder](rounds/r4fix_webkit_desktop_demo_10_room_02_ladder.jpg) |
+| ![r4 manor](rounds/r4_webkit_desktop_demo_10_room_06_gpus.jpg) | ![r4 fixed manor](rounds/r4fix2_webkit_desktop_demo_10_room_06_gpus.jpg) |
+| ![r4 phone ledger](rounds/r4_chromium_phone_demo_10_room_09_ledger.jpg) | ![r4 fixed phone ledger](rounds/r4fix_chromium_phone_demo_10_room_09_ledger.jpg) |
+
+| Live: Ask twice (real backend) | Live: backend cut mid-session, page falls to DEMO |
+|---|---|
+| ![live cache test](rounds/r4_chromium_desktop_live_30_chat_cache_test.jpg) | ![backend down](rounds/r4_chromium_desktop_live_50_backend_down.jpg) |

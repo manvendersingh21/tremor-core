@@ -245,7 +245,7 @@ window.ROOMS = [
     "door": "GPUs: your own box first, then a rented one.",
     "say": [
       "The Manor is your own GPU box. The Castle is the big rented one.",
-      "On the Manor's GPU the cascade saved calls and time. But it did not save tokens, and it lost some quality. The Castle's H200 never answered.",
+      "On the Manor's GPU the cascade saved calls and time. But it did not save tokens, and it lost some quality. The Castle's H200 answered every call it was given, but it cost far more than the 763B.",
       "Look at the red numbers. They are the truth."
     ],
     "posters": [

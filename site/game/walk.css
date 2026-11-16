@@ -270,3 +270,4 @@
   .m-touring .m-doors.m-arcade { display: none; }   /* the tour picks the doors */
 }
 .m-doors.m-spots[hidden] { display: none; }   /* round 3: hidden means hidden, also in the painted-hall layout */
+@media (max-width: 600px) { .m-lead { font-size: 16px; line-height: 1.4; margin-bottom: .7rem; } }   /* round 4: the room data comes up sooner on phones */
