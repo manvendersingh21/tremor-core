@@ -2972,17 +2972,17 @@
   },
   {
    "room": "observatory",
-   "secs": 16,
+   "secs": 14,
    "say": "The Observatory counts every call. The second time the same 60 questions came in, 57 were served from the cache with no model, and the ladder spent $0.00023."
   },
   {
    "room": "crypt",
-   "secs": 15,
+   "secs": 13,
    "say": "The Crypt is the cache in Supabase. Asked again, the hit rate was 0.95. A lookup takes 122 ms. 0 of 50 graded cache answers were wrong."
   },
   {
    "room": "ladder",
-   "secs": 16,
+   "secs": 14,
    "say": "The Ladder climbs one rung at a time: cache, then our own 30B, then the 763B. Per 1,000 coding calls the 763B costs $0.1576, GPT-5.5 costs $4.02. The bank of solved problems served 75 of 80 repeats, 0 wrong."
   },
   {
@@ -2992,22 +2992,22 @@
   },
   {
    "room": "workshop",
-   "secs": 20,
+   "secs": 18,
    "say": "The Workshop shows how Kiro built this castle: 7 steering files, 7 specs, 6 hooks, 4 custom agents, 3 MCP tools and a Power. Hypothesis tried 39 property tests and found 4 real bugs. 4 are fixed."
   },
   {
    "room": "tower",
-   "secs": 14,
+   "secs": 12,
    "say": "The Tower holds the biggest models. We tried speculative decoding on Modal: EAGLE-3 in the same box ran 1.80x as fast, but a drafter on another box ran at only 0.23x. We show both."
   },
   {
    "room": "gpus",
-   "secs": 14,
+   "secs": 12,
    "say": "The Manor is our own GPU. A 30B on an H200 kept busy costs $0.070 per 1,000 calls. On the shared V100, one call at a time, it costs $11.02."
   },
   {
    "room": "guild",
-   "secs": 10,
+   "secs": 9,
    "say": "The Guild is for companies: an OpenAI-style gateway, keys per tenant, metrics for Prometheus. Change one address and one key."
   },
   {
@@ -3017,7 +3017,7 @@
   },
   {
    "room": "ledger",
-   "secs": 24,
+   "secs": 20,
    "chart": true,
    "say": "And the bill. At 1 million coding calls a day, GPT-5.5 alone costs $120,600 a month. With the cache, the bank and our 30B first: $25,216, 79% less. Against the cheap 763B we do not save at that volume: the ladder costs $2,518 a month more. Every number here comes from a file. Good night."
   }
