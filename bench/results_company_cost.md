@@ -2,6 +2,17 @@
 
 Question: a company sends every coding call, FizzBuzz included, to a frontier API (GPT-5.5). What does it pay per 1,000 calls and per month if a cache, a bank of solved problems and a self-hosted 30B take the easy calls first?
 
+## Verdict
+
+- **Against GPT-5.5 the saving is real.** A 30B on always-on H200s, with GPT-5.5 re-asked for every call the 30B fails, costs 57% less than GPT-5.5 alone at 100k coding calls a day, 79% less at 1M and 81% less at 10M. That is with no repeats served from the cache or bank. If 30% of calls are repeats, the saving is 62%, 86% and 87%.
+- **Most of what is left is the 30B's failures.** At 1M calls a day the cascade costs $25,216 a month: $6,538 of H200 time and $18,654 of GPT-5.5 calls for the 10% the 30B gets wrong. Those failures are mostly hard tasks, so they cost more per call ($6.04 per 1,000) than the GPT-5.5 average ($4.02).
+- **Against the 763B there is no saving at today's volumes.** The 763B (DeepSeek-V4.1-Flash on Crusoe) costs $0.158 per 1,000 calls. With no repeats, the cascade costs 7.1x as much at 100k calls a day and 53% more at 1M, and about the same at 10M (4% more). With 30% repeats it saves 20% at 1M and 28% at 10M, and still costs more at 100k.
+- **Break-even busy share of one H200** (always on, $108.96 a day, concurrency 64): 1.7% of its top rate (about 27,000 calls a day) to beat GPT-5.5 per call, and 44% (about 691,000 calls a day) to beat the 763B. At concurrency 32 it is 2.4% and 61%. Below 1.7% busy the H200 costs more per call than GPT-5.5 itself.
+- **Failure, named plainly: the 30B gets about 10% wrong.** It failed 31 of 301 coding tasks on the H200 (2 of 101 trivial, 13 of 120 everyday, 16 of 80 hard). The 763B failed 15 of 301. GPT-5.5 passed 60 of 60, a smaller sample. The savings above assume each request carries tests that catch every 30B failure and send it up. Most real requests have no tests. Without them, the cheaper bill comes with about 1 wrong answer in 10.
+- **The repeated tests agree with the earlier single runs.** Cache: 49 of 60 served in each of 3 repeats (36 exact, 13 cosine), 0 wrong, 0 near-miss hits, lookup p50 122 ± 3 ms. Bank: run 2 served 75 of 80 and run 3 served 24 of 80 in every repeat, with 0 wrong served. Ladder: an empty cache cut 763B tokens by 56.2% ± 4.6% (range 50.9% to 59.2%) against the 763B alone. The second pass served 58 or 59 of 60 from the cache, with 0 wrong cache answers in 3 repeats.
+- **Why the spread is small:** the embeddings, the 0.97 and 0.9 cut-offs and temperature 0 are fixed, so cache and bank counts repeat exactly. The spread is in lookup time, 763B tokens (the 763B does not answer the same way each time) and 30B latency. On the shared V100, the ladder's median was 6.7 s against 1.3 s for the 763B alone.
+- **Not measured here:** the H200 numbers are single runs. This item started no Modal GPU, so they were not repeated. The share of repeats in a real company's coding traffic is unknown; open chat (oasst1) had under 1%. Other costs left out: scale-to-zero cold starts ($0.59 to $1.07 each), Modal CPU and memory meters, the CPU time of the test runs, and a bigger Supabase compute tier at 10M calls a day. H200 sizing at half its top rate is an assumption.
+
 ## Cost per 1,000 coding calls
 
 | Tier | $ per 1,000 calls | Pass on 301 coding tasks | Source |
@@ -89,7 +100,7 @@ Same sets as `bench/run_cache.py`: 18 same text, 18 changed case and spacing, 18
 | 1 | 60 | 49 | 36 | 13 | 18/18 | 18/18 | 13/18 | 0/6 | 0 | 0 | 122 / 139 |
 | 2 | 60 | 49 | 36 | 13 | 18/18 | 18/18 | 13/18 | 0/6 | 0 | 0 | 125 / 148 |
 | 3 | 60 | 49 | 36 | 13 | 18/18 | 18/18 | 13/18 | 0/6 | 0 | 0 | 120 / 134 |
-| **mean ± sd (range)** | 60 | 49.0 in all 3 | 36.0 in all 3 | 13.0 in all 3 | | | | 0.0 in all 3 | 0.0 in all 3 | | 122 ± 3 (120-125) / 140 ± 7 (134-148) |
+| **mean ± sd (range)** | 60 | 49 in all 3 | 36 in all 3 | 13 in all 3 | | | | 0 in all 3 | 0 in all 3 | | 122 ± 3 (120-125) / 140 ± 7 (134-148) |
 
 ### Solved-problem bank: run 2 (same 80 problems) and run 3 (80 reworded copies)
 
@@ -101,18 +112,36 @@ Each repeat: a fresh tenant, run 1 replays saved answers to fill the bank with t
 | 2 same problems | 1 | 75 (75/0) | 2 | 3 | 5 | 5 | $0.0026 | 75 | 459 |
 | 2 same problems | 2 | 75 (75/0) | 2 | 3 | 5 | 5 | $0.0026 | 75 | 437 |
 | 2 same problems | 3 | 75 (75/0) | 2 | 3 | 5 | 5 | $0.0026 | 75 | 446 |
-| **2 same problems** | **mean ± sd (range)** | 75.0 in all 3 | 2.0 in all 3 | 3.0 in all 3 | 5.0 in all 3 | 5.0 in all 3 | $0.0026 in all 3 | 75.0 in all 3 | 448 ± 11 (437-459) |
+| **2 same problems** | **mean ± sd (range)** | 75 in all 3 | 2 in all 3 | 3 in all 3 | 5 in all 3 | 5 in all 3 | $0.0026 in all 3 | 75 in all 3 | 448 ± 11 (437-459) |
 | 3 reworded copies | earlier single run | 24 (0/24) | 40 | 16 | 56 | 7 | $0.0065 | 75 | 336 |
 | 3 reworded copies | 1 | 24 (0/24) | 40 | 16 | 56 | 7 | $0.0066 | 75 | 278 |
 | 3 reworded copies | 2 | 24 (0/24) | 40 | 16 | 56 | 8 | $0.0068 | 74 | 261 |
 | 3 reworded copies | 3 | 24 (0/24) | 40 | 16 | 56 | 8 | $0.0065 | 74 | 274 |
-| **3 reworded copies** | **mean ± sd (range)** | 24.0 in all 3 | 40.0 in all 3 | 16.0 in all 3 | 56.0 in all 3 | 7.7 ± 0.6 (7.0-8.0) | $0.0066 ± $0.0002 ($0.0065-$0.0068) | 74.3 ± 0.6 (74.0-75.0) | 271 ± 9 (261-278) |
+| **3 reworded copies** | **mean ± sd (range)** | 24 in all 3 | 40 in all 3 | 16 in all 3 | 56 in all 3 | 7.7 ± 0.6 (7.0-8.0) | $0.0066 ± $0.0002 ($0.0065-$0.0068) | 74.3 ± 0.6 (74.0-75.0) | 271 ± 9 (261-278) |
 
 ### 60-question ladder check: BASE (763B only), COLD (empty cache), WARM (same questions again)
 
 `bench/run_backend.py` unchanged: Supabase cache -> GPU 30B on the Akash V100 (gate 0.95) -> 763B. The 30B here is the slow shared V100, not the H200.
 
-Not run yet.
+| Pass | Repeat | 763B calls | GPU 30B calls | Cache hits | 763B tokens | 763B $ | Graded correct | p50 ms | p90 ms | Calls >= 90 s | Errors |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| BASE | earlier single run (v2) | 60 | 0 | 0 | 12664 | $0.01150 | 45/48 | 1210 | 2670 | 0 | 0 |
+| BASE | 1 | 60 | 0 | 0 | 12661 | $0.01150 | 45/48 | 1266 | 2965 | 0 | 0 |
+| BASE | 2 | 60 | 0 | 0 | 13323 | $0.01229 | 44/48 | 1382 | 2977 | 0 | 0 |
+| BASE | 3 | 60 | 0 | 0 | 12998 | $0.01190 | 44/48 | 1363 | 2662 | 0 | 0 |
+| **BASE** | **mean ± sd (range)** | 60 in all 3 | 0 in all 3 | 0 in all 3 | 12994 ± 331 (12661-13323) | $0.01190 ± $0.00040 ($0.01150-$0.01229) | 44.3 ± 0.6 (44.0-45.0) of 48 | 1337 ± 62 (1266-1382) | 2868 ± 179 (2662-2977) | 0 in all 3 | 0 in all 3 |
+| COLD | earlier single run (v2) | 14 | 51 | 5 | 5956 | $0.00615 | 48/48 | 8594 | 21758 | 0 | 0 |
+| COLD | 1 | 12 | 51 | 5 | 5267 | $0.00552 | 47/48 | 7101 | 22395 | 0 | 0 |
+| COLD | 2 | 13 | 51 | 5 | 6548 | $0.00687 | 47/48 | 6919 | 21070 | 0 | 0 |
+| COLD | 3 | 13 | 51 | 5 | 5301 | $0.00555 | 46/48 | 6010 | 21104 | 0 | 0 |
+| **COLD** | **mean ± sd (range)** | 12.7 ± 0.6 (12.0-13.0) | 51 in all 3 | 5 in all 3 | 5705 ± 730 (5267-6548) | $0.00598 ± $0.00077 ($0.00552-$0.00687) | 46.7 ± 0.6 (46.0-47.0) of 48 | 6677 ± 585 (6010-7101) | 21523 ± 755 (21070-22395) | 0 in all 3 | 0 in all 3 |
+| WARM | earlier single run (v2) | 0 | 0 | 60 | 0 | $0 | 48/48 | 113 | 122 | 0 | 0 |
+| WARM | 1 | 0 | 1 | 59 | 0 | $0.00000 | 47/48 | 117 | 126 | 0 | 0 |
+| WARM | 2 | 0 | 1 | 59 | 0 | $0.00000 | 47/48 | 110 | 128 | 0 | 0 |
+| WARM | 3 | 0 | 2 | 58 | 0 | $0.00000 | 46/48 | 109 | 129 | 0 | 0 |
+| **WARM** | **mean ± sd (range)** | 0 in all 3 | 1.3 ± 0.6 (1.0-2.0) | 58.7 ± 0.6 (58.0-59.0) | 0 in all 3 | $0.00000 in all 3 | 46.7 ± 0.6 (46.0-47.0) of 48 | 112 ± 4 (109-117) | 128 ± 2 (126-129) | 0 in all 3 | 0 in all 3 |
+
+COLD against BASE in the same repeat: 763B tokens cut 56.2 ± 4.6 (50.9-59.2)%, 763B $ cut 49.8 ± 5.0 (44.1-53.4)% (earlier single run: -53.0% tokens, -46.5% $).
 
 ## Rerun
 
