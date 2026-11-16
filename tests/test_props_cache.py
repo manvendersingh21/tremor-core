@@ -15,7 +15,7 @@ from chimera_core.cache.semantic_cache import SemanticCache
 from chimera_core.router import Events, RouterConfig, SpeculativeCascadeRouter
 
 text = st.text(max_size=60)
-ns = st.text(max_size=8)
+ns = st.text(alphabet=st.characters(blacklist_characters="\x00"), max_size=8)  # prompt_hash refuses NUL in a namespace
 ASCII_WORDS = st.lists(st.text(alphabet="abcdefXYZ0189", min_size=1, max_size=6), min_size=1, max_size=6)
 
 
@@ -69,14 +69,22 @@ def test_exact_cache_keys_differ_when_namespace_or_prompt_differ(n1, p1, n2, p2)
     _keys_differ(n1, p1, n2, p2)
 
 
-@pytest.mark.xfail(strict=True, reason="FOUND: prompt_hash joins namespace and prompt with NUL, so namespace 'a' + prompt "
-                   "'b\\x00c' collides with namespace 'a\\x00b' + prompt 'c'. Owner: cache/exact_cache.py. "
-                   "Fix: length-prefix the namespace or reject NUL in namespace.")
+# A NUL in the namespace could make two (namespace, prompt) pairs share a key ("a" + "b\x00c" vs "a\x00b" + "c"),
+# so prompt_hash refuses it instead of changing the hash format.
+nul_ns = st.tuples(st.text(max_size=4), st.text(max_size=4)).map(lambda t: t[0] + "\x00" + t[1])
+
+
 @PBT
-@given(ns, text, ns, text)
-@example("a", "b\x00c", "a\x00b", "c")
-def test_exact_cache_keys_collide_when_namespace_holds_nul(n1, p1, n2, p2):
-    _keys_differ(n1, p1, n2, p2)
+@given(nul_ns, text)
+@example("a\x00b", "c")
+def test_prompt_hash_refuses_nul_in_namespace(namespace, prompt):
+    with pytest.raises(ValueError, match="namespace must not contain NUL"):
+        prompt_hash(prompt, namespace)
+
+
+def test_prompt_hash_unchanged_for_nul_free_namespace():
+    """Stored shared-cache rows are keyed by this hash; the NUL check must not change it."""
+    assert prompt_hash("Hello  World", "web") == "85e62be73c21c0f3a1ccf9a3bc55e3b94c27aa065a1f05ba1c00b91b968148d8"
 
 
 @PBT
