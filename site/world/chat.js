@@ -243,7 +243,7 @@
     }
     async function poll() {
       if (!host.isConnected || dead) return;
-      if (demoMode) { $('#c-mon').innerHTML = '<span class="c-chip unk">DEMO: no backend on this link · run <b>make web</b> for live health</span>'; return; }
+      if (demoMode) { $('#c-mon').hidden = true; return; }   // the DEMO note above the log says it once
       try { const r = await fetch(healthUrl, { cache: 'no-store' }); if (!r.ok) throw 0; renderHealth(await r.json(), false); }
       catch (e) { renderHealth({}, true); }
       timer = setTimeout(poll, 2000);

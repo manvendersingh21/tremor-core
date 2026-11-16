@@ -19,6 +19,8 @@ SMALL_JS = """(min) => { let n = 0, ex = []; const w = document.createTreeWalker
   while (w.nextNode()) { const t = w.currentNode, s = t.textContent.trim(); if (!s) continue; const e = t.parentElement;
     if (!e || !e.offsetParent && getComputedStyle(e).position !== 'fixed') continue; const r = e.getBoundingClientRect(); if (!r.width || r.bottom < 0 || r.top > innerHeight) continue;
     if (e.closest('[hidden]') || getComputedStyle(e).visibility === 'hidden' || +getComputedStyle(e).opacity === 0) continue;
+    const cx = Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2)), cy = Math.min(innerHeight - 1, Math.max(0, r.top + Math.min(r.height, 20) / 2)), top = document.elementFromPoint(cx, cy);
+    if (!top || !(top === e || e.contains(top) || top.contains(e))) continue;   // covered by something else: not seen
     const fs = parseFloat(getComputedStyle(e).fontSize); if (fs < min) { n++; if (ex.length < 8) ex.push(s.slice(0, 30) + ' @' + fs.toFixed(1)); } } return { n, ex }; }"""
 NONAME_JS = """() => [...document.querySelectorAll('button, a, input, [role=button]')].filter((b) => b.offsetParent && !((b.getAttribute('aria-label') || b.innerText || b.title || b.value || '').trim())).map((b) => b.id || b.className).slice(0, 10)"""
 
@@ -81,7 +83,7 @@ def main():
         shot('01_landing')
         badge = js("(document.getElementById('m-mode') || {}).textContent || ''")
         check(f'{mode.upper()} badge shown', ('DEMO' in badge) if mode == 'demo' else ('LIVE' in badge), badge)
-        check('Hold W prompt on the landing', 'Hold' in js("document.getElementById('m-prompt').innerText") and js("document.getElementById('m-prompt').classList.contains('on')"))
+        check('walk prompt on the landing (Hold W, or the stick on touch)', any(w in js("document.getElementById('m-prompt').innerText") for w in ('Hold', 'Push the stick')) and js("document.getElementById('m-prompt').classList.contains('on')"))
         check('no horizontal overflow', js('document.documentElement.scrollWidth <= innerWidth + 1'), js('document.documentElement.scrollWidth + " vs " + innerWidth'))
         if view == 'phone':
             sm = js(SMALL_JS, 14)
@@ -127,7 +129,7 @@ def main():
         for k, (rid, title) in enumerate(doors):
             js(f'MovieGame.state.door={k}; MovieGame.use()')
             p.wait_for_function("!document.getElementById('m-panel').hidden", timeout=15000)
-            time.sleep(2.5)
+            time.sleep(4.0 if js("!!document.querySelector('.m-dash')") else 2.5)
             got = js("document.getElementById('m-ptitle').textContent")
             check(f'opens {title}', got == title, got)
             txt = page_text()
@@ -154,7 +156,7 @@ def main():
             time.sleep(1.0)
             check('demo chat shows saved questions', js("!document.getElementById('c-chips').hidden"), js("document.getElementById('c-chips').innerText")[:120])
         else:
-            p.fill('#c-in', 'What is the capital of France?')
+            p.fill('#c-in', f'Name one river that flows through Paris. (UI check {rnd} {int(time.time())})')   # new each run: a real miss first
         p.click('#c-twice')
         for _ in range(900):
             time.sleep(0.2)

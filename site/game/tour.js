@@ -43,7 +43,7 @@
     const G = window.MovieGame; if (on || !G || !window.ChimeraMode) return;
     let stops;
     try { stops = (await window.ChimeraMode.demo()).tour; } catch (e) { return; }
-    on = true; G.state.tour = true; started = performance.now();
+    on = true; G.state.tour = true; started = performance.now(); document.documentElement.classList.add('m-touring');
     const box = ui(); box.hidden = false; box.classList.remove('done');
     const fill = box.querySelector('#m-tour-fill'), say = box.querySelector('#m-tour-say'), n = box.querySelector('#m-tour-n');
     for (let i = 0; i < stops.length && on; i++) {
@@ -57,14 +57,14 @@
     }
     if (!on) return;
     T.last = { secs: Math.round((performance.now() - started) / 100) / 10, stops: stops.length };
-    on = false; G.state.tour = false; skip = null;
+    on = false; G.state.tour = false; skip = null; document.documentElement.classList.remove('m-touring');
     n.textContent = 'Tour over'; say.textContent = 'That was the whole castle. Press T to take the tour again, or walk on your own.';
     box.classList.add('done'); box.querySelector('#m-tour-next').hidden = true;
     setTimeout(() => { if (!on) box.hidden = true; box.querySelector('#m-tour-next').hidden = false; }, 7000);
   }
   function stop() {
     if (!on) { if (el) el.hidden = true; return; }
-    on = false; if (skip) skip();
+    on = false; if (skip) skip(); document.documentElement.classList.remove('m-touring');
     const G = window.MovieGame; if (G) { G.state.tour = false; G.state.keys.delete('w'); }
     T.last = { secs: Math.round((performance.now() - started) / 100) / 10, stopped: true };
     if (el) el.hidden = true;
