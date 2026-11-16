@@ -39,12 +39,12 @@ TP = int(CFG["gpu"].split(":")[1]) if ":" in CFG["gpu"] else 1
 app = modal.App(CFG["app"])
 VOLS = {f"/w/{f}": modal.Volume.from_name(c["volume"], create_if_missing=True, version=2) for f, c in FAMILIES.items()}
 VOLS["/vllm-cache"] = modal.Volume.from_name("chimera-spec-vllm-cache", create_if_missing=True, version=2)
-token = modal.Secret.from_name("chimera-vllm-token")
+token = modal.Secret.from_name("chimera-spec-token")  # own secret (SPEC_TOKEN); guards the big box's endpoints
 image = (
     modal.Image.from_registry("vllm/vllm-openai:v0.33.0")  # the image the other tiers already start on
     .entrypoint([])
     .run_commands("ln -sf $(command -v python3) /usr/local/bin/python")
-    .env({"VLLM_CACHE_ROOT": "/vllm-cache", "SPEC_JOB": JOB, "HF_HUB_OFFLINE": "1"})
+    .env({"VLLM_CACHE_ROOT": "/vllm-cache", "SPEC_JOB": JOB})
 )
 if modal.is_local():
     image = (image.add_local_file(_repo / "bench" / "spec_modal_core.py", "/root/spec_modal_core.py")
@@ -125,6 +125,7 @@ def test_ids(tok, key):
 
 # ---------- the big model (server) ----------
 @app.cls(image=image, gpu=CFG["gpu"], volumes=VOLS, secrets=[token], min_containers=0, max_containers=1,
+         cpu=8.0, memory=65536,
          scaledown_window=IDLE, timeout=4 * 60 * MINUTES)
 @modal.concurrent(max_inputs=16)
 class Big:
@@ -155,7 +156,7 @@ class Big:
         import httpx
         from fastapi import Depends, FastAPI, Header, HTTPException
 
-        web, key = FastAPI(), os.environ["MODAL_VLLM_TOKEN"]
+        web, key = FastAPI(), os.environ["SPEC_TOKEN"]
         lock = threading.Lock()
 
         def auth(authorization: str = Header(default="")):
@@ -171,9 +172,14 @@ class Big:
             out = fn()
             return out, (time.perf_counter() - t0) * 1e3
 
+        @web.get("/ping")
+        def ping():
+            return {}
+
         @web.get("/health")
         def health():
             return {"model": MODELS[BIG]["repo"], "gpu": CFG["gpu"], "mode": self.mode, "state": self.state,
+                    "where": where(),
                     "transport": self.v.transport, "fast_verify": self.v.fast, "fast_fallbacks": self.v.fallbacks,
                     "container_up_s": round(time.time() - self.t_enter, 1), "starts": self.starts}
 
@@ -222,6 +228,7 @@ class Big:
 
 # ---------- drafter boxes (the "local machine") ----------
 @app.cls(image=image, gpu="L40S", volumes=VOLS, secrets=[token], min_containers=0, max_containers=1,
+         cpu=4.0, memory=32768,
          scaledown_window=IDLE, timeout=3 * 60 * MINUTES)
 @modal.concurrent(max_inputs=4)
 class Draft:
@@ -247,7 +254,7 @@ class Draft:
     @modal.method()
     def info(self):
         return {"drafter": self.drafter, "vllm_ready_s": round(self.vllm_ready_s, 1), "boot_s": round(self.boot_s, 1),
-                "transport": self.v.transport}
+                "transport": self.v.transport, "where": where()}
 
     @modal.method()
     def run(self, prompts, warm, plan, url):
@@ -276,7 +283,7 @@ def client(prompts, warm, plan, url):
 def big_client(url):
     import httpx
 
-    hdr = {"Authorization": f"Bearer {os.environ['MODAL_VLLM_TOKEN']}"}
+    hdr = {"Authorization": f"Bearer {os.environ['SPEC_TOKEN']}"}
     return httpx.Client(base_url=url, headers=hdr, timeout=httpx.Timeout(140, connect=30), follow_redirects=True,
                         max_redirects=12)
 
@@ -326,6 +333,11 @@ def run_plan(prompts, warm, plan, url, tok, local):
     stats0 = cli.get("/stats").json()
     for p in warm:  # warm-up prompts are not in the measured set
         one(p, "warm")
+    pings = []  # bare transport cost of one call to the big box (no model work)
+    for _ in range(20):
+        t0 = time.perf_counter()
+        cli.get("/ping")
+        pings.append((time.perf_counter() - t0) * 1e3)
     rtt.clear()
     srv.clear()
     stats1 = cli.get("/stats").json()
@@ -334,8 +346,13 @@ def run_plan(prompts, warm, plan, url, tok, local):
     stats2 = cli.get("/stats").json()
     for r in rows:
         r["text"] = tok.decode(r["out"])
-    return {"rows": rows, "rtt_ms": rtt, "server_ms": srv, "t_run": t_run, "t_end": time.time(),
-            "spec_counters": {"warm_delta": _delta(stats0, stats1), "run_delta": _delta(stats1, stats2)}}
+    return {"rows": rows, "rtt_ms": rtt, "server_ms": srv, "t_run": t_run, "t_end": time.time(), "ping_ms": pings,
+            "client_where": where(), "spec_counters": {"warm_delta": _delta(stats0, stats1), "run_delta": _delta(stats1, stats2)}}
+
+
+def where():
+    """Region and cloud of this container (explains the round trip between boxes)."""
+    return {k: os.environ.get(k) for k in ("MODAL_REGION", "MODAL_CLOUD_PROVIDER")}
 
 
 def _delta(a, b):
@@ -391,7 +408,6 @@ def main():
     plans = [{"max_tokens": mt, "k": 4, **p} for p in CFG["plans"]]
     t0 = time.time()
     meta = {"job": JOB, "app": CFG["app"], "big": BIG, "gpu": CFG["gpu"], "t0": t0, "plans": [], "drafters": {}}
-    first = next((p["drafter"] for p in plans if p.get("drafter")), None)
     warmers = {}
 
     def warm_drafter(key):  # boot the drafter box while something else runs, and keep it from idling out
@@ -401,6 +417,11 @@ def main():
             warmers[key] = Pinger(lambda: d.info.remote(), 60)
             warmers[key].start()
 
+    todo = [p for p in plans if p["mode"] == "switch" or not (out / f"{p['name']}.json").exists()]
+    first = next((p["drafter"] for p in todo if p.get("drafter")), None)
+    if not any(p["mode"] != "switch" for p in todo):
+        print("nothing to do: every plan of this job has a result file", flush=True)
+        return
     warm_drafter(first)  # boots next to the big box's cold start
     url = Big().api.get_web_url()
     with httpx.Client(follow_redirects=True, max_redirects=20, timeout=httpx.Timeout(200, connect=60)) as h:
@@ -411,24 +432,47 @@ def main():
     print("big up:", json.dumps(meta["big_health"]), flush=True)
     keep = Pinger(lambda: httpx.get(url + "/health", timeout=60, follow_redirects=True), 30)
     keep.start()
-    failures, skipping = 0, False
+    failures, required, current, failed_modes = 0, "plain", "plain", set()
+    meta["switches"] = []
+
+    def save_meta():
+        (out / f"meta_{JOB}.json").write_text(json.dumps({**meta, "t_end": time.time(), "failures": failures}))
+
     try:
         for i, plan in enumerate(plans):
-            nxt = next((p.get("drafter") for p in plans[i + 1:] if p.get("drafter") and p.get("drafter") != plan.get("drafter")), None)
-            f = out / f"{plan['name']}.json"
-            if plan["mode"] == "switch":
-                skipping = False
-            elif skipping:
-                print("skip (its mode did not start):", plan["name"], flush=True)
+            if plan["mode"] == "switch":  # sets the big box mode the plans below need; switched lazily
+                required = plan["to"]
                 continue
-            if f.exists() and plan["mode"] != "switch":
+            f = out / f"{plan['name']}.json"
+            if f.exists():
                 print("skip (done):", f.name, flush=True)
                 continue
+            if required in failed_modes:
+                print(f"skip ({required} did not start):", plan["name"], flush=True)
+                continue
+            block = []  # the plans still to run in this mode block, for pre-warming the next drafter
+            for p in plans[i + 1:]:
+                if p["mode"] == "switch":
+                    break
+                if p.get("drafter") and not (out / f"{p['name']}.json").exists():
+                    block.append(p["drafter"])
+            nxt = next((d for d in block if d != plan.get("drafter")), None)
             t1 = time.time()
             try:
-                if plan["mode"] == "switch":
-                    res = {"rows": [], "start": switch_mode.remote(url, plan["to"])}
-                elif plan["mode"] == "margins":
+                if current != required:
+                    if plan.get("drafter"):
+                        warm_drafter(plan["drafter"])  # its boot overlaps the big box's restart
+                    current = None
+                    try:
+                        st = switch_mode.remote(url, required)
+                    except Exception:
+                        failed_modes.add(required)
+                        raise
+                    current = required
+                    meta["switches"].append({"mode": required, "s": round(time.time() - t1, 1), "start": st})
+                    print(f"big box now in mode {required} after {time.time() - t1:.0f} s", flush=True)
+                    t1 = time.time()
+                if plan["mode"] == "margins":
                     items = mismatches(out, plan["base"], plan["runs"])
                     res = {"rows": client.remote(items, [], plan, url) if items else []}
                 elif plan.get("drafter"):
@@ -439,18 +483,22 @@ def main():
                     meta["drafters"].setdefault(plan["drafter"], {"first_use": time.time(), **d.info.remote()})
                     res = d.run.remote(prompts, warm, plan, url)
                     meta["drafters"][plan["drafter"]]["last_use"] = time.time()
-                    later = [p.get("drafter") for p in plans[i + 1:]]
+                    later = [p.get("drafter") for p in plans[i + 1:] if not (out / f"{p['name']}.json").exists()]
                     if plan["drafter"] not in later and plan["drafter"] in warmers:
                         warmers.pop(plan["drafter"]).stop.set()  # done with it: let it scale down
                 else:
                     res = client.remote(prompts, warm, plan, url)
             except Exception as e:  # noqa: BLE001
                 failures += 1
-                (out / f"{plan['name']}.error.json").write_text(json.dumps({"plan": plan, "error": repr(e)[:2000]}))
-                print(f"FAILED {plan['name']}: {e!r}"[:600], flush=True)
-                if plan["mode"] == "switch":  # a mode that does not start: skip its runs, try the next switch
-                    skipping = True
-                    continue
+                (out / f"{plan['name']}.error.json").write_text(json.dumps({"plan": plan, "mode": required,
+                                                                            "error": repr(e)[:2000]}))
+                print(f"FAILED {plan['name']} (mode {required}): {e!r}"[:800], flush=True)
+                save_meta()
+                low = repr(e).lower()
+                if "spend limit" in low or "is disabled" in low:
+                    raise
+                if required in failed_modes:
+                    continue  # a mode that does not start: skip its plans, carry on with the next mode
                 try:
                     hl = httpx.get(url + "/health", timeout=60, follow_redirects=True).json()
                 except Exception:  # noqa: BLE001
@@ -458,9 +506,10 @@ def main():
                 if hl.get("state") != "ready":
                     raise RuntimeError(f"big box not ready after {plan['name']}: {hl.get('state')}") from e
                 continue
-            res.update(plan=plan, elapsed_s=round(time.time() - t1, 1))
+            res.update(plan=plan, big_mode=current, elapsed_s=round(time.time() - t1, 1))
             f.write_text(json.dumps(res))
             meta["plans"].append({"name": plan["name"], "t_start": t1, "t_end": time.time()})
+            save_meta()
             rows = [r for r in res["rows"] if "out" in r]
             toks, wall = sum(len(r["out"]) for r in rows), sum(r["wall_s"] for r in rows) or 1
             print(f"done {plan['name']}: {len(res['rows'])} rows, {toks / wall:.1f} tok/s, {res['elapsed_s']} s", flush=True)

@@ -223,13 +223,13 @@ class VLLM:
         sp = {"prompt_logprobs": 1}
         if fast:
             sp["skip_reading_prefix_cache"] = False
-        toks, pl = self.call(ctx + d, 1, salt, transport, **sp)
         try:
+            toks, pl = self.call(ctx + d, 1, salt, transport, **sp)
             m, miss = accept_from_prompt_logprobs(pl or [], len(ctx), d)
-        except IncompleteScores:
+        except Exception:
             if not fast:
                 raise
-            self.fallbacks += 1  # a cache hit reached into the draft rows: score this round in full
+            self.fallbacks += 1  # the fast path failed (missing rows or a server error): score this round in full
             return self.verify(ctx, d, salt + ":full", fast=False, transport=transport)
         return m, (miss if m < len(d) else toks[0])
 
