@@ -92,6 +92,9 @@ Step 4, commit f973ff0, and step 5 (this note): site.
   tests/test_castle.py tests/test_world.py tests/test_hud.py tests/test_memory_report.py tests/test_suite_cache_stats.py`: pass.
 - `python3 site/build.py --check`: pass.
 - `.kiro/hooks/scripts/secret_scan.py --staged` before every commit: clean.
+- CI on dev: red on 62d7426 and 93d4310 (`site/demo.py` still looked up the old "shared V100" row name), fixed in
+  f973ff0. Green on 18474fd, f973ff0 and 25a3ce4 (runs 43885810862, 43886097600), Python 3.11 and 3.12.
+- Step 5 commits: f8e91b2 (this note), 25a3ce4 (demo data rebuilt for the extra handoff note).
 
 ## Not done, and risks
 
