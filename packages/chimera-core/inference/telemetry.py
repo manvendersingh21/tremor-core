@@ -11,7 +11,7 @@ Tier = Literal["exact_cache", "semantic_cache", "local", "cloud_verified", "clou
 
 
 # Keys of Telemetry.per_tier. The HUD ledger reads these names.
-TierKey = Literal["phone_3b", "mac_3b", "gpu_small", "gpu_large", "crusoe"]
+TierKey = Literal["phone_3b", "mac_3b", "gpu_small", "gpu_large", "gpu_h200", "crusoe"]
 
 
 class TierUsage(BaseModel):
