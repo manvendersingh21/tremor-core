@@ -1,10 +1,11 @@
 """Tune the self-hosted 30B on the V100: same 20 coding tasks, one server config at a time, 1 or 4 calls at once.
 
     .venv/bin/python bench/cost_case/run_akash_tuning.py run <label> --conc 1|4 [--url URL] [--backend ollama|openai]
-                     [--opts '{"num_ctx": 4096}'] [--keep-alive -1] [--no-logprobs]
+                     [--opts '{"num_ctx": 4096}'] [--keep-alive -1] [--no-logprobs] [--all]
     .venv/bin/python bench/cost_case/run_akash_tuning.py table
 
 The 20 tasks are the fixed stratified subset of bench/cost_case/tasks.jsonl (5 trivial, 10 everyday, 5 hard), as in run_tiers.py.
+--all runs all 301 tasks instead (the pass-rate check against the cost case).
 URL defaults to $CHIMERA_GPU_URL (the local end of an SSH tunnel to your GPU box). One warm-up call loads the model; it is not timed.
 Rows go to bench/.scratch/akash_tuning/<label>_c<N>.jsonl as they finish; a rerun skips finished ids and adds to the wall time.
 Grading runs after generation, so the Mac's grader never counts as GPU time. Keys and hostnames are never written.
@@ -73,8 +74,9 @@ def call(url: str, backend: str, prompt: str, opts: dict, keep_alive, logprobs: 
             "prompt_ms": round(t.get("prompt_ms", 0)), "load_ms": 0}
 
 
-def run(label: str, conc: int, url: str, backend: str, opts: dict, keep_alive, logprobs: bool) -> None:
-    rows = subset([json.loads(x) for x in TASKS.read_text().splitlines()])
+def run(label: str, conc: int, url: str, backend: str, opts: dict, keep_alive, logprobs: bool, all_tasks: bool = False) -> None:
+    rows = [json.loads(x) for x in TASKS.read_text().splitlines()]
+    rows = rows if all_tasks else subset(rows)
     STORE.mkdir(parents=True, exist_ok=True)
     out, meta = STORE / f"{label}_c{conc}.jsonl", STORE / f"{label}_c{conc}.wall"
     done = {json.loads(x)["id"] for x in out.read_text().splitlines()} if out.exists() else set()
@@ -165,6 +167,7 @@ if __name__ == "__main__":
             return a[a.index(name) + 1] if name in a else default
         ka = flag("--keep-alive")
         run(a[1], int(flag("--conc", "1")), flag("--url") or os.environ["CHIMERA_GPU_URL"], flag("--backend", "ollama"),
-            json.loads(flag("--opts", "{}")), int(ka) if ka and ka.lstrip("-").isdigit() else ka, "--no-logprobs" not in a)
+            json.loads(flag("--opts", "{}")), int(ka) if ka and ka.lstrip("-").isdigit() else ka, "--no-logprobs" not in a,
+            "--all" in a)
     else:
         print(__doc__)
