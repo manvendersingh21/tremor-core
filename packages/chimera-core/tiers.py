@@ -275,12 +275,12 @@ class TierPool:
         for t in (x for x in self.tiers if x.max_complexity >= score):
             low = fallback[1] if fallback else None
             if low and t.family and t.family == low.family and t.max_complexity <= low.max_complexity:
-                skipped.append(t.name)  # same family, no stronger (H200 30B -> Akash 30B): would not be surer
+                skipped.append(f"{t.name} (same family as {low.name}, no stronger)")  # H200 30B -> Akash 30B: would not be surer
                 continue
             if not self.healthy(t):
                 skipped.append(t.name)
                 continue
-            ev("decide", {"tier": t.name, "reason": why + (f"; skipped unhealthy: {', '.join(skipped)}" if skipped else "")})
+            ev("decide", {"tier": t.name, "reason": why + (f"; skipped: {', '.join(skipped)}" if skipped else "")})
             attempts.append(t.name)
             u = usage.setdefault(t.name, TierUsage())
             u.calls += 1
