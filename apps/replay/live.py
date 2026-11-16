@@ -32,9 +32,8 @@ def _tiers():
     top = TierCfg(name="cloud-deepseek", device="cloud", backend="openai", url="https://api.inference.crusoecloud.com",
                   model=TOP_MODEL, family="deepseek", cost_per_1k_in=prices.TOP[0] / 1000, cost_per_1k_out=prices.TOP[1] / 1000,
                   timeout_s=240, template_kwargs={"thinking": False})
-    small = TierCfg(name="gpu-small", device="gpu", backend="ollama", url=os.environ.get("CHIMERA_GPU_URL", ""),
-                    model="qwen3:30b-instruct", family="qwen", max_complexity=0.6, timeout_s=180)
-    return small, top
+    from chimera_core.config import product_tier
+    return product_tier("gpu-small"), top  # the product's tuned 30B entry (num_thread, keep_alive, timeout)
 
 
 def build(tenant: str):

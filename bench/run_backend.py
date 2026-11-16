@@ -33,7 +33,7 @@ import conftest  # noqa: E402,F401
 import grade  # noqa: E402
 from chimera_core.cache.guard import consistent  # noqa: E402
 from chimera_core.cache.semantic_cache import OnnxMiniLMEmbedder, SemanticCache  # noqa: E402
-from chimera_core.config import CacheCfg, ChimeraConfig, Thresholds, build_router, load_env  # noqa: E402
+from chimera_core.config import CacheCfg, ChimeraConfig, Thresholds, build_router, load_env, product_tier  # noqa: E402
 from chimera_core.tiers import TierCfg  # noqa: E402
 
 # in the repo, git-ignored: $KIROCREW_SCRATCH is lost on a gateway restart. BENCH_STORE: another run's folder
@@ -54,12 +54,7 @@ def tiers(only_top: bool = False) -> list[TierCfg]:
                   timeout_s=120, template_kwargs={"thinking": False})
     if only_top:
         return [top]
-    return [
-        TierCfg(name="gpu-small", device="gpu", backend="ollama",
-                url=os.environ.get("CHIMERA_GPU_URL", ""), model="qwen3:30b-instruct",
-                family="qwen", max_complexity=0.6, timeout_s=90),
-        top,
-    ]
+    return [product_tier("gpu-small"), top]  # the product's tuned 30B entry: num_thread, keep_alive, 90 s timeout
 
 
 def make_router(mode: str):
