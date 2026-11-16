@@ -165,4 +165,16 @@ Hardware and cold starts (not in any number above): big box L40S, region None; d
 
 ## Cost and shutdown
 
-Coming after the runs.
+Billed by Modal per app (`modal billing report --show-resources`, GPU + CPU + memory + egress; region-pinned apps include the 1.15x region multiplier). Each account's $30 of starter credits paid for these.
+
+| Account | App | What ran | $ |
+|---|---|---|---|
+| A | `chimera-spec-download` | 5 of 10 weight sets, then the account's spend limit stopped it (02:42 PST, 2026-11-15) | 1.13 |
+| B | `chimera-spec-download` | 12 weight sets, about 1.25 TB (CPU only) | 2.43 |
+| B | `chimera-spec-smoke` | smoke test, 2 L40S | 1.08 |
+| B | `chimera-spec-qa-235b` | 235B job until the credits ran out (4 H100 + L40S drafters, 60 min) | 27.23 |
+| B | `chimera-spec-qa-397b` | an L40S drafter that waited for 4 H200, stopped | 0.13 |
+| C | `chimera-spec-download-b1`, `-b2` | 12 weight sets again (new account, empty volumes) | 2.31 |
+| C | `chimera-spec-qb-235b` | 235B runs B did not reach (4 H100 + L40S drafters, 65 min) | 21.32 |
+
+Every job ends with the driver stopping its app by ID and saving `modal app list` to `bench/.scratch/spec_modal/applist_<job>.txt`. Last proofs: `qb_235b` stopped 02:30:40 PST (0 live), `download_b1` and `download_b2` 0 live. Account B's apps were stopped by Modal when its credits ran out (01:03:19 PST); the driver's check after that also showed 0 live.
