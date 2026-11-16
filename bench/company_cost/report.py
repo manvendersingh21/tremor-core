@@ -85,7 +85,8 @@ def spread(xs: list[float], fmt: str = "{:.1f}") -> str:
     if len(xs) == 1:
         return fmt.format(xs[0])
     if max(xs) == min(xs):
-        return f"{fmt.format(xs[0])} in all {len(xs)}"
+        v = f"{xs[0]:.0f}" if float(xs[0]).is_integer() and fmt == "{:.1f}" else fmt.format(xs[0])
+        return f"{v} in all {len(xs)}"
     sd = statistics.stdev(xs)
     return f"{fmt.format(statistics.mean(xs))} ± {fmt.format(sd)} ({fmt.format(min(xs))}-{fmt.format(max(xs))})"
 
@@ -251,9 +252,12 @@ def ladder_section() -> list[str]:
     if not reps:
         return ["Not run yet."]
     L = ["| Pass | Repeat | 763B calls | GPU 30B calls | Cache hits | 763B tokens | 763B $ | Graded correct | p50 ms | p90 ms | Calls >= 90 s | Errors |",
-         "|---|---|---|---|---|---|---|---|---|---|---|---|",
-         "| COLD | earlier single run (v2) | 14 | 51 | 5 | 5956 | $0.00615 | 48/48 | 8594 | 21758 | 0 | 0 |"]
+         "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    v2 = {"BASE": "60 | 0 | 0 | 12664 | $0.01150 | 45/48 | 1210 | 2670 | 0 | 0",  # results_backend_v2.md
+          "COLD": "14 | 51 | 5 | 5956 | $0.00615 | 48/48 | 8594 | 21758 | 0 | 0",
+          "WARM": "0 | 0 | 60 | 0 | $0 | 48/48 | 113 | 122 | 0 | 0"}
     for m in ("BASE", "COLD", "WARM"):
+        L.append(f"| {m} | earlier single run (v2) | {v2[m]} |")
         for i, r in enumerate(reps, 1):
             x = r[m]
             L.append(f"| {m} | {i} | {x['big_calls']} | {x['gpu_calls']} | {x['hits']} | {x['big_tok']} | ${x['usd']:.5f} | "
