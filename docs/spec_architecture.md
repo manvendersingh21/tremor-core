@@ -50,7 +50,7 @@ The question: can a smaller model on its own GPU box (the "local machine") write
 | Same, with the network time taken out of the measured rounds | at most 32 tok/s, **0.37x** | "projected" columns, `results_spec_modal.md` |
 | Free speed-up with identical output: n-gram prompt lookup | 100.6 tok/s, **1.12x**, 48/48 identical | run `a235_big_ngram` |
 
-**Verdict.** Do not split drafting and checking across machines for these models. It lost by 4x to 12x, and it would still lose with no network at all. Use speculative decoding inside the box that runs the big model: EAGLE-3 made the 235B 1.8x faster. The Coder-480B and Qwen3.5-397B runs were waiting for GPUs when this was written (section 4); Phase B (other model families) has not run (section 6).
+**Verdict.** Do not split drafting and checking across machines for these models. It lost by 4x to 12x, and it would still lose with no network at all. Use speculative decoding inside the box that runs the big model: EAGLE-3 made the 235B 1.8x faster. The Coder-480B and Qwen3.5-397B were not measured: the 480B hung on its first try and the Modal account's spend limit refused the rest at 03:12 PST (section 4). Phase B (other model families) has not run (section 6).
 
 ## 2. How the pieces fit today
 
@@ -132,8 +132,8 @@ Speculative decoding is not in the product ladder. The 763B on Crusoe rejects `e
 | Model | Box | Status | Main numbers |
 |---|---|---|---|
 | Qwen3-235B-A22B (FP8) | 4x H100 | done, accounts B and C | above; full tables in `results_spec_modal.md` |
-| Qwen3-Coder-480B-A35B (FP8), the biggest Qwen3 | 4x H200 | waiting for 4 H200 when written | 28 code prompts; runs: alone, Coder-30B drafter (K=4, and K=4 capped at 16 new tokens), same-box EAGLE-3 |
-| Qwen3.5-397B-A17B (FP8), the biggest Qwen3.5 | 4x H200 | not started (credits) | its own tokenizer, so its own chain: 4B and 35B-A3B drafters, MTP |
+| Qwen3-Coder-480B-A35B (FP8), the biggest Qwen3 | 4x H200 | **not measured.** No 4 H200 free for 20 min; the 8x H100 fallback loaded all 49 shards, then hung 7 min in a FlashInfer JIT build during CUDA-graph capture (stopped by hand, $8.94). The retry on 4 H200 was refused by the spend limit. | planned: alone, Coder-30B drafter (K=4, and K=4 capped at 16 new tokens), same-box EAGLE-3 |
+| Qwen3.5-397B-A17B (FP8), the biggest Qwen3.5 | 4x H200 | **not run** (spend limit) | planned: its own chain, 4B and 35B-A3B drafters, MTP, EAGLE-3 |
 
 No open Qwen model is above 700B. The Coder-480B uses the same `tokenizer.json` as every other Qwen3 model (same SHA-256), so Qwen3 drafters can feed it. Qwen3.5 has its own tokenizer (248,320 tokens vs 151,936). DeepSeek's 763B on Crusoe cannot score drafts.
 
@@ -178,7 +178,7 @@ The cross-box loop checks drafts through vLLM's prefill path (`prompt_logprobs`)
 | gpt-oss | 20B, 120B (o200k_harmony) | 20B on 1 L40S, 120B on 1 H200 | EAGLE-3 head, 20B draft model, n-gram | `qb_gptoss` |
 | DeepSeek-V3-0324 | 671B only (no small model shares its tokenizer) | 8 H200 | its own MTP layer, n-gram | `qb_dsv3` |
 
-Why not run: each Modal account used so far has $30 of starter credits, and one 235B job used $21 to $27 of them. The starter plan also refused the 8x H100 fallback and B200 boxes ("unavailable on starter plan"). The 405B and 671B jobs need 4 to 8 H200 for about an hour each. The code and job plans are in `deploy/modal/spec_models.py`.
+Why not run: each Modal account used so far has $30 of starter credits, one 235B job used $21 to $27 of them, and account C's spend limit refused new jobs at 03:12 PST. B200 boxes are not offered on the starter plan. The 405B and 671B jobs need 4 to 8 H200 for about an hour each. The code and job plans are in `deploy/modal/spec_models.py`.
 
 ## 7. Where time and money go
 
@@ -186,6 +186,7 @@ Why not run: each Modal account used so far has $30 of starter credits, and one 
 |---|---|---|
 | One cross-box round | 147 ms for 4.14 tokens (section 3) | The big model alone writes them in 43 ms |
 | One 235B job on Modal | $27.23 (account B, 60 min), $21.32 (account C, 65 min) | 4 H100 at $3.95 each per hour, x1.15 for the region pin |
+| This whole item on Modal | $64.57 over three accounts (A $1.13, B $30.87, C $32.57) | Each account's $30 starter credit paid for about one big job; $8.94 went to a 480B start that hung |
 | A cold start | 393 to 769 s for the 235B; 313 to 573 s per same-box restart | Paid GPU time with no answers |
 | Weights on Modal | about 1.25 TB per account at $0.09 per GiB-month | About $110 a month while kept |
 | An idle H200 | $108.96 a day (`results_cost_case_h200.md`) | Pays only when kept busy |
@@ -213,7 +214,7 @@ Measured means measured in the file named; expected means not measured yet.
 ## 9. Open questions for you
 
 1. **Self-host a big model at all?** EAGLE-3's 1.8x only applies to a big model we run ourselves. Four H100 cost about $15.80 an hour on Modal; the 763B on Crusoe costs $0.158 per 1,000 coding calls.
-2. **Modal plan and credits.** Each starter account's $30 ran out after about one big job, and the starter plan blocks 8-GPU H100 boxes and B200. Finishing Phase A (480B, 397B) needs about $25 more; Phase B (405B, 671B, 120B) about $100 to $150. Raise the limit, move to a paid plan, or stop here?
+2. **Modal plan and credits.** Each starter account's $30 ran out after about one big job, and account C now refuses jobs ("exceeded its spend limit"). Finishing Phase A (480B, 397B on 4 H200) needs about $25 more; Phase B (405B, 671B, 120B) about $100 to $150. Raise the spend limit, move to a paid plan, or stop here?
 3. **Delete the weight volumes?** About 1.25 TB per account, about $110 a month while kept.
 4. **Take cross-box speculative decoding off the roadmap?** Recommended: yes, for every model measured so far.
 5. **Is the product goal lower cost or lower latency?** The ladder cuts cost on repeats and trivial code and raises latency on chat; same-box EAGLE-3 cuts latency of a self-hosted big model.
