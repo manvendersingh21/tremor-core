@@ -271,3 +271,5 @@
 }
 .m-doors.m-spots[hidden] { display: none; }   /* round 3: hidden means hidden, also in the painted-hall layout */
 @media (max-width: 600px) { .m-lead { font-size: 16px; line-height: 1.4; margin-bottom: .7rem; } }   /* round 4: the room data comes up sooner on phones */
+/* round 5: nothing of the hall shows through an open panel */
+.m-root:has(.m-panel:not([hidden])) .m-doors, .m-root:has(.m-panel:not([hidden])) .m-act, .m-root:has(.m-panel:not([hidden])) .m-joy, .m-root:has(.m-panel:not([hidden])) .m-prompt { visibility: hidden; }

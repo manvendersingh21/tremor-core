@@ -16,7 +16,8 @@ Raw results (every screenshot, `result.json` per run): `bench/.scratch/ui/rounds
 | 1 | local, all 4 browser/view pairs + live | 12 | e46c884 |
 | 2 | Pages (e46c884), all 4 pairs | 11 | af4f106 |
 | 3 | Pages (af4f106): full tour with video, WebKit phone, a slow line (4 Mbit/s, 150 ms, cache off) | 7 (6 fixed, 1 is clip art) | 75d8dff |
-| 4 | Pages (75d8dff): Chromium phone, WebKit desktop and phone; live backend locally | 6 (4 fixed, 1 handled, 1 found by the recheck and fixed) | round 4 commit |
+| 4 | Pages (75d8dff): Chromium phone, WebKit desktop and phone; live backend locally | 6 (4 fixed, 1 handled, 1 found by the recheck and fixed) | 7e54761 |
+| 5 | Pages (7e54761): all 4 pairs, full tour with video | 3 | round 5 commit |
 
 ## Timings
 
@@ -45,6 +46,12 @@ Raw results (every screenshot, `result.json` per run): `bench/.scratch/ui/rounds
 | r4 | webkit | phone | demo | Pages | 397 | 3.89 | 100 | 0 |
 | r4 fixes | chromium | phone | demo | local | 232 | 3.98 | 60 | 0 |
 | r4 fixes | webkit | desktop | demo | local | 236 | 3.77 | 100 | 0 |
+| r5 | chromium | desktop | demo, full tour | Pages | 428 | 3.76 | 60 | 0 (tour 183 s) |
+| r5 | chromium | phone | demo | Pages | 364 | 3.92 | 60 | 0 |
+| r5 | webkit | desktop | demo | Pages | 346 | 3.73 | 100 | 0 |
+| r5 | webkit | phone | demo | Pages | 255 | 3.93 | 100 | 0 |
+| r5 fixes | chromium | desktop | demo, full tour | local | 260 | 3.76 | 60 | 0 (tour 180 s) |
+| r5 fixes | webkit | phone | demo | local | 190 | 3.96 | 100 | 0 |
 
 "W held" is measured from key-down to the hall flag with a 50 ms poll, so it reads up to 0.05 s long.
 
@@ -149,3 +156,28 @@ While fixing 3, the cost report changed under me (another chat renamed "the shar
 | Live: Ask twice (real backend) | Live: backend cut mid-session, page falls to DEMO |
 |---|---|
 | ![live cache test](rounds/r4_chromium_desktop_live_30_chat_cache_test.jpg) | ![backend down](rounds/r4_chromium_desktop_live_50_backend_down.jpg) |
+
+## Round 5 (the Pages build of 7e54761)
+
+All automatic checks passed on all four pairs (0 automatic defects for the second round running). By eye:
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | Tour, last stop: scrolling the cost chart into view (`scrollIntoView`) also scrolled the whole fixed page, so the top bar left the screen and a black band showed at the bottom | the tour scrolls only the panel body |
+| 2 | Phone, Observatory: the dashboard's moon sat on the word "counts." | on phones the moon moves to the top-left corner, 56 px |
+| 3 | Phone: the hall's door tiles, the E button and the joystick showed faintly through every open panel | hidden while a panel is open |
+
+| Before (round 5, Pages) | After (round 5 fixes, local) |
+|---|---|
+| ![r5 tour end](rounds/r5_chromium_desktop_demo_tour_40_tour_14.jpg) | ![r5 fixed tour end](rounds/r5fix_chromium_desktop_demo_tour_40_tour_14.jpg) |
+| ![r5 phone observatory](rounds/r5_webkit_phone_demo_10_room_00_observatory.jpg) | ![r5 fixed moon](rounds/r5fix_webkit_phone_demo_moon_phone.jpg) |
+| ![r5 phone crypt](rounds/r5_webkit_phone_demo_10_room_01_crypt.jpg) | ![r5 fixed phone crypt](rounds/r5fix_webkit_phone_demo_10_room_01_crypt.jpg) |
+
+## Defects found per round
+
+| Round | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| Defects (by eye and automatic, unique) | 12 | 11 | 7 | 6 | 3 |
+| Automatic checks failing (sum over runs) | 31 | 23 | 0 | 1 (a Pages 503) | 0 |
+
+Known and not fixed: the gates clip's own cross-fade ghost (clip art, owned by the video chat). WebKit headless reports about 100 fps because it does not sync to a display, so its fps numbers say "no slowdown", not 60.
