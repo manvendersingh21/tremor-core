@@ -11,7 +11,7 @@ out = ROOT / "site/docs/rounds"
 out.mkdir(parents=True, exist_ok=True)
 for s in shots:
     im = Image.open(ROOT / "bench/.scratch/ui/rounds" / rnd / cfg / f"{s}.jpg")
-    if im.width > 1000:   # phone shots are 3x: keep half
+    if im.height > im.width:   # phone shots are 3x and portrait: keep half
         im = im.resize((im.width // 2, im.height // 2), Image.LANCZOS)
     f = out / f"{rnd}_{cfg}_{s}.jpg"
     im.convert("RGB").save(f, quality=74)

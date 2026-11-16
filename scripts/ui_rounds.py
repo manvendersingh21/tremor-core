@@ -1,7 +1,7 @@
 """One polish round of the castle UI on Playwright: walk in, open every room, the chat cache test, the tour, and
 robustness checks. Writes bench/.scratch/ui/rounds/<round>/<browser>_<view>_<mode>/ (screenshots + result.json).
 
-Usage: .venv/bin/python scripts/ui_rounds.py <round> chromium|webkit desktop|phone demo|live [--url URL] [--full-tour] [--video]
+Usage: .venv/bin/python scripts/ui_rounds.py <round> chromium|webkit desktop|phone demo|live [--url URL] [--full-tour] [--video] [--slow]
   demo: every /api/* and /events request fails, as on the public link (GitHub Pages).
   live: the real backend on 127.0.0.1:8765; also checks that the page falls to DEMO when /api/stats goes down.
 Run one browser at a time (memory). Needs `pip install playwright` and `playwright install chromium webkit`.
@@ -29,7 +29,7 @@ def main():
     rnd, browser, view, mode = sys.argv[1:5]
     url = sys.argv[sys.argv.index('--url') + 1] if '--url' in sys.argv else 'http://127.0.0.1:8765/'
     full = '--full-tour' in sys.argv
-    out = ROOT / 'bench/.scratch/ui/rounds' / rnd / f'{browser}_{view}_{mode}'
+    out = ROOT / 'bench/.scratch/ui/rounds' / rnd / (f'{browser}_{view}_{mode}' + ('_slow' if '--slow' in sys.argv else '') + ('_tour' if '--full-tour' in sys.argv else ''))
     out.mkdir(parents=True, exist_ok=True)
     R = {'round': rnd, 'browser': browser, 'view': view, 'mode': mode, 'url': url, 'checks': [], 'defects': [], 'timings': {}, 'shots': []}
 
@@ -50,6 +50,12 @@ def main():
             ctx.route('**/api/**', lambda r: r.fulfill(status=404, body='not found'))
             ctx.route('**/events', lambda r: r.fulfill(status=404, body='not found'))
         p = ctx.new_page()
+        if '--slow' in sys.argv and browser == 'chromium':   # a cold cache on a slow line: 4 Mbit/s down, 150 ms round trip
+            cdp = ctx.new_cdp_session(p)
+            cdp.send('Network.enable')
+            cdp.send('Network.emulateNetworkConditions', {'offline': False, 'latency': 150, 'downloadThroughput': 4_000_000 / 8, 'uploadThroughput': 1_000_000 / 8})
+            cdp.send('Network.setCacheDisabled', {'cacheDisabled': True})
+            R['slow'] = '4 Mbit/s, 150 ms, cache off'
         errs, bad_req = [], []
         p.on('pageerror', lambda e: errs.append('pageerror: ' + str(e)))
         p.on('console', lambda m: m.type == 'error' and not ('404' in m.text or 'Failed to load resource' in m.text) and errs.append('console: ' + m.text))

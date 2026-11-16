@@ -14,7 +14,8 @@ Raw results (every screenshot, `result.json` per run): `bench/.scratch/ui/rounds
 | Round | Where it ran | Defects found | Fixed in |
 |---|---|---|---|
 | 1 | local, all 4 browser/view pairs + live | 12 | e46c884 |
-| 2 | Pages (e46c884), all 4 pairs | 11 | round 2 commit |
+| 2 | Pages (e46c884), all 4 pairs | 11 | af4f106 |
+| 3 | Pages (af4f106): full tour with video, WebKit phone, a slow line (4 Mbit/s, 150 ms, cache off) | 7 (6 fixed, 1 is clip art) | round 3 commit |
 
 ## Timings
 
@@ -32,6 +33,11 @@ Raw results (every screenshot, `result.json` per run): `bench/.scratch/ui/rounds
 | r2 fixes | chromium | desktop | demo | local | 280 | 3.88 | 60 | 0 |
 | r2 fixes | chromium | phone | demo | local | 240 | 3.96 | 60 | 0 |
 | r2 fixes | webkit | phone | demo | local | 243 | 4.04 | 100 | 0 |
+| r3 | chromium | desktop | demo, full tour | Pages | 432 | 3.88 | 60 | 0 (tour 199 s) |
+| r3 | webkit | phone | demo | Pages | 408 | 4.09 | 100 | 0 |
+| r3 | chromium | desktop | demo, slow line | Pages | 696 | 3.89 | 60 | 0 |
+| r3 fixes | webkit | phone | demo | local | 252 | 3.97 | 100 | 0 |
+| r3 fixes | chromium | desktop | demo, full tour | local | 272 | 3.80 | 60 | 0 (tour 179 s) |
 
 "W held" is measured from key-down to the hall flag with a 50 ms poll, so it reads up to 0.05 s long.
 
@@ -81,3 +87,33 @@ The live run passed its own checks: the LIVE badge, live board numbers (172 call
 | ![r2 phone chat](rounds/r2_webkit_phone_demo_30_chat_cache_test.jpg) | ![r2 fixed phone chat](rounds/r2fix_chromium_phone_demo_30_chat_cache_test.jpg) |
 | ![r2 tour](rounds/r2_chromium_desktop_demo_40_tour_02.jpg) | ![r2 fixed tour](rounds/r2fix_chromium_desktop_demo_40_tour_03.jpg) |
 | ![r2 tower](rounds/r2_chromium_desktop_demo_10_room_05_tower.jpg) | ![r2 fixed tower, phone](rounds/r2fix_webkit_phone_demo_10_room_05_tower.jpg) |
+
+## Round 3 (the Pages build of af4f106)
+
+The automatic checks passed on all three runs. Every defect below came from reading the screenshots and the recorded tour.
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | After using the chat, every room lost its layout: the chat's `m-chat` class stayed on the panel body, so the Workshop text sat in a narrow column and the Ledger split into four columns (seen in the tour video, which opens rooms after the chat) | `openPanel` resets the panel body class |
+| 2 | Tour: the tour bar covered the bottom third of every room panel | during the tour the panel ends above the bar |
+| 3 | Tour: 199 s, over "about 3 minutes" | narration trimmed to 152 s; the whole tour with door clips is now 179 s |
+| 4 | Phone: the tour bar covered half the screen and the door list | a compact bar; the door list hides while the tour picks doors |
+| 5 | Desktop: the hall door labels stayed on screen during door clips (`.m-doors.m-spots` beat `[hidden]`) | `[hidden]` wins |
+| 6 | Phone: the stick walk-in took 4.09 s | gates stretch 0.8 -> 0.7 s (3.97 s, poll included) |
+| 7 | Slow line: mid-walk through the gates, the gate clip shows its own cross-fade ghost of the bars | not fixed: it is in the clip (`site/game/clips/b-gates.mp4`, owned by the video chat); the same frame shows at full speed |
+
+Also fixed: the place name now changes to the room as its door clip starts (it said "The Great Hall" during the Ledger clip).
+
+| Before (round 3, Pages) | After (round 3 fixes, local) |
+|---|---|
+| ![r3 workshop after chat](rounds/r3_chromium_desktop_demo_tour_40_tour_08.jpg) | ![r3 fixed workshop](rounds/r3fix2_chromium_desktop_demo_tour_40_tour_08.jpg) |
+| ![r3 phone tour](rounds/r3_webkit_phone_demo_40_tour_03.jpg) | ![r3 fixed phone tour](rounds/r3fix_webkit_phone_demo_40_tour_04.jpg) |
+| ![r3 ledger](rounds/r3_chromium_desktop_demo_tour_40_tour_14.jpg) | ![r3 fixed last stop](rounds/r3fix2_chromium_desktop_demo_tour_40_tour_13.jpg) |
+
+Slow line (4 Mbit/s, 150 ms, cache off): first paint 696 ms, W held to the hall 3.89 s, no blank frame.
+
+| Mid-walk on the slow line | The hall on the slow line |
+|---|---|
+| ![slow mid walk](rounds/r3_chromium_desktop_demo_slow_02_mid_walk.jpg) | ![slow hall](rounds/r3_chromium_desktop_demo_slow_03_hall.jpg) |
+
+Videos from the Pages build of af4f106 (before the round 3 fixes): [the 4 s walk-in](ui_walk_in.mp4), [the whole tour](ui_tour.mp4). The final tour video is re-recorded in round 4.

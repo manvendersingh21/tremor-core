@@ -19,7 +19,7 @@
   const SEGS = [
     // fb: the painted dolly used while a clip is not made yet: [zoom, focus x, focus y] at the start and the end
     { id: 'a-approach', secs: 1.35, where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
-    { id: 'b-gates', secs: 0.8, win: [0, 2.4], where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
+    { id: 'b-gates', secs: 0.7, win: [0, 2.4], where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
     { id: 'c-drive', secs: 0.7, clip: false, where: 'The lantern drive', key: 'art/drive.webp', fb: [[1, 0.5, 0.56], [3.3, 0.5, 0.485]], say: 'Follow the lanterns. The door is at the top.' },
     { id: 'd-door', secs: 0.5, clip: false, where: 'The great door', key: 'art/drive.webp', fb: [[3.3, 0.5, 0.485], [3.3, 0.5, 0.485]], lock: 'door', rig: true, say: 'The door opens for you. Step inside.' },
     { id: 'e-hall', secs: 0.4, clip: false, where: 'The Great Hall', key: 'art/hall-grand-1.webp', fb: [[1, 0.5, 0.6], [1.08, 0.5, 0.62]], say: 'Every door is a room. Pick one with A and D, then press E.' },
@@ -175,7 +175,7 @@
     /* ---------- rooms: the door-opening clip, then the painted room with its data ---------- */
     async function openRoom(d) {
       if (!d || S.panel) return;
-      leaveHall(); creak();
+      leaveHall(); creak(); $('m-where').textContent = d.title;   // the door clip already belongs to the room
       const clip = `${site}game/clips/room-${d.id}.mp4`, info = ROOMS.find((r) => r.id === d.id) || {};
       let ok = false; if (info.clip !== false) { try { ok = (await fetch(clip, { method: 'HEAD' })).ok; } catch (e) { ok = false; } }   // clip:false = no door clip made, do not ask
       const v = vidFor(active + 1);
@@ -198,7 +198,7 @@
     let closeHook = null;
     function openPanel(title, fill) {
       S.panel = true; S.keys.clear(); stopWalk();
-      $('m-ptitle').textContent = title; const pb = $('m-pbody'); pb.textContent = ''; pb.removeAttribute('style');
+      $('m-ptitle').textContent = title; const pb = $('m-pbody'); pb.textContent = ''; pb.removeAttribute('style'); pb.className = 'm-pb';   // the chat adds m-chat: never carry it into a room
       $('m-panel').hidden = false; closeHook = fill(pb) || null; $('m-pclose').focus();
     }
     function closePanel() {
