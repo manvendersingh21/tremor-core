@@ -110,3 +110,13 @@ re-runs the tests stored with it. `add` re-runs the tests itself and ignores the
 tests pass through `scrub()` before storing. Everything is per tenant (RLS plus a tenant filter) and `bank.purge()`
 removes a tenant. `lookup` and `add` never raise: a store failure is a miss or a skipped write. Pass `memory=Memory(...)`
 to link the pairs into the graph. Numbers: `bench/results_bank.md`. Test: `tests/test_bank.py`.
+
+**chimera code:** looked up before any model call, when a test command is set and `CHIMERA_DB_URL` is in the env
+(`--no-bank` turns it off; tenant `<cache.tenant>:terminal`). The problem is the request plus the context file
+blocks; the tests are the test command plus the context files as they are at the start of the task.
+`Session.verify` copies the project to a temp dir, restores those files, applies the stored edits and runs the
+tests there; the project itself is never touched. A served answer is still shown as a diff for approval, written,
+and tested again in the project. If that fails, it is undone and the model answers. The status line reads
+`-> bank (exact) · 0 tok · $0 · ...`, and `/cost` has a `bank` row. When a model answer passes the tests, the
+changed files go back to the bank as `FILE:` blocks, after `add` runs the tests once more. Hints are not put into
+the prompt yet. Tests: `tests/test_terminal.py`.
