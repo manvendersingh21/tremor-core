@@ -88,6 +88,7 @@ nav button[aria-selected=true]{color:var(--fg);border-color:var(--line);backgrou
 .badge{display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:5px 12px;border:1px solid var(--line);border-radius:99px;color:var(--fg);background:var(--card)}
 .badge::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:flicker 3.2s infinite}
 .badge.demo{color:var(--gpu)}
+.mode-badge{font-size:12px;font-weight:700;letter-spacing:.06em;border-radius:99px;padding:3px 10px;border:1px solid currentColor}.mode-badge.live{color:var(--good)}.mode-badge.demo{color:var(--gpu)}
 .eyebrow{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut);font-weight:500}
 .eyebrow.acc{color:var(--accent)}
 h1,h2.serif,.big,.hero-num{font-family:var(--serif);font-weight:500}
@@ -130,6 +131,7 @@ footer{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:v
 @media (max-width:520px){nav{margin-left:0;width:100%}nav button{flex:1;padding:8px 6px}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:28px}}
 </style>
 <link rel="stylesheet" href="../world/world.css">
+<script src="../mode.js"></script>
 <script src="../world/chat.js"></script>
 </head>
 <body>
@@ -293,23 +295,31 @@ function ease(){
   show()}
 function paint(){
   if(!raf)raf=requestAnimationFrame(ease);
-  $('calls').textContent=G?G.calls:S.calls;$('alpha').textContent=S.acount?(S.asum/S.acount).toFixed(2):'–';
+  $('calls').textContent=G?G.calls:S.calls;$('alpha').textContent=S.acount?(S.asum/S.acount).toFixed(2):'none';
+  if(!S.acount)$('alpha').nextElementSibling.textContent='mean acceptance (alpha): no call here used speculative decoding';
   const low=G?G.calls-(G.by_tier.top||0):S.low,all=G?G.calls:S.calls;
   $('progtxt').textContent=`${pad(low)} / ${pad(all)}`;
   const pct=all?Math.round(low/all*100):0;$('progfill').style.width=pct+'%';$('progbar').setAttribute('aria-valuenow',pct);
   donut()}
 donut();
-const SER=[];let G=null;
-const es=new EventSource('/events');
-es.onmessage=m=>{try{addEvent(JSON.parse(m.data));paint()}catch(_){}};
+const SER=[];let G=null,MODE=null,es=null,DEMO=null;
+/* LIVE: /api/stats and the /events stream. DEMO (no backend, e.g. the public link): the saved run in ../demo.json. */
+async function boot(){
+  MODE=window.ChimeraMode?await ChimeraMode.detect():'live';
+  if(window.ChimeraMode)ChimeraMode.badge($('src'));
+  if(MODE==='live'){es=new EventSource('/events');es.onmessage=m=>{try{addEvent(JSON.parse(m.data));paint()}catch(_){}};}
+  else{try{DEMO=await ChimeraMode.demo();SRC='demo';DEMO.stats.events.forEach(addEvent);paint()}catch(_){}}
+  stats();setInterval(stats,5000);
+}
+document.addEventListener('chimera-mode',e=>{MODE=e.detail;if(MODE==='demo'){if(es){es.close();es=null}ChimeraMode.demo().then(d=>{DEMO=d}).catch(()=>{})}});
 
 /* totals from /api/stats (all calls on this machine); the stream above fills the feed and the donut */
 let STATS=null;
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const kb=b=>b==null?'–':b>=1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';
 async function stats(){
-  try{const r=await fetch('/api/stats',{cache:'no-store'});if(!r.ok)throw 0;const j=await r.json();STATS=j;G=j.global&&j.global.calls?j.global:j.session;
-    if(!SRC&&G.calls){SRC='live';$('src').textContent='live · this machine';$('src').className='badge'}
+  try{const j=window.ChimeraMode?await ChimeraMode.stats():await (await fetch('/api/stats',{cache:'no-store'})).json();STATS=j;G=j.global&&j.global.calls?j.global:j.session;
+    if(j.source){S.calls=G.calls;S.low=G.calls-(G.by_tier.top||0)}
     S.tok=G.tokens_kept_off_big||0;S.usd=G.dollars_saved||0;$('spent').textContent='$'+(G.dollars_spent||0).toFixed(4);
     $('gpuav').textContent=G.gpu_calls_avoided??0;$('hit').textContent=Math.round((G.hit_rate||0)*100)+'%';
     // cache.all_time: exact = Supabase hash matches, cosine = pgvector matches >= 0.97 that the guard passed
@@ -318,9 +328,13 @@ async function stats(){
     $('splitlbl').textContent=`All time: ${ex} exact (hash) · ${co} cosine ≥ 0.97 · ${ca.false_hits||0} false hits. Today: ${td.exact||0} exact · ${td.cosine||0} cosine.`;
     storage(j.storage);series(G.series);traces(j.recent);paint()}catch(_){}
 }
-stats();setInterval(stats,5000);
+boot();
 function storage(s){
-  const b=$('dbbody');if(!s){b.innerHTML='<tr><td colspan="3">/api/stats sent no storage block</td></tr>';return}
+  const b=$('dbbody');
+  if(!s&&DEMO&&STATS&&STATS.source){ // DEMO: the last measured counts, each with its file
+    b.innerHTML=DEMO.storage.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td class="lbl"><a href="${REPO}${esc(r[2])}" target="_blank" rel="noopener">${esc(r[2])}</a></td></tr>`).join('');
+    $('dbnote').textContent='Saved results: the last measured counts. Live row counts and sizes show when the backend runs (make web).';return}
+  if(!s){b.innerHTML='<tr><td colspan="3">The backend sent no storage counts.</td></tr>';return}
   const sb=s.supabase||{},t=sb.tables||{},n4=s.neo4j||{},row=(name,v,sz)=>`<tr><td>${name}</td><td>${v}</td><td>${sz}</td></tr>`;
   const tb=k=>t[k]?`${f(t[k].tenant_rows)} <span class="lbl">of ~${f(t[k].rows_estimate)}</span>`:'–';
   b.innerHTML=(sb.up===false?row('Supabase','unreachable ('+esc(sb.error||'')+')','–'):
@@ -333,7 +347,11 @@ function storage(s){
 let SV='daily';
 function series(sr){
   const rows=(sr&&sr[SV])||[];const l=$('sparklbl');
-  if(!rows.length){$('spark').innerHTML='';l.textContent=`No ${SV} rows yet in /api/stats series.`;return}
+  if(!rows.length){$('spark').innerHTML='';l.textContent=`No ${SV} rows yet: savings over time fill in as calls arrive.`;return}
+  if(STATS&&STATS.source){ // DEMO: one bar per pass of the saved run, not a time axis
+    const mx=Math.max(...rows.map(r=>r.tokens_saved||0),1),w=600/rows.length;
+    $('spark').innerHTML=rows.map((r,i)=>{const h=(r.tokens_saved||0)/mx*92;return `<rect x="${(i*w+w*.2).toFixed(1)}" y="${(104-h).toFixed(1)}" width="${(w*.6).toFixed(1)}" height="${h.toFixed(1)}" fill="var(--accent)" rx="3"><title>${esc(r.t)}: ${f(r.tokens_saved)} tokens saved</title></rect><text x="${(i*w+w/2).toFixed(1)}" y="${Math.max(14,100-h).toFixed(1)}" text-anchor="middle" fill="var(--fg)" font-size="13">${esc(r.t)}: ${f(r.tokens_saved)} tokens saved, $${(r.dollars_saved||0).toFixed(5)}</text>`}).join('');
+    l.textContent=`Saved run, ${rows.map(r=>`${r.t}: ${f(r.calls)} calls, ${f(r.hits)} from the cache`).join('; ')} (${STATS.source}).`;return}
   const W=600,H=110,mx=Math.max(...rows.map(r=>r.tokens_saved||0),1),n=rows.length;
   const X=i=>n<2?W/2:(i/(n-1)*W),Y=v=>H-4-v/mx*(H-14);
   $('spark').innerHTML=(n<2?'':`<polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${rows.map((r,i)=>X(i).toFixed(1)+','+Y(r.tokens_saved||0).toFixed(1)).join(' ')}"/>`)+
@@ -354,19 +372,21 @@ function step(s){
 }
 function traces(rs){
   const el=$('traces');rs=rs||[];
-  if(!rs.length){el.innerHTML='<div class="lbl" style="margin-top:8px">/api/stats has no recent calls yet.</div>';return}
+  if(!rs.length){el.innerHTML='<div class="lbl" style="margin-top:8px">No calls on this machine yet. Ask the Count in the Chat tab and the trace shows here.</div>';return}
   el.replaceChildren(...rs.slice(0,10).map(r=>{const d=document.createElement('div');d.className='trace';
     const q=document.createElement('b');q.textContent=r.prompt;const st=document.createElement('div');st.className='steps';
     (r.steps||[]).forEach(x=>{const s=document.createElement('span');s.textContent=step(x);st.append(s)});
     const t=document.createElement('div');t.className='tag';
-    t.textContent=`${r.cache?'cache HIT':r.tier}${r.score!=null?' · cos '+(+r.score).toFixed(3):''} · ${r.model||''} · ${f(r.tokens_in)}→${f(r.tokens_out)} tok · ${r.ms!=null?f(r.ms)+' ms':''} · $${(r.dollars||0).toFixed(5)} · task ${r.task||'–'} · ${new Date(r.ts*1000).toLocaleTimeString()}`;
+    t.textContent=`${r.cache?'cache HIT':r.tier}${r.score!=null?' · cos '+(+r.score).toFixed(3):''} · ${r.model||''} · ${f(r.tokens_in)}→${f(r.tokens_out)} tok · ${r.ms!=null?f(r.ms)+' ms':''} · $${(r.dollars||0).toFixed(5)} · task ${r.task||'–'} · ${r.ts?new Date(r.ts*1000).toLocaleTimeString():esc(r.pass||'')+' pass, saved run'}`;
     d.append(q,st,t);return d}))}
 
 /* ---------- Evals tab: /api/evals leaderboard ---------- */
 let evDone=false;
 async function loadEvals(){
   if(evDone)return;let d;
-  try{d=await (await fetch('/api/evals',{cache:'no-store'})).json()}catch(_){$('evnote').textContent='Could not load /api/evals.';return}
+  const off=()=>{$('evnote').textContent='Saved results: the report cards below are read from bench/*.md when the site is built. The full leaderboard reads the eval log on the server and shows with make web.';$('evlb').closest('.card').hidden=true};
+  if(MODE==='demo'){off();return}
+  try{const r=await fetch('/api/evals',{cache:'no-store'});if(!r.ok)throw 0;d=await r.json()}catch(_){off();return}
   evDone=true;const lb=d.leaderboard||[];
   $('evnote').textContent=`${d.n||0} rows from the bench result files. A blank cell means the file has no such value.`;
   const pct=v=>v==null?'–':(v*100).toFixed(1)+'%';
@@ -381,13 +401,13 @@ const REPO='https://github.com/manvendersingh21/tremor-core/blob/dev/';
 let RES=null;
 async function loadResults(){
   if(RES)return RES;
-  try{RES=await (await fetch('/results.json',{cache:'no-store'})).json()}catch(_){return null}
+  try{RES=await (await fetch('../results.json',{cache:'no-store'})).json()}catch(_){return null}
   return RES;
 }
 function money2(v){return '$'+parseFloat(String(v).replace('$','')).toFixed(2)}
 async function paintReports(){
   const d=await loadResults(),box=$('evreports');if(!box)return;
-  if(!d){box.textContent='Could not load /results.json.';return}
+  if(!d){box.textContent='The saved report cards (results.json) could not be read.';return}
   box.innerHTML=d.reports.map(r=>`<div class="card"><div class="eyebrow acc">${esc(r.title)}</div>`+
     r.metrics.map(m=>`<div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px"><span class="lbl">${esc(m.label)}</span><b class="${m.loss?'lose':'win'}" style="text-align:right">${esc(m.value)}</b></div>`).join('')+
     `<div class="lbl" style="margin-top:8px"><a href="${REPO}${esc(r.file)}" target="_blank" rel="noopener">${esc(r.file)}</a></div></div>`).join('');
@@ -416,8 +436,10 @@ function loadChat(){
 }
 function chatSide(){
   if(!G)return;
-  $('ch-hit').textContent=Math.round((G.hit_rate||0)*100)+'%';$('ch-hitlbl').textContent=`of ${f(G.calls)} calls on this machine (${f(G.calls_today)} today)`;
-  $('ch-today').textContent=f(G.tokens_today);$('ch-todaylbl').textContent=`model tokens since midnight, all users on this machine (${f(G.tokens)} all time)`;
+  const sv=STATS&&STATS.source;
+  $('ch-hit').textContent=Math.round((G.hit_rate||0)*100)+'%';$('ch-hitlbl').textContent=sv?`of ${f(G.calls)} calls in the saved run (${STATS.source})`:`of ${f(G.calls)} calls on this machine (${f(G.calls_today)} today)`;
+  $('ch-today').textContent=f(G.tokens_today);$('ch-todaylbl').textContent=sv?'model tokens the ladder used in the saved run':`model tokens since midnight, all users on this machine (${f(G.tokens)} all time)`;
+  if(sv)document.querySelectorAll('#chat .eyebrow').forEach(e=>{if(e.textContent==='Tokens used today')e.textContent='Tokens used'});
   const bt=G.by_task||{},ks=Object.keys(bt).sort((a,b)=>bt[b].tokens-bt[a].tokens);
   $('ch-tasks').innerHTML=ks.length?'<table><tr><th>Task</th><th>Calls</th><th>Tokens</th><th>Hits</th><th>Saved</th></tr>'+ks.map(k=>`<tr><td>${esc(k)}</td><td>${f(bt[k].calls)}</td><td>${f(bt[k].tokens)}</td><td>${f(bt[k].cache_hits)}</td><td>${f(bt[k].tokens_saved)}</td></tr>`).join('')+'</table>':'no calls yet';
   const c=STATS&&STATS.session&&STATS.session.by_conversation,me=c&&window.CastleChat&&c[window.CastleChat.conversation()];
@@ -503,7 +525,9 @@ const f=(v,d=0)=>v==null?'–':Number(v).toLocaleString(undefined,{maximumFracti
 function h(tag,txt,cls){const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(cls)e.className=cls;return e}
 async function loadBench(){
   const root=$('benchbody');let data;
-  try{data=await (await fetch('/api/bench')).json()}catch(e){root.textContent='Could not load /api/bench';return}
+  const saved=async()=>{const d=await loadResults();root.innerHTML='<p class="lbl">Saved results: one card per report in bench/, read when the site is built. The per-CSV merge shows with make web.</p><div class="cards3">'+(d?d.reports.map(r=>`<div class="card"><div class="eyebrow acc">${esc(r.title)}</div>`+r.metrics.map(m=>`<div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px"><span class="lbl">${esc(m.label)}</span><b class="${m.loss?'lose':'win'}" style="text-align:right">${esc(m.value)}</b></div>`).join('')+`<div class="lbl" style="margin-top:8px"><a href="${REPO}${esc(r.file)}" target="_blank" rel="noopener">${esc(r.file)}</a></div></div>`).join(''):'')+'</div>'};
+  if(MODE==='demo'){saved();return}
+  try{const r=await fetch('/api/bench');if(!r.ok)throw 0;data=await r.json()}catch(e){saved();return}
   root.replaceChildren();
   if(!data.runs.length){root.textContent='No bench CSVs found.';return}
   for(const run of data.runs){

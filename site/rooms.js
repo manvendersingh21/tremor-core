@@ -226,6 +226,19 @@ window.ROOMS = [
     ]
   },
   {
+    "id": "workshop",
+    "art": "room-castle",
+    "title": "The Workshop",
+    "door": "How Kiro built it: specs, hooks, agents, tests.",
+    "say": [
+      "This is the Workshop. Kiro built the castle here.",
+      "Every count on these posters is read from the .kiro folder, powers/ and tests/ when the site is built."
+    ],
+    "posters": [],
+    "generated": "kiro",
+    "clip": false
+  },
+  {
     "id": "gpus",
     "art": "room-manor",
     "title": "The Manor and The Castle",

@@ -73,7 +73,7 @@ def main(browser, view):
         p.keyboard.press('m'); time.sleep(0.5); check('M opens the map', js(f'{S}.map'))
         p.keyboard.press('Escape'); time.sleep(0.5); check('Esc closes the map', js(f'!{S}.map'))
         check('minimap drawn', js("(()=>{const c=document.getElementById('m-mini');const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=3;i<d.length;i+=4)if(d[i])n++;return n>500&&c.getBoundingClientRect().width>0})()"))
-        p.keyboard.press('t'); time.sleep(1.5); check('T opens the Count chat', js(f'!!{S}.panel'))
+        p.keyboard.press('c'); time.sleep(1.5); check('C opens the Count chat', js(f'!!{S}.panel'))
         q = 'What is the capital of Italy?'
         p.fill('#c-in', q); p.press('#c-in', 'Enter')
         for _ in range(1500):

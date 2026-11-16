@@ -37,6 +37,7 @@
     { room: 'crypt', box: [0.171, 0.567, 0.196, 0.800] },
     { room: 'ladder', box: [0.254, 0.606, 0.283, 0.789] },
     { room: 'familiar', box: [0.300, 0.628, 0.321, 0.776] },
+    { room: 'workshop', box: [0.428, 0.640, 0.452, 0.775], paste: true },   // the Workshop: a new gold door, left of the far doors
     { room: 'tower', box: [0.476, 0.592, 0.536, 0.775] },
     { room: 'gpus', box: [0.679, 0.640, 0.698, 0.776], paste: true },
     { room: 'guild', box: [0.727, 0.602, 0.751, 0.789] },

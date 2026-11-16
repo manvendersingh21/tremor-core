@@ -1,6 +1,7 @@
 /* The bat's room: chat + live routing trace + local monitor strip. UI only.
    Talks to POST /api/chat (SSE, docs/api.md: embed, cache_shared, memory, decide, call, draft, final, answer, error, done)
-   and polls GET /api/health every 2 s. If the endpoint is missing it falls back to a labelled MOCK so the UI still runs. */
+   and polls GET /api/health every 2 s. With no backend (DEMO, site/mode.js) it replays saved real measurements from
+   demo.json (bench/results_backend.csv) for a few saved questions, labelled as replays. It never makes up a reply. */
 (function () {
   'use strict';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,14 +14,16 @@
   function mount(host, cfg) {
     cfg = cfg || {};
     const url = cfg.endpoint || 'api/chat', healthUrl = cfg.health || 'api/health';
-    let mock = false, dead = false, busy = false;
+    let dead = false, busy = false;
     const totals = { turns: 0, hits: 0, gpuAvoided: 0, usdSaved: 0, kept: 0 };
     host.innerHTML = `<div class="c-wrap">
       <div class="c-col">
         <div class="c-mon" id="c-mon" aria-label="Laptop monitor"></div>
+        <div class="c-mock" id="c-mock" hidden></div>
+        <div class="c-chips" id="c-chips" hidden></div>
         <div class="c-log" id="c-log" role="log" aria-live="polite"></div>
-        <form class="c-form" id="c-form"><input id="c-in" maxlength="${MAXLEN}" autocomplete="off" aria-label="Ask the bat" placeholder="${cfg.placeholder || 'Ask anything'} (max ${MAXLEN} characters)"><button class="w-btn" id="c-send" type="submit">Send</button></form>
-        <div class="c-mock" id="c-mock" hidden>Backend not connected: the replies below are a local MOCK, not a model.</div>
+        <form class="c-form" id="c-form"><input id="c-in" maxlength="${MAXLEN}" autocomplete="off" aria-label="Ask the bat" placeholder="${cfg.placeholder || 'Ask anything'} (max ${MAXLEN} characters)"><button class="w-btn" id="c-send" type="submit">Send</button>
+          <button class="w-btn c-twice" id="c-twice" type="button" title="Ask the same question twice: the second answer should come from the cache">Ask twice (cache test)</button></form>
       </div>
       <div class="c-trace" id="c-trace" aria-label="Routing trace"><h4>ROUTING TRACE</h4><div id="c-tr"><p style="color:#cdb8d8">Ask something. Each step the router takes will appear here, live.</p></div><div class="t-sum" id="c-sum"></div></div></div>`;
     const $ = (s) => host.querySelector(s), log = $('#c-log'), input = $('#c-in');
@@ -99,8 +102,8 @@
       } else if (name === 'final') finalRow(d);
     }
     function finalRow(d) {
-      T.finalized = true;
-      remember(T, d);
+      T.finalized = true; T.final = d;
+      if (!demoMode) remember(T, d);   // the side panels list this browser's real questions, not replays
       if (cfg.onFinal) cfg.onFinal();
       const tier = pick(d, 'tier', 'tier_used') || '?', tin = pick(d, 'tokens_in', 'input_tokens'), tout = pick(d, 'tokens_out', 'output_tokens'), cached = pick(d, 'cached_tokens'),
         cost = pick(d, 'dollars', 'usd'), total = pick(d, 'ms', 'total_ms'), kept = pick(d, 'tokens_kept_off_big', 'tokens_saved'), cacheHit = !!pick(d, 'cache') || /cache/.test(tier), avoided = cacheHit || pick(d, 'gpu_call_avoided');
@@ -117,12 +120,63 @@
       $('#c-sum').innerHTML = `This chat: <b>${totals.turns}</b> turns · hit rate <b>${Math.round(totals.hits / totals.turns * 100)}%</b> · GPU calls avoided <b>${totals.gpuAvoided}</b> · saved <b>${usd(totals.usdSaved)}</b> · <b>${totals.kept}</b> tokens kept off the big model`;
     }
 
+    /* ---------- demo mode: no backend (a public link). The Count replays saved real measurements and says so. ---------- */
+    let demoMode = false, DEMO = null, replayed = null;
+    const asked = new Set(), norm = (s) => String(s).toLowerCase().replace(/\s+/g, ' ').replace(/[?.!]+$/, '').trim();
+    async function useDemo() {
+      if (demoMode) return; demoMode = true;
+      try { DEMO = (await window.ChimeraMode.demo()).chat; } catch (e) { DEMO = null; }
+      const n = $('#c-mock'); n.hidden = false;
+      n.innerHTML = DEMO ? `<b>DEMO</b> · no backend on this link, so I replay saved real measurements from <a href="https://github.com/manvendersingh21/tremor-core/blob/dev/${esc(DEMO.source)}" target="_blank" rel="noopener">${esc(DEMO.source)}</a>. Pick a saved question:` : '<b>DEMO</b> · no backend on this link, and the saved results (demo.json) could not be read.';
+      n.title = DEMO ? DEMO.note : '';
+      if (!DEMO) return;
+      const c = $('#c-chips'); c.hidden = false;
+      c.innerHTML = DEMO.examples.map((x) => `<button type="button" class="c-chip-q" data-q="${esc(x.q)}">${esc(x.q)}</button>`).join('');
+      c.addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (b && !busy) ask(b.dataset.q); });
+    }
+    if (window.ChimeraMode) window.ChimeraMode.detect().then((m) => { if (m === 'demo') useDemo(); });
+    async function replay(q, on) {
+      const ex = DEMO && DEMO.examples.find((x) => norm(x.q) === norm(q));
+      if (!ex) {
+        replayed = null; setRow('t-final', '<span class="t-chip warn">not a saved question</span>');
+        on('answer', { text: 'In demo mode I can only replay the saved questions below. Run make web on your own machine for the live ladder.' }); on('done', {}); return;
+      }
+      const first = !asked.has(ex.id); asked.add(ex.id);
+      for (const [n, d] of (first ? ex.first : ex.repeat)) { await wait(n === 'call' ? 450 : 90); on(n, d); }
+      replayed = `DEMO replay · measured in the ${first ? 'COLD pass (first ask)' : 'WARM pass (the same question again)'} of ${DEMO.source}; answer text saved in ${DEMO.answers_from}`;
+      on('answer', { text: ex.answer }); on('done', {});
+    }
+
     /* ---------- sending ---------- */
-    $('#c-form').addEventListener('submit', async (e) => {
+    $('#c-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const q = input.value.trim().slice(0, MAXLEN); if (!q || busy || dead) return;
-      input.value = ''; busy = true; $('#c-send').disabled = true;
-      addMsg('me', q); newTrace(q); const t0 = performance.now();
+      input.value = ''; ask(q);
+    });
+    /* the cache test: one question twice; the second answer should come from the cache */
+    $('#c-twice').addEventListener('click', async () => {
+      if (busy || dead) return;
+      const q = input.value.trim().slice(0, MAXLEN) || (DEMO ? DEMO.examples[0].q : 'What is the capital of France?');
+      input.value = '';
+      const ex = DEMO && DEMO.examples.find((x) => norm(x.q) === norm(q)); if (demoMode && ex) asked.delete(ex.id);   // replay the first ask, then the repeat
+      const a = await ask(q), b = await ask(q);
+      compare(a, b);
+    });
+    function compare(a, b) {
+      const d = addMsg('bat c-cmp', '');
+      if (!a.final || !b.final) { d.textContent = 'The cache test needs two answers, and one did not come back.'; return; }
+      const tok = (f) => (f.tokens_in || 0) + (f.tokens_out || 0), hit = (f) => !!f.cache || /cache/.test(f.tier || '');
+      const row = (k, f) => `<td>${esc(f.tier || '?')}${hit(f) ? ' (cache)' : ''}</td><td>${ms(f.ms)}</td><td>${tok(f)}</td><td>${usd(f.dollars)}</td>`;
+      const verdict = hit(a.final) && hit(b.final) ? 'Both answers came from the cache: this question was asked before. Type a new one to see a miss first.'
+        : hit(b.final) ? `The second answer came from the cache: ${ms(Math.max(0, (a.final.ms || 0) - (b.final.ms || 0)))} faster, ${tok(a.final)} model tokens not spent again, ${b.final.tokens_kept_off_big ?? 0} tokens kept off the big model.`
+          : 'The second answer did not come from the cache. An answer under the 0.95 confidence bar, or one that failed its check, is not cached.';
+      d.innerHTML = `<b>Cache test</b><table class="c-cmpt"><tr><th></th><th>Answered by</th><th>Time</th><th>Model tokens</th><th>Cost</th></tr><tr><th>1st ask</th>${row('a', a.final)}</tr><tr><th>2nd ask</th>${row('b', b.final)}</tr></table><p class="${hit(b.final) ? 'c-win' : 'c-lose'}">${esc(verdict)}</p>` +
+        (demoMode ? `<p class="c-demo">DEMO: a saved real measurement, replayed: ${esc(DEMO ? DEMO.source : '')}, COLD then WARM pass.</p>` : '');
+      log.scrollTop = log.scrollHeight;
+    }
+    async function ask(q) {
+      busy = true; $('#c-send').disabled = true; $('#c-twice').disabled = true;
+      addMsg('me', q); newTrace(q); const t0 = performance.now(); replayed = null;
       const out = addMsg('bat', '…'); let text = '', tag = '', gotErr = false;
       const addTag = () => { const s = document.createElement('span'); s.className = 'c-tag'; s.textContent = tag; out.appendChild(s); };
       const on = (name, d) => {
@@ -138,17 +192,21 @@
       };
       try { await stream(q, on); }
       catch (err) { if (!text) out.textContent = 'The bat flutters. ' + (err && err.polite ? err.polite : 'No tier is reachable right now. Try again in a moment.'); }
-      busy = false; $('#c-send').disabled = false; input.focus();
-    });
+      if (replayed) { const s = document.createElement('span'); s.className = 'c-tag c-demo'; s.textContent = replayed; out.appendChild(s); }
+      if (T.el('t-embed') && T.el('t-embed').querySelector('.t-v').textContent === '…') setRow('t-embed', demoMode ? 'not recorded in the saved run' : 'no embedding step (no cache configured)');
+      busy = false; $('#c-send').disabled = false; $('#c-twice').disabled = false; if (!cfg.noFocus) input.focus();
+      return { final: T.final || null, text };
+    }
     async function stream(q, on) {
-      if (!mock) {
+      if (!demoMode) {
         let r; try { r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ prompt: q, task: taskType(q), conversation_id: conversation() }) }); } catch (e) { r = null; }
         if (r && (r.status === 429 || r.status === 503)) { const e = new Error('rate'); e.polite = r.status === 429 ? 'The bat is catching its breath. Too many questions; wait ' + (r.headers.get('Retry-After') || 'a few') + ' seconds.' : 'The castle is busy. Try again in a moment.'; throw e; }
         if (r && r.status === 403) { const e = new Error('held'); e.polite = 'That action is risky, so it waits for a person to approve it.'; throw e; }
         if (r && r.ok && r.body) { await sse(r.body, on); return; }
-        if (!r || [404, 405, 501].includes(r.status)) { mock = true; $('#c-mock').hidden = false; } else { const e = new Error('http'); e.polite = 'The bat cannot answer right now (' + r.status + ').'; throw e; }
+        if (!r || [404, 405, 501].includes(r.status)) { if (window.ChimeraMode) await useDemo(); else { const e = new Error('none'); e.polite = 'No backend answers here.'; throw e; } }
+        else { const e = new Error('http'); e.polite = 'The bat cannot answer right now (' + r.status + ').'; throw e; }
       }
-      await mockStream(q, on);
+      await replay(q, on);
     }
     async function sse(body, on) {
       const rd = body.getReader(), dec = new TextDecoder(); let buf = '';
@@ -165,22 +223,7 @@
       }
     }
 
-    /* ---------- MOCK (only when /api/chat does not exist) ---------- */
-    const mcache = new Map();
     const wait = (t) => new Promise((r) => setTimeout(r, t));
-    async function mockStream(q, on) {
-      const key = q.toLowerCase().replace(/\s+/g, ' ').replace(/[?.!]+$/, ''), t0 = performance.now();
-      await wait(40); on('embed', { ms: 11.4, dim: 384 });
-      const hit = mcache.has(key);
-      await Promise.all([
-        wait(hit ? 110 : 140).then(() => on('cache_shared', { hit, status: 'ok', kind: hit ? 'exact' : null, ms: hit ? 110 : 140, score: hit ? 1 : 0.38, threshold: THRESH, guard: null })),
-      ]);
-      if (hit) { on('final', { tier: 'exact_cache', model: null, tokens_in: 0, tokens_out: 0, cached_tokens: 0, dollars: 0, ms: performance.now() - t0, tokens_kept_off_big: 40, cache: 'shared' }); on('answer', { text: mcache.get(key) }); on('done', {}); return; }
-      on('memory', { retrieved: 0, examples: [], ms: 3 }); on('decide', { tier: 'mock-30b', reason: 'cheapest healthy tier' }); await wait(650);
-      on('call', { tier: 'mock-30b', model: 'mock', ok: true, ms: 650, tokens_in: 12, tokens_out: 38 }); on('draft', { tier: 'mock-30b', confidence: 0.97, gate: GATE });
-      const a = 'MOCK reply (no backend connected): ' + q;
-      mcache.set(key, a); on('final', { tier: 'mock-30b', model: 'mock', tokens_in: 12, tokens_out: 38, cached_tokens: 0, dollars: 0, ms: performance.now() - t0, tokens_kept_off_big: 50, cache: null }); on('answer', { text: a }); on('done', {});
-    }
 
     /* ---------- laptop monitor ---------- */
     const chips = [['gpu_tunnel', 'GPU 30B tunnel'], ['supabase', 'Supabase'], ['crusoe', 'Crusoe 763B'], ['gmi', 'GMI'], ['llama', 'Mac 3B (experiment)']];
@@ -200,6 +243,7 @@
     }
     async function poll() {
       if (!host.isConnected || dead) return;
+      if (demoMode) { $('#c-mon').innerHTML = '<span class="c-chip unk">DEMO: no backend on this link · run <b>make web</b> for live health</span>'; return; }
       try { const r = await fetch(healthUrl, { cache: 'no-store' }); if (!r.ok) throw 0; renderHealth(await r.json(), false); }
       catch (e) { renderHealth({}, true); }
       timer = setTimeout(poll, 2000);
