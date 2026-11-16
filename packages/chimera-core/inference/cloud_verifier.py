@@ -183,19 +183,22 @@ class OllamaBackend(VllmBackend):
     """
 
     def __init__(self, model: str = "qwen3:30b-instruct", base_url: str = "http://127.0.0.1:11435",
-                 timeout: float = 600, thinking: bool = False) -> None:
+                 timeout: float = 600, thinking: bool = False, options: dict | None = None,
+                 keep_alive: int | str | None = None) -> None:
         super().__init__(base_url, model, "", timeout)
         self.thinking = thinking
+        self.options = dict(options or {})  # Ollama runtime options, e.g. num_thread (a 4-CPU box: 4, not the host's core count)
+        self.keep_alive = keep_alive
         self.last_usage: dict[str, int] = {}
         self.usage_log: list[dict[str, int]] = []
 
     def complete(self, prompt: str, max_tokens: int = 4096) -> str:
-        data = self._post(
-            "/api/chat",
-            {"model": self.model, "stream": False, "think": self.thinking, "logprobs": True,
-             "options": {"num_predict": max_tokens},
-             "messages": [{"role": "user", "content": prompt}]},
-        )
+        body = {"model": self.model, "stream": False, "think": self.thinking, "logprobs": True,
+                "options": {**self.options, "num_predict": max_tokens},
+                "messages": [{"role": "user", "content": prompt}]}
+        if self.keep_alive is not None:
+            body["keep_alive"] = self.keep_alive
+        data = self._post("/api/chat", body)
         lps = [x["logprob"] for x in data.get("logprobs") or [] if x.get("logprob") is not None]
         # Mean token probability, the same gate signal as the llama.cpp tier. None when Ollama sends no logprobs.
         self.last_confidence = sum(math.exp(x) for x in lps) / len(lps) if lps else None

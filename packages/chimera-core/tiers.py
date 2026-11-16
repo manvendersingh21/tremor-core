@@ -49,6 +49,9 @@ class TierCfg(BaseModel):
     warm_only: bool = False
     modal_app: str = ""  # warm_only: Modal app name; warm = a running container (read-only `modal container list`)
     logprobs: bool = False  # openai backend: ask for token logprobs and gate on mean token probability (vLLM)
+    # ollama backend: runtime options sent with every call, e.g. {num_thread = 4} (bench/results_akash_tuning.md)
+    options: dict = Field(default_factory=dict)
+    keep_alive: int | str | None = None  # ollama backend: how long the model stays loaded; -1 = always, None = server default
 
     @field_validator("url")
     @classmethod
@@ -100,7 +103,7 @@ def build_backend(t: TierCfg):
             d = b.complete(prompt, n)
             return d.text, len(prompt) // 4, d.n_tokens, d.mean_confidence
     elif t.backend == "ollama":
-        ob = OllamaBackend(t.model, t.url, timeout=t.timeout_s)
+        ob = OllamaBackend(t.model, t.url, timeout=t.timeout_s, options=t.options, keep_alive=t.keep_alive)
 
         def run(prompt: str, n: int):
             text = ob.complete(prompt, n)

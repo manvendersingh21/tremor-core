@@ -99,6 +99,8 @@ model = "qwen3:30b-instruct"
 family = "qwen"
 max_complexity = 0.6
 timeout_s = 180
+options = { num_thread = 4 }   # the box has a 4-CPU quota; Ollama's default thread count (host cores) ran 5x slower
+keep_alive = -1              # keep the 30B loaded (a cold load is ~37 s). bench/results_akash_tuning.md
 
 [[tiers]]
 name = "gpu-large"           # Modal H200 "The Castle": vLLM openai/gpt-oss-120b MXFP4 (deploy/modal/vllm_server.py)
