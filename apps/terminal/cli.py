@@ -168,4 +168,6 @@ def main(argv: list[str] | None = None) -> int:
                        for k, t in s.tally.items()}}, indent=1))
     if s.tally:
         print(s.cost().splitlines()[-1])
+    if s.bank is not None and hasattr(s.bank.store, "close"):
+        s.bank.store.close()  # close the DB pool before exit (its threads cannot be joined at interpreter shutdown)
     return 0 if all(r.ok is not False for r in results) else 1
