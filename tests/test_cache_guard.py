@@ -31,3 +31,8 @@ def test_semantic_cache_guard_turns_false_hit_into_miss():
     assert plain.get("Add 17 and 26") is not None  # the false hit the guard exists for
     assert guarded.get("Add 17 and 26") is None and guarded.guarded_out == 1
     assert guarded.get("add 17 and 25") is not None
+
+
+def test_apostrophe_entity_is_reflexive_but_still_compared():
+    assert consistent("What is Python's GIL", "What is Python's GIL") is True
+    assert consistent("What is Python's GIL", "What is Ruby's GIL") is False

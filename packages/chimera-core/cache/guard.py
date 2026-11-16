@@ -28,7 +28,7 @@ def _signature(text: str) -> tuple[frozenset, bool, frozenset, frozenset, frozen
     ents = set()
     for i, w in enumerate(words):
         if (w[0].isupper() and i > 0) or "_" in w or (len(w) > 1 and w.isupper()) or re.search(r"[a-z][A-Z]", w):
-            ents.add(w.lower())
+            ents.add(w.lower().replace("'", ""))  # same apostrophe rule as `low`
     opp = frozenset(w for pair in OPPOSITES for w in pair if w in low)
     return nums, neg, frozenset(ents), opp, frozenset(low)
 
