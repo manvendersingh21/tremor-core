@@ -15,6 +15,9 @@ def normalize(prompt: str) -> str:
 
 
 def prompt_hash(prompt: str, namespace: str = "") -> str:
+    # NUL is the separator: "a" + "b\x00c" would collide with "a\x00b" + "c". Refusing it keeps every other hash unchanged.
+    if "\x00" in namespace:
+        raise ValueError("namespace must not contain NUL")
     # surrogatepass: a lone surrogate (bad client input) still hashes instead of raising
     return hashlib.sha256(f"{namespace}\x00{normalize(prompt)}".encode("utf-8", "surrogatepass")).hexdigest()
 
