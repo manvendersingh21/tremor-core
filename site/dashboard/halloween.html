@@ -421,7 +421,7 @@ async function paintLadder(){
     `<div><div class="big lose">${esc(h.gpt55_per_1k)}</div><div class="lbl">GPT-5.5 (60-item subset)</div></div>`+
     `<div><div class="big win">${esc(h.repeat_tokens_off)}</div><div class="lbl">fewer 763B tokens on a repeat question (cache)</div></div></div>`;
   $('hw-cache').textContent=`A repeat run kept ${h.repeat_tokens_off} of the 763B tokens off the big model (bench/results_backend.md).`;
-  $('hw-30b').textContent=`On the V100 it costs ${h.v100_per_1k} per 1,000 calls (one request at a time); on an H200 kept busy, $${lo}-${hi}. An idle H200 still bills by the day (bench/results_cost_case_h200.md).`;
+  $('hw-30b').textContent=`On our V100, tuned and kept busy, 1,000 calls cost ${h.v100_tuned_per_1k} (${h.v100_per_1k} before tuning); on an H200 kept busy, $${lo}-${hi}. An idle H200 still bills by the day (bench/results_cost_case_h200.md).`;
   $('hw-763').textContent=`${money2(h.top763_per_1k)} per 1,000 calls. The pool saved ${h.suite_tokens_saved} of its tokens on 300 real questions but was slower (bench/results_suite.md). Its checked answers become teacher data.`;
 }
 paintReports();paintLadder();

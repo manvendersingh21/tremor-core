@@ -14,7 +14,7 @@ Both show the same dashboard Evals tab. Report cards first, then the `/api/evals
 | Card | Numbers on screen | Source file |
 |---|---|---|
 | Real-dataset suite | tokens saved 38.4%, dollars saved 28.1%, pass 93% vs 90% (red), median wait 1120 vs 85974 ms (red) | `bench/results_suite.md` |
-| Cost case | 30B on V100 $11.02 per 1k calls (red), 763B $0.1576, GPT-5.5 $4.02, pass 89% vs 95% | `bench/results_cost_case.md` |
+| Cost case | 30B on V100 $11.02 per 1k calls before tuning (red; tuned: $0.18 to $0.52, `bench/results_akash_tuning.md`), 763B $0.1576, GPT-5.5 $4.02, pass 89% vs 95% | `bench/results_cost_case.md` |
 | Cost case on H200 | $0.0699 and $0.0962 per 1k calls busy, $1.089 one at a time (red), idle H200 $108.96 a day (red) | `bench/results_cost_case_h200.md` |
 | Backend end to end | repeat run 97.5% of 763B tokens kept off, first run 12.2%, median 896 vs 2340 ms (red), wrong cache answers 0 of 50 | `bench/results_backend.md` |
 | Savings replay | 30B answered 18 of 300 (red), 763B tokens 9.8% more (red), ladder p50 82.7 s (red), $0.69 vs $15.58 per 1k | `bench/results_replay.md` |

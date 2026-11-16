@@ -312,11 +312,11 @@ window.ROOMS = [
         "big": "V100",
         "lines": [
           "Qwen3-30B on one rented Tesla V100 (Akash), reached through an SSH tunnel.",
-          "It is shared. Ladder calls took 25 to 90 s while they queued, and a lone call took 1.5 s."
+          "It is ours alone. Calls took 25 to 90 s because Ollama ran 149 threads on 4 CPUs. Tuned, the median is 2.7 s."
         ],
         "src": [
           "bench/results_ladder.md",
-          "bench/results_ladder.md"
+          "bench/results_akash_tuning.md"
         ]
       },
       {
@@ -504,7 +504,7 @@ window.ROOMS = [
         "big": "2.2 s",
         "lines": [
           "Median latency, against 0.88 s calling the 120B model directly. p90 was 46 s against 3.9 s.",
-          "The slow calls are the shared GPU 30B. A 30B brief cost the same and was 4.4x slower."
+          "The slow calls are the GPU 30B before tuning. A 30B brief cost the same and was 4.4x slower."
         ],
         "src": [
           "bench/results_ladder.md",

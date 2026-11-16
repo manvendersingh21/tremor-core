@@ -300,7 +300,8 @@ def tour(d):
     cross = [r for r in s if r["run"] == "Cross-box, 30B drafter, K=4"][0]
     b2 = [r for r in d["bank"]["runs"] if r["run"] == 2][0]
     h200 = [v for t, v in per.items() if t.startswith("30B on one H200, busy 100% of the day")][0]
-    v100 = [v for t, v in per.items() if t.startswith("30B on the shared V100")][0]
+    v100 = [v for t, v in per.items() if t.startswith("30B on the Akash V100 before tuning")][0]
+    v100t = [v for t, v in per.items() if t.startswith("30B on our tuned V100 (Akash), $0.52/hr, busy 100%")][0]
     top = [v for t, v in per.items() if t.startswith("DeepSeek")][0]
     gpt = [v for t, v in per.items() if t.startswith("GPT-5.5")][0]
     cache = {r[0]: r[1] for r in d["cache"]}
@@ -317,7 +318,7 @@ def tour(d):
         {"room": "familiar", "secs": 9, "say": "The Familiar is a small model for your phone. It is written, but no phone has run it yet. I will not pretend otherwise."},
         {"room": "workshop", "secs": 18, "say": f"The Workshop shows how Kiro built this castle: {len(k['steering'])} steering files, {len(k['specs'])} specs, {len(k['hooks'])} hooks, {len(k['agents'])} custom agents, {len(k['mcp_tools'])} MCP tools and a Power. Hypothesis tried {k['properties']} property tests and found {k['bugs_found']} real bugs. {k['bugs_fixed']} are fixed."},
         {"room": "tower", "secs": 12, "say": f"The Tower holds the biggest models. We tried speculative decoding on Modal: EAGLE-3 in the same box ran {eagle['vs']} as fast, but a drafter on another box ran at only {cross['vs']}. We show both."},
-        {"room": "gpus", "secs": 12, "say": f"The Manor is our own GPU. A 30B on an H200 kept busy costs {h200} per 1,000 calls. On the shared V100, one call at a time, it costs {v100}."},
+        {"room": "gpus", "secs": 12, "say": f"The Manor is our own GPU. A 30B on an H200 kept busy costs {h200} per 1,000 calls. On our own V100, tuned and kept busy, it costs {v100t}; before tuning it cost {v100}."},
         {"room": "guild", "secs": 9, "say": "The Guild is for companies: an OpenAI-style gateway, keys per tenant, metrics for Prometheus. Change one address and one key."},
         {"room": "gate", "secs": 9, "say": "The Gate: four commands and it runs on your machine. The tests need no models and no keys."},
         {"room": "ledger", "secs": 20, "chart": True, "say": f"And the bill. At 1 million coding calls a day, GPT-5.5 alone costs ${one_m['gpt55_only']:,.0f} a month. With the cache, the bank and our 30B first: ${one_m['cascade_gpt55']:,.0f}, {one_m['saved_gpt55'].split('(')[1].rstrip(')')} less. {vs763} Every number here comes from a file. Good night."},

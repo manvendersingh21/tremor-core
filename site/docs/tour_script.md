@@ -14,7 +14,7 @@ Every number is read from the file named in `site/demo.json`.
 | 1:03 | familiar | The Familiar is a small model for your phone. It is written, but no phone has run it yet. I will not pretend otherwise. |
 | 1:12 | workshop | The Workshop shows how Kiro built this castle: 7 steering files, 7 specs, 6 hooks, 4 custom agents, 3 MCP tools and a Power. Hypothesis tried 39 property tests and found 4 real bugs. 4 are fixed. |
 | 1:30 | tower | The Tower holds the biggest models. We tried speculative decoding on Modal: EAGLE-3 in the same box ran 1.80x as fast, but a drafter on another box ran at only 0.23x. We show both. |
-| 1:42 | gpus | The Manor is our own GPU. A 30B on an H200 kept busy costs $0.070 per 1,000 calls. On the shared V100, one call at a time, it costs $11.02. |
+| 1:42 | gpus | The Manor is our own GPU. A 30B on an H200 kept busy costs $0.070 per 1,000 calls. On our own V100, tuned and kept busy, it costs $0.178; before tuning it cost $11.02. |
 | 1:54 | guild | The Guild is for companies: an OpenAI-style gateway, keys per tenant, metrics for Prometheus. Change one address and one key. |
 | 2:03 | gate | The Gate: four commands and it runs on your machine. The tests need no models and no keys. |
 | 2:12 | ledger | And the bill. At 1 million coding calls a day, GPT-5.5 alone costs $120,600 a month. With the cache, the bank and our 30B first: $25,216, 79% less. Against the cheap 763B we do not save at that volume: the ladder costs $2,518 a month more. Every number here comes from a file. Good night. |
