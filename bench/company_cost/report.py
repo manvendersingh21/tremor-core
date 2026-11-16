@@ -84,6 +84,8 @@ def spread(xs: list[float], fmt: str = "{:.1f}") -> str:
         return "n/a"
     if len(xs) == 1:
         return fmt.format(xs[0])
+    if max(xs) == min(xs):
+        return f"{fmt.format(xs[0])} in all {len(xs)}"
     sd = statistics.stdev(xs)
     return f"{fmt.format(statistics.mean(xs))} ± {fmt.format(sd)} ({fmt.format(min(xs))}-{fmt.format(max(xs))})"
 
