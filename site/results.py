@@ -37,11 +37,17 @@ REPORTS = [
         ("Median wait ms, 763B only / pool", "r", r"\| Latency median / p90 \(ms\) \| (\d+) / \d+ \| (\d+)", None, True),
     ]),
     ("cost_case", "Cost case: what each tier costs per 1,000 calls", "results_cost_case.md", [
-        ("30B on a V100, $ per 1k calls", "c", "| V100 Qwen3-30B | all |", 7, True),
+        ("30B on the V100 before tuning, $ per 1k calls", "c", "| V100 Qwen3-30B | all |", 7, True),
         ("763B, $ per 1k calls", "c", "| DeepSeek-V4.1-Flash 763B | all |", 7, False),
         ("GPT-5.5, $ per 1k calls (60 items)", "c", "| GPT-5.5 (60 items) | all |", 7, False),
-        ("Pass, 30B on V100", "c", "| V100 Qwen3-30B | all |", 3, True),
+        ("Pass, 30B on V100 before tuning", "c", "| V100 Qwen3-30B | all |", 3, True),
         ("Pass, 763B", "c", "| DeepSeek-V4.1-Flash 763B | all |", 3, False),
+    ]),
+    ("akash_tuning", "30B on our V100 after tuning (301 coding tasks)", "results_akash_tuning.md", [
+        ("Pass, tuned 30B (4 at once)", "c", "| Tuned 30B, 4 at once |", 4, False),
+        ("Median s per call, tuned", "c", "| Tuned 30B, 4 at once |", 5, False),
+        ("Median s per call, before tuning", "c", "| Cost case 30B ", 5, True),
+        ("$ per 1k calls, tuned (box kept busy)", "c", "| Tuned 30B, 4 at once |", 7, False),
     ]),
     ("cost_case_h200", "Cost case on a Modal H200", "results_cost_case_h200.md", [
         ("30B on H200, 64 at once, $ per 1k calls", "c", "| H200, concurrency 64 |", 5, False),
@@ -125,7 +131,9 @@ def headlines(reports):
                         by["cost_case_h200"]["30B on H200, 32 at once, $ per 1k calls"]],
         "top763_per_1k": by["cost_case"]["763B, $ per 1k calls"],
         "gpt55_per_1k": by["cost_case"]["GPT-5.5, $ per 1k calls (60 items)"],
-        "v100_per_1k": by["cost_case"]["30B on a V100, $ per 1k calls"],
+        "v100_per_1k": by["cost_case"]["30B on the V100 before tuning, $ per 1k calls"],
+        "v100_tuned_per_1k": by["akash_tuning"]["$ per 1k calls, tuned (box kept busy)"],
+        "v100_tuned_p50_s": by["akash_tuning"]["Median s per call, tuned"],
         "repeat_tokens_off": by["backend"]["763B tokens kept off, repeat run (WARM)"],
         "suite_tokens_saved": by["suite"]["763B tokens saved by the pool"],
     }

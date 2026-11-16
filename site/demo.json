@@ -2492,7 +2492,43 @@
     "source": "results_cost_case_h200.md"
    },
    {
-    "tier": "30B on the shared V100 (Akash), one request at a time",
+    "tier": "30B on our tuned V100 (Akash), $0.52/hr, busy 100% of the day (4 at once)",
+    "usd_per_1k": "$0.178",
+    "pass": "270/301 = 90%",
+    "source": "results_akash_tuning.md"
+   },
+   {
+    "tier": "30B on our tuned V100 (Akash), $0.52/hr, busy 50% of the day (4 at once)",
+    "usd_per_1k": "$0.355",
+    "pass": "270/301 = 90%",
+    "source": "results_akash_tuning.md"
+   },
+   {
+    "tier": "30B on our tuned V100 (Akash), $0.52/hr, busy 10% of the day (4 at once)",
+    "usd_per_1k": "$1.775",
+    "pass": "270/301 = 90%",
+    "source": "results_akash_tuning.md"
+   },
+   {
+    "tier": "30B on our tuned V100 (Akash), $1.53/hr, busy 100% of the day (4 at once)",
+    "usd_per_1k": "$0.522",
+    "pass": "270/301 = 90%",
+    "source": "results_akash_tuning.md"
+   },
+   {
+    "tier": "30B on our tuned V100 (Akash), $1.53/hr, busy 50% of the day (4 at once)",
+    "usd_per_1k": "$1.045",
+    "pass": "270/301 = 90%",
+    "source": "results_akash_tuning.md"
+   },
+   {
+    "tier": "30B on our tuned V100 (Akash), $1.53/hr, busy 10% of the day (4 at once)",
+    "usd_per_1k": "$5.223",
+    "pass": "270/301 = 90%",
+    "source": "results_akash_tuning.md"
+   },
+   {
+    "tier": "30B on the Akash V100 before tuning (default threads), one request at a time",
     "usd_per_1k": "$11.02",
     "pass": "269/301 = 89%",
     "source": "results_cost_case.md"
@@ -3003,7 +3039,7 @@
   {
    "room": "gpus",
    "secs": 12,
-   "say": "The Manor is our own GPU. A 30B on an H200 kept busy costs $0.070 per 1,000 calls. On the shared V100, one call at a time, it costs $11.02."
+   "say": "The Manor is our own GPU. A 30B on an H200 kept busy costs $0.070 per 1,000 calls. On our own V100, tuned and kept busy, it costs $0.178; before tuning it cost $11.02."
   },
   {
    "room": "guild",

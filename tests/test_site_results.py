@@ -10,7 +10,7 @@ import results  # noqa: E402
 
 def test_every_report_has_numbers_and_json_is_current():
     d = json.loads(results.build())
-    assert len(d["reports"]) == 12
+    assert len(d["reports"]) == 13  # 12 + the Akash tuning report
     for r in d["reports"]:
         assert r["metrics"] and all(m["value"] for m in r["metrics"]), r["id"]
     assert d["headlines"]["repeat_tokens_off"].endswith("%")

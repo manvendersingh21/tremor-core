@@ -33,7 +33,7 @@
    "file": "bench/results_cost_case.md",
    "metrics": [
     {
-     "label": "30B on a V100, $ per 1k calls",
+     "label": "30B on the V100 before tuning, $ per 1k calls",
      "value": "$11.02",
      "loss": true
     },
@@ -48,13 +48,40 @@
      "loss": false
     },
     {
-     "label": "Pass, 30B on V100",
+     "label": "Pass, 30B on V100 before tuning",
      "value": "269/301 = 89% (85-92)",
      "loss": true
     },
     {
      "label": "Pass, 763B",
      "value": "286/301 = 95% (92-97)",
+     "loss": false
+    }
+   ]
+  },
+  {
+   "id": "akash_tuning",
+   "title": "30B on our V100 after tuning (301 coding tasks)",
+   "file": "bench/results_akash_tuning.md",
+   "metrics": [
+    {
+     "label": "Pass, tuned 30B (4 at once)",
+     "value": "270/301 = 90%",
+     "loss": false
+    },
+    {
+     "label": "Median s per call, tuned",
+     "value": "2.7",
+     "loss": false
+    },
+    {
+     "label": "Median s per call, before tuning",
+     "value": "78.0",
+     "loss": true
+    },
+    {
+     "label": "$ per 1k calls, tuned (box kept busy)",
+     "value": "$0.18 at $0.52/hr, $0.52 at $1.53/hr",
      "loss": false
     }
    ]
@@ -323,6 +350,8 @@
   "top763_per_1k": "$0.1576",
   "gpt55_per_1k": "$4.02",
   "v100_per_1k": "$11.02",
+  "v100_tuned_per_1k": "$0.18 at $0.52/hr, $0.52 at $1.53/hr",
+  "v100_tuned_p50_s": "2.7",
   "repeat_tokens_off": "97.5%",
   "suite_tokens_saved": "38.4%"
  }
