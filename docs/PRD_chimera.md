@@ -1,6 +1,6 @@
 # CHIMERA: product requirements and architecture
 
-Date: 2026-11-16. Owner: manvendersingh21. Repo: [github.com/manvendersingh21/tremor-core](https://github.com/manvendersingh21/tremor-core) (public, MIT, branch `dev`).
+Date: 2026-11-16 (refreshed with the company cost repeats, Phase A on Modal and the hackathon pack). Owner: manvendersingh21. Repo: [github.com/manvendersingh21/tremor-core](https://github.com/manvendersingh21/tremor-core) (public, MIT, branch `dev`).
 
 This file is the source. `docs/PRD_chimera.pdf` is built from it by `scripts/prd_pdf.py`. The workbook `docs/chimera_tracker.xlsx` holds the same numbers as sheets. Every number here comes from a file in the repo, and the file is named next to it. Almost every test ran once. Read small gaps as noise.
 
@@ -114,6 +114,8 @@ Every row is one run unless it says repeats. Win means the cascade beat the big 
 | Cache, 3 repeats | second client asks 60 | 49 of 60 hits in all 3, 0 wrong, lookup 122 ms | win | `bench/results_company_cost.md` |
 | Ladder on new prompts (v1) | 60 prompts, shared V100 | 763B tokens -12.2%, p90 91.6 s vs 3.0 s | loss | `bench/results_backend.md` |
 | Ladder on new prompts (v2) | same 60, idle V100 | 763B tokens -53.0%, 48/48 graded, p50 8.6 s vs 1.2 s | mixed | `bench/results_backend_v2.md` |
+| Ladder on new prompts, 3 repeats | same 60, empty cache each time | 763B tokens -56.2% ± 4.6%, p50 6.7 s vs 1.3 s | mixed | `bench/results_company_cost.md` |
+| Same 60 again, 3 repeats | second pass | 58 to 59 of 60 from cache, p50 112 ms, 0 wrong cache answers | win | `bench/results_company_cost.md` |
 | Bank, same problems | 80 problems, 3 repeats | 75 of 80 served in all 3, 0 wrong | win | `bench/results_company_cost.md` |
 | Bank, reworded problems | 80 reworded, 3 repeats | 24 of 80 served in all 3 | mixed | `bench/results_company_cost.md` |
 | N+1 memory | 80 coding problems | 68 to 70 of 80; 3 random examples also gave 70 | loss | `bench/results_memory.md` |
@@ -132,13 +134,14 @@ Every row is one run unless it says repeats. Win means the cascade beat the big 
 | H200 120B before 763B | 30 prompts | about $0.11 vs $0.0058; 1,352 ms vs 728 ms | loss | `bench/results_modal.md` |
 | Learned router | 180 graded prompts | 70.0%, same as the confidence gate | loss (no gain) | `bench/results_research_router.md` |
 | Cache guard | 800 Quora pairs at 0.97 | wrong hits 4 to 2, recall 10.1% to 9.1% | win (small) | `bench/results_research_cache.md` |
-| Spec, two boxes, Modal 235B | 48 prompts | 20.5 to 24.4 tok/s vs 89.8 alone | loss | `bench/results_spec_modal.md` |
+| Spec, two boxes, Modal 235B | 48 prompts, 2 accounts | 7.3 to 24.4 tok/s vs 86.2 to 89.8 alone (0.09x to 0.27x) | loss | `bench/results_spec_modal.md` |
 | Spec, same box, Modal 235B | 48 prompts | EAGLE-3 162.2 tok/s (1.80x), n-gram 100.6 (1.12x) | win | `bench/results_spec_modal.md` |
+| Spec, same box, 4B draft model in the 235B box | 48 prompts | 27.3 tok/s (0.32x), 48/48 same output | loss | `bench/results_spec_modal.md` |
 | Spec, Mac to V100 | 10 prompts | 2.14 to 3.27 tok/s vs 14.60 Ollama | loss | `bench/spec_results.md` |
 | Spec+ vs plain spec | 17 prompts, stand-in target | 1.14x to 1.22x over plain, below big model alone | mixed | `bench/results_specplus.md` |
 | GPU link self-heal | killed and frozen tunnel | back in 5 s and 17 s | win | `bench/results_backend_v2.md` |
 
-The single-run caveat: only the cache and bank tests in `bench/results_company_cost.md` were repeated (3 times). Every other row is one run. Several 30B runs used a shared V100, so their latency says more about the box than the model.
+The single-run caveat: only the cache, bank and 60-prompt ladder tests in `bench/results_company_cost.md` were repeated (3 times). Every other row is one run. Several 30B runs used a shared V100, so their latency says more about the box than the model.
 
 ![Tokens kept off the big model](prd/tokens_saved.png)
 
@@ -197,23 +200,38 @@ A small model writes a few tokens. The big model checks them all in one pass. Th
 
 ![Speed by method](prd/spec_speed.png)
 
-Phase A on Modal (Qwen3-30B-A3B drafts on an L40S, Qwen3-235B-A22B verifies on 4 H100s, account B, 48 prompts, `bench/results_spec_modal.md`):
+Phase A on Modal (Qwen3-235B-A22B verifies on 4 H100s, drafters on one L40S each, 48 prompts, `bench/results_spec_modal.md`). Ratios use the 235B-alone run of the same account: 89.8 tok/s in account B, 86.2 in account C. The long write-up is `docs/spec_architecture.pdf` (source `docs/spec_architecture.md`).
 
-| Run | tok/s | vs 235B alone | alpha | Same output |
-|---|---|---|---|---|
-| 235B alone | 89.8 | 1.00x | | |
-| 30B drafter alone | 129.7 | 1.44x | | |
-| Two boxes, plain K=4 | 20.5 | 0.23x | 0.80 | 26/48 |
-| Two boxes, plain K=8 | 22.7 | 0.25x | 0.67 | 30/48 |
-| Two boxes, Spec+ | 24.4 | 0.27x | 0.60 | 23/48 |
-| Two boxes, K=4 + 100 ms | 14.0 | 0.16x | 0.80 | 26/48 |
-| Two boxes, Spec+ + 100 ms | 18.2 | 0.20x | 0.57 | 25/48 |
-| Same box, EAGLE-3 | 162.2 | 1.80x | 0.63 | 27/48 |
-| Same box, n-gram | 100.6 | 1.12x | 0.09 | 48/48 |
+| Run | Account | tok/s | vs 235B alone | alpha | Same output |
+|---|---|---|---|---|---|
+| 235B alone | B | 89.8 | 1.00x | | |
+| 235B alone | C | 86.2 | 1.00x | | 48/48 equal to B |
+| 30B drafter alone | B | 129.7 | 1.44x | | |
+| 4B drafter alone | C | 132.2 | 1.53x | | |
+| Two boxes, 30B drafter, K=4 | B | 20.5 | 0.23x | 0.80 | 26/48 |
+| Two boxes, 30B drafter, K=8 | B | 22.7 | 0.25x | 0.67 | 30/48 |
+| Two boxes, 30B drafter, Spec+ | B | 24.4 | 0.27x | 0.60 | 23/48 |
+| Two boxes, K=4 + 100 ms | B | 14.0 | 0.16x | 0.80 | 26/48 |
+| Two boxes, Spec+ + 100 ms | B | 18.2 | 0.20x | 0.57 | 25/48 |
+| Two boxes, 4B drafter, K=4 | C | 13.2 | 0.15x | 0.74 | 24/48 |
+| Two boxes, chain 4B -> 30B -> 235B | C | 7.3 | 0.09x | 0.80 | 26/48 |
+| Same box, EAGLE-3 | B | 162.2 | 1.80x | 0.63 | 27/48 |
+| Same box, n-gram | B | 100.6 | 1.12x | 0.09 | 48/48 |
+| Same box, 4B draft model | C | 27.3 | 0.32x | 0.73 | 48/48 |
 
-Why two boxes lose: each round needs one network trip. The median network part was 58 to 59 ms, and the big box spent 41 ms per round at K=4 (`bench/results_spec_modal.md`). At 89.8 tok/s the big model alone writes a token about every 11 ms (1000 / 89.8).
+Why two boxes lose (`bench/results_spec_modal.md`, Phase A verdict):
 
-Not measured yet: the 4B drafter, the 2-level chain, the Coder-480B and the Qwen3.5-397B runs. Account B's $30 of free credits ran out mid-job (`bench/results_spec_modal.md`). Phase B (Llama, gpt-oss, DeepSeek-V3) has no numbers. The smoke check found 6 output differences. All 6 were near-ties under 0.5 nats, not bugs (`bench/results_spec_modal.md`). On the 235B, plain K=4 matched the big model alone on 26 of 48 outputs. The file does not yet say whether those gaps are near-ties.
+- Each round needs one network trip. The median network part was 58 to 59 ms in account B. In account C the boxes sat in two regions, and a bare call took 91 to 98 ms.
+- The drafters are barely faster than the big model: 130 tok/s against 86 to 90.
+- Checking 4 to 16 tokens takes 36 to 37 ms on the big box, about 3.5 plain decode steps.
+- When a round makes the big box compute more than 16 new tokens, it takes 207 to 215 ms instead of 36. That hit 26% to 27% of K=4 rounds.
+- With the network time taken out, K=4 would still reach only 29 tok/s.
+
+Why outputs differ: the check reads the big model's numbers through a different code path than plain decoding. Scoring the 235B's own answers again in one pass gave a different top token at 76 of 6,544 positions. At the first different token of each account C run, the gap between the top two tokens was under 0.5 nats in 21 of 46 cases and at most 2.0 nats. So these are near-ties, not a logic bug (`bench/results_spec_modal.md`).
+
+Not measured: the Coder-480B and the Qwen3.5-397B. The 480B hung on its first start on 8 H100s ($8.94, no result). Account C then hit its spend limit at 03:12 PST and refused the rest. The jobs are ready and need about $25 more. Phase B (Llama, gpt-oss, DeepSeek-V3) has no numbers; it needs about $100 to $150 (`docs/spec_architecture.md`, section 9).
+
+Modal spend for this work: **$64.57** over three accounts (A $1.13, B $30.87, C $32.57, of which $2.01 went past the credits). Every app was stopped, and `modal app list` showed 0 live apps after the last job (`bench/results_spec_modal.md`, "Cost and shutdown").
 
 The 763B on Crusoe cannot verify drafts. Its API rejects `echo`, and its tokenizer differs from Qwen (`bench/results_spec_modal.md`). So spec decoding is not in the product ladder today.
 
@@ -269,7 +287,9 @@ Result: memory moved the 30B from 68 to 70 of 80. Three random stored answers al
 8. **Memory and LoRA did not help.** No real gain, and LoRA lost 3.9 points (`bench/results_memory.md`, `bench/results_distill.md`).
 9. **Most tests ran once.** Several used a shared GPU.
 10. **Docs drift.** `.kiro/steering/tech.md` still calls the bank planned, and `docs/architecture.md` still names a SQLite fallback. Both are out of date (`docs/memory.md`, `docs/vector-store.md`).
-11. **Modal spend.** Account A hit its spend limit. Account B used its $30 of credits (`bench/results_spec_modal.md`). Weight volumes cost about $110 a month while kept (`docs/status_2026-11-15.md`).
+11. **Modal spend.** Speculative decoding used $64.57 over three accounts. Each account's $30 of credits paid for about one big job. Account C now refuses jobs ("exceeded its spend limit") (`bench/results_spec_modal.md`). Weight volumes cost about $110 a month per account while kept (`docs/spec_architecture.md`, section 7).
+12. **The 30B fails about 10% of coding tasks.** 31 of 301 on the H200, against 15 for the 763B. The savings assume tests catch every failure (`bench/results_company_cost.md`).
+13. **No live public app.** The Pages site is a static view. The live app runs only on `127.0.0.1:8765` (`docs/hackathon/checklist.md`).
 
 ## 13. Roadmap, in order
 
@@ -277,57 +297,61 @@ Result: memory moved the 30B from 68 to 70 of 80. Three random stored answers al
 2. Put a test gate in front of every coding answer. The bound was 96.0% pass with 81.7% of 763B tokens kept off (`bench/results_cost_case.md`).
 3. Send open chat straight to the 763B with a cheap pre-check (`bench/results_replay.md`).
 4. Pitch against frontier APIs, not the 763B (`bench/results_company_cost.md`).
-5. Use same-box spec decoding (EAGLE-3) for any big model we host (`bench/results_spec_modal.md`).
+5. Use same-box spec decoding (EAGLE-3) for any big model we host. Drop two-box drafting: it lost by 4x to 12x on the 235B (`bench/results_spec_modal.md`, `docs/spec_architecture.md`).
 6. Fix non-English cache hits: a multilingual embedder, or reject mostly non-ASCII near hits (`docs/handoff/replay.md`).
 7. Build the 30B yes/no check on cosine hits (planned).
 8. Repeat the key tests 3 times on an idle GPU.
 9. Ship the hackathon build (section 14).
 10. Stop memory hints and LoRA in their current form.
-11. Finish Phase A and Phase B spec runs only if credits allow.
+11. Finish Phase A (480B, 397B: about $25) and Phase B (about $100 to $150) only if you approve the spend (`docs/spec_architecture.md`, section 9).
 
 ## 14. Kiroween 2026 hackathon plan
 
-Deadline: Friday, December 4, 2026, 2:00 PM PT (from the brief). Today is Monday, November 16, so 18 days remain.
+Deadline: Friday, December 4, 2026, 2:00 PM Pacific ([kiroween.devpost.com](https://kiroween.devpost.com/)). Today is Monday, November 16, so 18 days remain. Category: Frankenstein, second choice Costume Contest. The full pack is in `docs/hackathon/`: `submission.md`, `demo_script.md`, `blog_post.md`, `social_post.md` and `checklist.md`.
 
 Needs, and where we stand:
 
 | Need | State | Next step |
 |---|---|---|
 | Public repo with MIT license | done: `gh repo view` shows PUBLIC and MIT | keep it |
-| `/.kiro` at the repo root | done: 45 tracked files (steering, specs, hooks, agents) | commit `.kiro/settings/mcp.json` after a secret scan; it is untracked |
-| Working app URL | not done: the castle runs only on 127.0.0.1:8765 | deploy the web server with a demo tenant and no private hosts |
-| YouTube demo under 3 minutes | not done | script, record, upload |
-| Kiro-use write-up | partial: `docs/handoff/kiro-setup.md` | write how specs, hooks, steering, agents and MCP built the project |
-| Category | not chosen | Frankenstein fits best: many models stitched into one ladder. Costume Contest fits the Halloween castle |
+| `/.kiro` at the repo root | done: 45 tracked files (steering, specs, hooks, agents) | commit `.kiro/settings/mcp.json` after a secret scan, or point to `powers/chimera/workspace-mcp.json` |
+| Working app URL | partial: the Pages site is a static view; the live castle runs only on 127.0.0.1:8765 | owner decides: keep the static view, or pay for a hosted demo tenant |
+| Text description | drafted: `docs/hackathon/submission.md` | owner pastes it into the Devpost form |
+| YouTube demo under 3 minutes | not done: script ready in `docs/hackathon/demo_script.md` (2:45) | owner records and uploads as Public |
+| Kiro-use write-up | drafted: `docs/hackathon/submission.md`, "How we used Kiro" | owner confirms which Kiro surfaces were used |
+| Category | done: Frankenstein, second Costume Contest | pick it on the form |
+| Bonus: blog and social posts | drafted: `docs/hackathon/blog_post.md`, `docs/hackathon/social_post.md` | owner posts them and pastes the links |
 
 Judging and how we answer it:
 
 | Criterion | Our answer |
 |---|---|
-| Impact | 57% to 87% a month saved against GPT-5.5 on coding calls (`bench/results_company_cost.md`) |
-| Kiro depth | 7 specs, hooks that test on save and block secrets, 4 custom agents, a Power, an MCP server |
+| Impact | 62% to 87% a month saved against GPT-5.5 with 30% repeats; no saving against the 763B at 100k calls a day (`bench/results_company_cost.md`) |
+| Kiro depth | 7 steering files, 7 specs, 6 hooks, 4 custom agents, an MCP server, a Power, 41 property tests that found 4 bugs, 5 junior PRs from `kiro-cli` (`docs/hackathon/submission.md`) |
 | Design | The painted walk-in castle and the Halloween dashboard (`site/docs/ui_polish.md`) |
-| Innovation | Test-gated bank and cache, live savings per call, same-box vs two-box spec results |
-| Presentation | One URL, a 3-minute video, losses shown next to wins |
+| Innovation | Test-gated bank and cache, cost per call, same-box EAGLE-3 1.80x vs two boxes 0.09x to 0.27x (`bench/results_spec_modal.md`) |
+| Presentation | One URL, a 2:45 video, losses shown next to wins |
 
 Timeline:
 
 | Dates | Work |
 |---|---|
-| Nov 16 to 20 | Public URL live, demo tenant, H200 tier warm only during the demo |
-| Nov 21 to 25 | Kiro write-up, README update, fix docs drift |
-| Nov 26 to Dec 1 | Record and edit the video, dry run the URL from a clean browser |
-| Dec 2 to 3 | Buffer and final checks |
+| Nov 16 to 20 | Decide the app URL; demo tenant if hosted; H200 tier warm only during the demo |
+| Nov 21 to 25 | Owner reads the write-up; fix docs drift; tick the spec tasks |
+| Nov 26 to Dec 1 | Record and edit the video, post the blog and social posts, dry run from a clean browser |
+| Dec 2 to 3 | Buffer and final checks with `docs/hackathon/checklist.md` |
 | Dec 4, before 2:00 PM PT | Submit |
 
 ## 15. Open questions for the user
 
-1. Is the goal lower cost or lower latency? The ladder cuts cost and adds latency on new prompts.
-2. Should we pitch only against frontier APIs, since the 763B is hard to beat?
-3. Keep the H200 30B warm during demos only, or always? Always-on costs $108.96 a day.
-4. Which hackathon category: Frankenstein or Costume Contest?
-5. Where should the public demo URL live, and may it use the paid tiers?
-6. Should spec decoding enter the product at all? Only a self-hosted big model can verify.
-7. Delete the Modal weight volumes after review (about $110 a month)?
-8. What Modal spend limit should we set for the rest of the month?
-9. Should memory hints and LoRA stop, given no measured gain?
+1. Is the goal lower cost or lower latency? The ladder cuts cost and adds latency on new prompts (median 6.7 s vs 1.3 s, `bench/results_company_cost.md`).
+2. Should we pitch only against frontier APIs, since the 763B is hard to beat (`bench/results_company_cost.md`)?
+3. Keep the H200 30B warm during demos only, or always? Always-on costs $108.96 a day (`bench/results_company_cost.md`).
+4. Where should the public demo URL live, and may it use the paid tiers? A hosted demo costs money; the static Pages view costs nothing.
+5. Should we self-host a big model at all? EAGLE-3's 1.80x only helps a big model we run. Four H100 cost about $15.80 an hour on Modal (`docs/spec_architecture.md`, section 9).
+6. Take two-box speculative decoding off the roadmap? Recommended: yes. It lost by 4x to 12x on every run (`bench/results_spec_modal.md`).
+7. Finish Phase A (about $25) and run Phase B (about $100 to $150)? Account C refuses jobs now, so this needs a raised limit or a paid plan (`docs/spec_architecture.md`, section 9).
+8. Delete the Modal weight volumes after review? About 1.25 TB per account, about $110 a month while kept (`docs/spec_architecture.md`, section 7).
+9. Should memory hints and LoRA stop, given no measured gain (`bench/results_memory.md`, `bench/results_distill.md`)?
+10. Did you use the Kiro IDE or Kiro Web? The write-up says only Kiro Crew and `kiro-cli`, with hooks run by hand (`docs/hackathon/submission.md`).
+11. Which coding traffic should we test next? The 30% repeat share is the bank's rate on reworded problems, not a measured company rate (`bench/results_company_cost.md`).

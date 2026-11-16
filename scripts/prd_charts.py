@@ -118,21 +118,24 @@ def accuracy_by_tier() -> Path:
 
 
 def spec_speed() -> Path:
-    # Phase A, Qwen3-235B-A22B verifier, account B (results_spec_modal.md) and Mac->V100 (spec_results.md)
+    # Phase A, Qwen3-235B-A22B verifier, accounts B and C (results_spec_modal.md) and Mac->V100 (spec_results.md)
     a = [
-        ("235B alone", 89.8, BLUE),
-        ("30B drafter alone", 129.7, GREY),
-        ("2 boxes: plain K=4", 20.5, LOSS),
-        ("2 boxes: plain K=8", 22.7, LOSS),
-        ("2 boxes: Spec+", 24.4, LOSS),
-        ("2 boxes: K=4 +100 ms", 14.0, LOSS),
-        ("2 boxes: Spec+ +100 ms", 18.2, LOSS),
-        ("same box: n-gram", 100.6, WIN),
-        ("same box: EAGLE-3", 162.2, WIN),
+        ("235B alone (B)", 89.8, BLUE),
+        ("235B alone (C)", 86.2, BLUE),
+        ("30B drafter alone (B)", 129.7, GREY),
+        ("2 boxes: 30B, K=4 (B)", 20.5, LOSS),
+        ("2 boxes: 30B, K=8 (B)", 22.7, LOSS),
+        ("2 boxes: 30B, Spec+ (B)", 24.4, LOSS),
+        ("2 boxes: K=4 +100 ms (B)", 14.0, LOSS),
+        ("2 boxes: 4B, K=4 (C)", 13.2, LOSS),
+        ("2 boxes: 4B->30B chain (C)", 7.3, LOSS),
+        ("same box: 4B draft (C)", 27.3, LOSS),
+        ("same box: n-gram (B)", 100.6, WIN),
+        ("same box: EAGLE-3 (B)", 162.2, WIN),
     ]
     b = [("Plain Ollama 30B", 14.60, BLUE), ("Mac 3B -> V100, K=4", 2.14, LOSS),
          ("Mac 3B -> V100, K=8", 3.27, LOSS)]
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.4, 3.6), gridspec_kw={"width_ratios": [2.2, 1]})
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7.4, 4.2), gridspec_kw={"width_ratios": [2.2, 1]})
     ax1.barh([r[0] for r in a], [r[1] for r in a], color=[r[2] for r in a])
     ax1.invert_yaxis()
     for i, r in enumerate(a):
@@ -149,7 +152,7 @@ def spec_speed() -> Path:
     ax2.set_title("Mac -> V100 over the internet", fontsize=9)
     fig.suptitle("Speculative decoding: same box wins, two boxes lose", fontsize=10)
     fig.tight_layout()
-    return _save(fig, "spec_speed.png", "bench/results_spec_modal.md (account B), bench/spec_results.md")
+    return _save(fig, "spec_speed.png", "bench/results_spec_modal.md (accounts B and C), bench/spec_results.md")
 
 
 def hit_rates() -> Path:

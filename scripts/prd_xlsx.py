@@ -190,13 +190,19 @@ MODAL = [
     ("H200 30B live tier test (845 s cold start)", "chimera-qwen30b", 1.44, "upper bound",
      "bench/results_backend_v2.md"),
     ("Walk-in video clips (12 clips, Wan on H200)", "chimera-video-wan", 19.95, "estimate", "site/docs/game_clips.md"),
+    ("Spec decoding, account A: weight download until its spend limit", "chimera-spec-download", 1.13, "bill",
+     "bench/results_spec_modal.md"),
+    ("Spec decoding, account B: downloads, smoke test, 235B job, 397B wait", "chimera-spec-*", 30.87, "bill",
+     "bench/results_spec_modal.md"),
+    ("Spec decoding, account C: downloads, 235B job, 480B start that hung", "chimera-spec-*", 32.57, "bill",
+     "bench/results_spec_modal.md"),
 ]
 BILL = [
     ("Billing report, 2026-11-15: chimera-video-wan", 22.59, "docs/status_2026-11-15.md"),
     ("Billing report, 2026-11-15: chimera-qwen30b", 1.20, "docs/status_2026-11-15.md"),
     ("Billing report, 2026-11-15: chimera-spec-download", 1.13, "docs/status_2026-11-15.md"),
     ("Billing report: month to date on 2026-11-15", 31.64, "docs/status_2026-11-15.md"),
-    ("Spec decoding account B: free credits used up", 30.0, "bench/results_spec_modal.md"),
+    ("Spec decoding, accounts A + B + C (sum of the 3 rows above)", 64.57, "bench/results_spec_modal.md"),
 ]
 
 
@@ -212,10 +218,11 @@ def modal(wb):
     for k, (item, usd, src) in enumerate(BILL, start=end + 4):
         ws.cell(row=k, column=1, value=item)
         ws.cell(row=k, column=3, value=usd)
-        ws.cell(row=k, column=4, value="bill" if "Billing" in item else "credits")
+        ws.cell(row=k, column=4, value="bill" if "Billing" in item else "total")
         ws.cell(row=k, column=5, value=src)
     last = end + 3 + len(BILL)
-    ws.cell(row=last + 2, column=1, value="Not in any file: account A spend before its limit, account C spend so far.")
+    ws.cell(row=last + 2, column=1, value="Account C hit its spend limit at 03:12 PST on 2026-11-16 and refuses new "
+                                           "jobs; $2.01 of its $32.57 went past the credits (bench/results_spec_modal.md).")
     ws.cell(row=last + 3, column=1, value="Rates: H200 $4.54/hour, L40S $1.95/hour; volumes $0.09 per GiB-month, "
                                            "Phase A weights about 1.2 TB = about $110 a month "
                                            "(docs/status_2026-11-15.md).")
@@ -236,10 +243,11 @@ TASKS = [
      "docs/handoff/replay.md", "next"),
     (7, "Build the 30B yes/no check on cosine cache hits", "backend", ".kiro/steering/tech.md", "planned"),
     (8, "Repeat key tests 3 times on an idle GPU", "backend", "bench/results_company_cost.md", "next"),
-    (9, "Public demo URL for the castle (demo tenant, no private hosts)", "frontend", "section 14 of the PRD",
-     "hackathon"),
-    (10, "Record the YouTube demo (under 3 minutes)", "owner + frontend", "section 14 of the PRD", "hackathon"),
-    (11, "Write the Kiro-use write-up", "frontend", "docs/handoff/kiro-setup.md", "hackathon"),
+    (9, "Public demo URL for the castle (static Pages view today; hosted demo tenant needs a spend yes)", "owner",
+     "docs/hackathon/checklist.md", "decide"),
+    (10, "Record the YouTube demo (under 3 minutes) from the 2:45 script", "owner", "docs/hackathon/demo_script.md",
+     "script ready"),
+    (11, "Kiro-use write-up and Devpost description", "frontend", "docs/hackathon/submission.md", "drafted"),
     (12, "Fix docs drift: bank is built (tech.md), no SQLite fallback (architecture.md)", "frontend",
      "docs/memory.md, docs/vector-store.md", "next"),
     (13, "Apply deploy/sql/004_eval_runs.sql so evals upload to Supabase", "backend", "docs/handoff/evals-tab.md",
@@ -251,6 +259,10 @@ TASKS = [
      "decide"),
     (17, "Delete Modal weight volumes after review (about $110 a month)", "owner", "docs/status_2026-11-15.md",
      "decide"),
+    (18, "Post the blog and a social post, fill the Devpost form, tick the bonus boxes", "owner",
+     "docs/hackathon/checklist.md", "hackathon"),
+    (19, "Tick tasks.md in the savings-replay and lora-distill specs (built and measured, 0 ticked)", "frontend",
+     ".kiro/specs/", "open"),
 ]
 
 
