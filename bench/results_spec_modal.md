@@ -109,7 +109,7 @@ Hardware and cold starts (not in any number above): big box 4x H100 80GB HBM3, r
 
 ### Qwen3-Coder-480B-A35B verifier (4 H200), code prompts only
 
-First try (account C, 02:30 to 03:10 PST): Modal had no 4 H200 free for 20 minutes and then gave the 8x H100 fallback. On 8 GPUs vLLM must split experts across GPUs (2,560 / 8 is not a multiple of FP8's 128-wide blocks), and it hung for 7 minutes building a FlashInfer communication module while capturing CUDA graphs. The app was stopped by hand (0 live at 03:10:45). The retry asks for 4 H200 only.
+First try (account C, 02:30 to 03:10 PST): Modal had no 4 H200 free for 20 minutes and then gave the 8x H100 fallback. On 8 GPUs vLLM must split experts across GPUs (2,560 / 8 is not a multiple of FP8's 128-wide blocks), and it hung for 7 minutes building a FlashInfer communication module while capturing CUDA graphs. The app was stopped by hand (0 live at 03:10:45). The retry (4 H200 only) was refused at 03:12 PST: "Workspace has exceeded its spend limit". **The 480B was not measured.** It loads on 8 H100 (all 49 shards in about 9 minutes); it was not reached on 4 H200.
 
 <!-- tables:qa_480b -->
 Speed, 0 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all output tokens / all wall time; median = median of the per-prompt tok/s):
@@ -183,7 +183,7 @@ Hardware and cold starts (not in any number above): big box L40S, region None; d
 
    The cross-box loop scores each draft through the prefill path (`prompt_logprobs`), and that path computes slightly different numbers than one-token-at-a-time decoding. The root-cause check measures it directly: scoring the 235B's own answers again in one forward pass gives a different top-1 token than its decode at 76 of 6,544 positions (in 23 of 48 answers), at gaps from 0 to 3 nats (FP8 weights, BF16 logits, and a mixture-of-experts router that picks other experts when the numbers move a little). At the first different token of each account C spec run, the top-1 / top-2 gap was under 0.5 nats in 21 of 46 cases and at most 2.0 nats. So the cross-box outputs drift at numeric near-ties, not from a logic error (the offline tests prove the loop exact on fake models, and the big box's start-up self-test checks it against the real decode). A bit-exact version would need the verify and the decode to use the same kernels: batch-invariant kernels, or a verify endpoint that runs inside vLLM's decode path (not measured).
 
-**Coder-480B and Qwen3.5-397B:** see their tables; the verdict for them is written when they finish.
+**Coder-480B and Qwen3.5-397B: not measured.** The 480B loaded on 8 H100 but hung before its first answer; the retry on 4 H200 and the 397B job were refused by account C's spend limit (03:12 PST). Their jobs are ready (`qa_480b`, `qa_397b`) and need about $25 more.
 
 ## Cost and shutdown
 
@@ -200,6 +200,8 @@ Billed by Modal per app (`modal billing report --show-resources`, GPU + CPU + me
 | C | `chimera-spec-qb-235b` | 235B runs B did not reach (4 H100 + L40S drafters, 65 min) | 21.32 |
 | C | `chimera-spec-qa-480b`, first try | waited 20 min for 4 H200, got the 8x H100 fallback, loaded, then hung 7 min in a FlashInfer JIT build; stopped by hand at 03:10:38 PST, no result | 8.94 |
 
-Account C's $30 of credits were used up at about 03:03 PST; from then on Modal billed real money ($2.01 billed at 03:11).
+Account C's $30 of credits were used up at about 03:03 PST; Modal then billed $2.01 and refused the next job at 03:12 PST ("Workspace has exceeded its spend limit"). After that: `modal app list` showed 0 live apps (`applist_qa_480b.txt`).
+
+**Total for this item: $64.57** by the per-app rows above (account A $1.13, account B $30.87, account C $32.57, of which $2.01 was billed beyond the credits).
 
 Every job ends with the driver stopping its app by ID and saving `modal app list` to `bench/.scratch/spec_modal/applist_<job>.txt`. Last proofs: `qb_235b` stopped 02:30:40 PST (0 live), `download_b1` and `download_b2` 0 live. Account B's apps were stopped by Modal when its credits ran out (01:03:19 PST); the driver's check after that also showed 0 live.
