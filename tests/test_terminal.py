@@ -1,5 +1,8 @@
 """chimera code: edit parsing, undo, risk gate, repair loop, status line. A fake router, no models."""
+import hashlib
+import math
 import pathlib
+import re
 import sys
 
 import pytest
@@ -7,8 +10,9 @@ import pytest
 from apps.terminal import edits as ed
 from apps.terminal import safety
 from apps.terminal.agent import Session, status_line
-from apps.terminal.cli import handle
+from apps.terminal.cli import handle, make_bank
 from apps.terminal.routing import Reply
+from chimera_core.memory import Bank, InMemoryBankStore
 
 SR = "mod.py\n<<<<<<< SEARCH\nx = 1\n=======\nx = 2\n>>>>>>> REPLACE\n"
 
@@ -237,13 +241,6 @@ def test_unpathed_search_goes_to_matching_file_and_file_wrapped_search(tmp_path)
 
 
 # ---- solved-problem bank ------------------------------------------------------------------------
-import hashlib  # noqa: E402
-import math  # noqa: E402
-import re  # noqa: E402
-
-from apps.terminal.cli import make_bank  # noqa: E402
-from chimera_core.memory import Bank, InMemoryBankStore  # noqa: E402
-
 X2 = f"{sys.executable} -c \"import mod; assert mod.x == 2\""
 
 
@@ -338,6 +335,20 @@ def test_verify_never_modifies_root(tmp_path):
     assert s.verify("FILE: ../escape.py\nx = 2\nEND FILE", t) is False     # outside the copy: refused
     assert s.verify("no edits here", t) is False and s.verify("FILE: mod.py\nx = 2\nEND FILE", {}) is False
     assert snap() == before and not (tmp_path.parent / "escape.py").exists()
+
+
+def test_verify_never_copies_credentials(tmp_path):
+    no_env = f"{sys.executable} -c \"import os,sys; sys.exit(os.path.exists('.env'))\""
+    s, _ = banked(tmp_path, [], test_cmd=no_env)
+    (tmp_path / ".env").write_text("FAKE_KEY=not-a-real-value\n")
+    assert s.verify("FILE: mod.py\nx = 2\nEND FILE", {"cmd": no_env, "files": {"mod.py": "x = 1\n"}}) is True
+
+
+def test_verify_runs_only_the_session_test_command(tmp_path):
+    s, _ = banked(tmp_path, [])
+    passes = f"{sys.executable} -c \"pass\""
+    assert s.verify("FILE: mod.py\nx = 2\nEND FILE", {"cmd": passes, "files": {"mod.py": "x = 1\n"}}) is False
+    assert s.verify("FILE: mod.py\nx = 2\nEND FILE", {"cmd": s.test_cmd, "files": {"mod.py": "x = 1\n"}}) is True
 
 
 def test_make_bank_needs_dsn_and_embedder(tmp_path, monkeypatch):
