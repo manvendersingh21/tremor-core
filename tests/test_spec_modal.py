@@ -324,5 +324,20 @@ def test_report_tables_from_fake_runs(tmp_path, monkeypatch):
     for n, r in (("s_big_alone", base), ("s_spec_k4", spec)):
         (tmp_path / f"{n}.json").write_text(json.dumps(r))
     table = driver.job_tables("smoke", driver.load_runs())
-    row = next(line for line in table.splitlines() if "`s_spec_k4`" in line)
-    assert "2.00x" in row and "1/1" in row and "30 / 30" in row
+    rows = [line for line in table.splitlines() if "`s_spec_k4`" in line]
+    assert "2.00x" in rows[0] and "1/1" in rows[0]  # speed table
+    assert "30 / 30" in rows[1]  # where the round goes
+    # projected speed with no network: 3 tokens over 0.5 s wall minus the 20 ms network of its one round
+    assert abs(driver.project(spec, 0) - 3 / 0.48) < 1e-9
+
+
+def test_warmup_touches_every_length_and_the_verify_path():
+    calls = []
+    v = core.VLLM("big", client=fake_vllm(big_model))
+    real = v.call
+    v.call = lambda ids, n, salt, transport=None, **sp: calls.append((len(ids), n, bool(sp))) or real(ids, n, salt, transport, **sp)
+    assert v.warmup(PROMPT, lengths=(8, 20), steps=(1, 3)) >= 0
+    assert (8, 4, False) in calls and (20 + 3, 4, False) in calls and (20 + 5, 1, True) in calls
+    calls.clear()
+    v.warmup(PROMPT, lengths=(8,), steps=(1,), verify=False)
+    assert all(not has_sp for _, _, has_sp in calls)

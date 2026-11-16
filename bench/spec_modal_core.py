@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 EOS = (151645, 151643)  # Qwen3 <|im_end|>, <|endoftext|>
+WARM_LENGTHS = (16, 32, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536)  # prompt + output stay under ~800 here
 
 
 @dataclass
@@ -232,6 +233,23 @@ class VLLM:
             self.fallbacks += 1  # the fast path failed (missing rows or a server error): score this round in full
             return self.verify(ctx, d, salt + ":full", fast=False, transport=transport)
         return m, (miss if m < len(d) else toks[0])
+
+    def warmup(self, ids, lengths=WARM_LENGTHS, verify=True, steps=(1, 2, 4, 8)) -> float:
+        """Compile every kernel shape the runs will hit before anything is measured: Triton compiles the MoE and
+        attention kernels per batch shape on first use, and that spike (about 1 s in our smoke run) landed in the
+        first measured run. Each prompt length is prefilled once (with every-position logits too when verify), then
+        extended by a few tokens on top of its own cached prefix, the shape of a drafter's or verifier's round."""
+        t0 = time.perf_counter()
+        need = max(lengths) + max(*steps, 5)
+        base = (list(ids) * (need // max(1, len(ids)) + 2))[:need]
+        for i, n in enumerate(lengths):
+            salt = f"warm-{i}-{n}"
+            self.call(base[:n], 4, salt)
+            for s in steps:  # a prefix-cache hit plus s new tokens, then a few decode steps
+                self.call(base[: n + s], 4, salt)
+            if verify:
+                self.call(base[: n + 5], 1, salt + "-v", prompt_logprobs=1)
+        return time.perf_counter() - t0
 
     def top2(self, ctx, salt):
         """The two best next tokens after ctx with their logprobs, from a prefill row (near-tie check)."""

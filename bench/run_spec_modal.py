@@ -161,69 +161,113 @@ def f1(x, nd=1):
     return "" if x is None or (isinstance(x, float) and x != x) else f"{x:.{nd}f}"
 
 
-def describe(plan: dict) -> tuple[str, str]:
-    """(drafter, how) labels for a plan."""
+def short(key: str) -> str:
+    """Qwen/Qwen3-235B-A22B-Instruct-2507-FP8 -> Qwen3-235B-A22B."""
+    name = MODELS[key]["repo"].split("/")[-1]
+    for cut in ("-Instruct-2507", "-Instruct", "-FP8"):
+        name = name.replace(cut, "")
+    return name
+
+
+MODE_LABEL = {"ngram": "n-gram (prompt lookup)", "draft_q3_4b": "Qwen3-4B draft model", "draft_q35_4b": "Qwen3.5-4B draft model",
+              "eagle_q3_235b": "EAGLE-3 head", "eagle_q3_30b": "EAGLE-3 head", "eagle_q3c_480b": "EAGLE-3 head",
+              "eagle_q35_397b": "EAGLE-3 head", "mtp2": "built-in MTP, 2 tokens"}
+
+
+def describe(plan: dict, big: str) -> tuple[str, str]:
+    """(who drafts -> who verifies, method) labels for a plan."""
     if plan["mode"] == "big_alone":
-        return "none", "big model alone" + ("" if plan["name"].endswith(("_alone", "_rep")) else f" + same-box {plan['name'].split('_big_')[-1]}")
+        same = plan["name"].split("_big_", 1)[-1] if "_big_" in plan["name"] else ""
+        if same in MODE_LABEL:
+            return f"inside {short(big)}", f"same box: {MODE_LABEL[same]}"
+        return f"{short(big)} alone", "no speculation" + (" (repeat)" if plan["name"].endswith("_rep") else "")
     d = DRAFTERS[plan["drafter"]]
-    lab = MODELS[d["model"]]["repo"].split("/")[-1].replace("-Instruct-2507", "").replace("-FP8", "")
+    lab = short(d["model"])
     if d["mode"] != "plain":
-        lab += f" (+{d['mode']} same box)"
+        lab = f"{MODE_LABEL[d['mode']].split(',')[0].replace(' draft model', '')} -> {lab}"
     if plan["mode"] == "draft_alone":
-        return lab, "drafter alone (L40S)"
-    how = "Spec+ (adaptive K, pipelined, free drafts)" if plan.get("adaptive") else f"plain spec K={plan.get('k', 4)}"
+        return f"{lab} alone (L40S)", "no speculation" + (" (same-box helper on the drafter)" if d["mode"] != "plain" else "")
+    how = "Spec+ (adaptive K, pipelined, free drafts)" if plan.get("adaptive") else f"plain spec, K={plan.get('k', 4)}"
     if plan.get("extra_rtt_ms"):
-        how += f", +{plan['extra_rtt_ms']} ms emulated network"
-    return lab, how
+        how += f", +{plan['extra_rtt_ms']} ms added per round"
+    return f"{lab} (L40S) -> {short(big)}", how
+
+
+def project(run: dict, net_ms: float) -> float:
+    """tok/s if each round's network time were net_ms: measured wall - measured network + rounds x net_ms.
+    shortcut: assumes draft and server time stay the same; a pipelined pre-draft hidden behind a long round trip
+    would show up again at a short one, so the Spec+ projection is optimistic."""
+    rows = run["rows"]
+    toks, wall, rounds = sum(len(r["out"]) for r in rows), sum(r["wall_s"] for r in rows), sum(r["rounds"] for r in rows)
+    net = sum(a - b for a, b in zip(run["rtt_ms"], run["server_ms"])) / 1e3
+    return toks / (wall - net + rounds * net_ms / 1e3)
 
 
 def job_tables(job: str, runs: dict) -> str:
     cfg = JOBS[job]
+    big = cfg["big"]
     names = [p["name"] for p in cfg["plans"] if p["mode"] in ("big_alone", "draft_alone", "spec")]
     tag = names[0].split("_")[0]
     base = runs.get(f"{tag}_big_alone")
     bs = summarize(base) if base else None
-    lines = ["| Run | Drafter | How | tok/s | vs big alone | alpha (accepted/drafted) | tokens per round | round trip p50 / p90 ms | network p50 ms | big server p50 ms | same output as big alone |",
+    n_prompts = len(base["rows"]) if base else 0
+    mt = base["plan"].get("max_tokens", 256) if base else 256
+    speed = [f"Speed, {n_prompts} prompts, greedy, max {mt} new tokens, one request at a time "
+             "(tok/s = all output tokens / all wall time; median = median of the per-prompt tok/s):", "",
+             "| Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
+    rounds = ["Where a cross-box round goes (medians per round; network = round trip minus the big box's own time):", "",
+              "| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
     for n in names:
         r = runs.get(n)
         if not r or not r.get("rows"):
-            lines.append(f"| `{n}` | | | not run | | | | | | | |")
+            err = OUT / f"{n}.error.json"
+            why = json.loads(err.read_text())["error"][:120].replace("|", "/") if err.exists() else "not run"
+            speed.append(f"| `{n}` | | | {why} | | | | | | | |")
             continue
         s = summarize(r)
-        lab, how = describe(r["plan"])
-        speed = f"{s['tok_s'] / bs['tok_s']:.2f}x" if bs and n != f"{tag}_big_alone" else ""
+        who, how = describe(r["plan"], big)
+        rel = f"{s['tok_s'] / bs['tok_s']:.2f}x" if bs and n != f"{tag}_big_alone" else ""
         alpha = f1(s.get("alpha"), 2) if "alpha" in s else (f1(s.get("server_acceptance"), 2) + " (vLLM)" if "server_acceptance" in s else "")
         tpr = f1(s.get("tok_per_round"), 2) if "tok_per_round" in s else (f1(s.get("server_mean_accept_len"), 2) + " (vLLM)" if "server_mean_accept_len" in s else "")
-        rtt = f"{f1(s['rtt_p50_ms'], 0)} / {f1(s['rtt_p90_ms'], 0)}" if "rtt_p50_ms" in s else ""
         same = ("%d/%d" % lossless(base, r)) if base and n != f"{tag}_big_alone" and r["plan"]["mode"] != "draft_alone" else ""
-        lines.append(f"| `{n}` | {lab} | {how} | {f1(s['tok_s'])} | {speed} | {alpha} | {tpr} | {rtt} | "
-                     f"{f1(s.get('net_p50_ms'), 0)} | {f1(s.get('server_p50_ms'), 0)} | {same} |")
-    out = ["\n".join(lines)]
-    marg = [m for m in (f"{tag}_margins", f"{tag}_margins_same") if m in runs]
-    rows = [x for m in marg for x in runs[m]["rows"]]
-    if rows:
+        speed.append(f"| `{n}` | {who} | {how} | {f1(s['tok_s'])} | {f1(s['median_tok_s'])} | {rel} | "
+                     f"{f1(s.get('tok_s_code'))} | {f1(s.get('tok_s_chat'))} | {alpha} | {tpr} | {same} |")
+        if r["plan"]["mode"] == "spec" and r.get("rtt_ms"):
+            rows_n = sum(x["rounds"] for x in r["rows"])
+            ping = f1(pct(r["ping_ms"], 0.5), 0) if r.get("ping_ms") else ""
+            rounds.append(f"| `{n}` | {rows_n} | {f1(s['draft_ms_per_round'], 0)} | {f1(s['net_p50_ms'], 0)} | "
+                          f"{f1(s['server_p50_ms'], 0)} | {f1(s['rtt_p50_ms'], 0)} / {f1(s['rtt_p90_ms'], 0)} | {ping} | "
+                          f"{f1(s['k_mean'])} | {f1(project(r, 20))} | {f1(project(r, 0))} |")
+    out = ["\n".join(speed), "\n".join(rounds)]
+    inner = []  # a drafter with its own same-box helper must still write exactly what the drafter writes alone
+    for a, b in ((f"{tag}_chain_alone", f"{tag}_mid_alone"), (f"{tag}_mideagle_alone", f"{tag}_mid_alone")):
+        if a in runs and b in runs:
+            same, tot = lossless(runs[b], runs[a])
+            inner.append(f"`{a}` vs `{b}`: {same}/{tot} identical")
+    if inner:
+        out.append("Same-box helper inside the drafter box (must not change the drafter's own output): " + "; ".join(inner) + ".")
+    if f"{tag}_margins" in runs:
+        rows = runs[f"{tag}_margins"]["rows"]
         gaps = sorted(round(x["top2"][0][1] - x["top2"][1][1], 3) for x in rows if len(x.get("top2", [])) == 2)
-        near = sum(g < 0.5 for g in gaps)
-        out.append(f"First differences from the big model alone: {len(rows)} (runs: "
-                   + ", ".join(sorted({x['run'] for x in rows})) + f"). The big model's top-2 logprob gap at that token: "
-                   f"{near} of {len(gaps)} under 0.5 nats (a near-tie), all gaps: {gaps}.")
+        agree = sum(x["top2"][0][0] == x["other_tok"] for x in rows if x.get("top2"))
+        out.append(f"Every output that differs from the big model alone, checked at its first different token: {len(rows)} "
+                   f"cases. At {agree} of them the big model's own top-1 token, scored in one forward pass, is the token "
+                   f"the other run wrote, not the one big alone wrote. Top-1 minus top-2 logprob gap there (nats): "
+                   f"{gaps if gaps else 'none'}; {sum(g < 0.5 for g in gaps)} of {len(gaps)} are under 0.5.")
     meta = json.loads((OUT / f"meta_{job}.json").read_text()) if (OUT / f"meta_{job}.json").exists() else None
     if meta:
-        starts = (meta.get("health_end") or {}).get("starts") if isinstance(meta.get("health_end"), dict) else None
+        starts = meta.get("health_end", {}).get("starts") if isinstance(meta.get("health_end"), dict) else None
         starts = starts or meta.get("big_health", {}).get("starts", [])
-        st = "; ".join(f"{s['mode']} {s['start_s']} s" for s in starts)
-        dr = "; ".join(f"{k} {v.get('boot_s')} s" for k, v in meta.get("drafters", {}).items())
-        hours = (meta.get("t_end", meta["t0"]) - meta["t0"] + 120) / 3600
-        gpus = int(cfg["gpu"].split(":")[1]) if ":" in cfg["gpu"] else 1
-        kind = cfg["gpu"].split(":")[0]
-        est = hours * gpus * RATES[kind]
-        dl = sum(((v.get("last_use") or v.get("first_use", 0)) - v.get("first_use", 0) + v.get("boot_s", 0) + 120) / 3600
-                 for v in meta.get("drafters", {}).values()) * RATES["L40S"]
-        out.append(f"Cold start: big box first answer after {meta.get('big_first_health_s')} s (container, weight load, "
-                   f"vLLM start, self-test); vLLM starts per mode: {st}. Drafter boxes boot: {dr}. Job wall time "
-                   f"{(meta.get('t_end', meta['t0']) - meta['t0']) / 60:.0f} min. GPU estimate: big {gpus}x {kind} "
-                   f"${est:.2f}, drafters about ${dl:.2f} (list price; the billed cost is in the cost table).")
+        st = ", ".join(f"{s['mode']} {s['start_s']:.0f} s" for s in starts)
+        dr = ", ".join(f"{k} {v.get('boot_s'):.0f} s" for k, v in meta.get("drafters", {}).items() if v.get("boot_s"))
+        where = meta.get("big_health", {}).get("where", {})
+        dwhere = {v.get("where", {}).get("MODAL_REGION") for v in meta.get("drafters", {}).values()}
+        out.append(f"Cold starts, not in any number above: big box first answer {meta.get('big_first_health_s'):.0f} s after "
+                   f"the job started (container, weights from the volume, vLLM start, self-test). vLLM starts per mode: "
+                   f"{st}. Drafter boxes: {dr}. Big box region {where.get('MODAL_REGION')} ({where.get('MODAL_CLOUD_PROVIDER')}); "
+                   f"drafter regions {sorted(x for x in dwhere if x)}. Job wall time {(meta.get('t_end', meta['t0']) - meta['t0']) / 60:.0f} min.")
     return "\n\n".join(out)
 
 
