@@ -297,13 +297,21 @@ class Session:
 
     # ---- solved-problem bank (chimera_core.memory.Bank) ----------------------------------------
     def verify(self, answer: str, tests: dict) -> bool:
-        """True only if `answer`'s edits apply cleanly to the problem's files and tests["cmd"] exits 0.
+        """True only if `answer`'s edits apply cleanly to the problem's files and tests["cmd"] (which must equal
+        self.test_cmd) exits 0. Credential files are never copied.
         Runs in a throwaway copy of the project; self.root is never touched. Any exception counts as a fail."""
+        if tests.get("cmd") != self.test_cmd:  # a stored row never chooses what runs here
+            return False
+        skip = shutil.ignore_patterns(".git", ".venv", "node_modules", "__pycache__", ".pytest_cache")
+
+        def no_secrets(d: str, names: list[str]) -> set[str]:
+            return set(skip(d, names)) | {n for n in names if blocked_reason(pathlib.Path(d) / n) is not None}
+
         try:
             with tempfile.TemporaryDirectory(prefix="chimera-verify-") as td:
                 box = (pathlib.Path(td) / "p").resolve()
-                shutil.copytree(self.root, box, ignore=shutil.ignore_patterns(
-                    ".git", ".venv", "node_modules", "__pycache__", ".pytest_cache"))
+                # shortcut: one full copy per bank candidate (at most TRY); for big repos copy only tracked files (git ls-files)
+                shutil.copytree(self.root, box, ignore=no_secrets)
 
                 def inside(rel: str) -> pathlib.Path:
                     p = (box / rel).resolve()
@@ -329,7 +337,7 @@ class Session:
                     p = inside(rel)
                     p.parent.mkdir(parents=True, exist_ok=True)
                     p.write_text(new)
-                return self.run(tests["cmd"], cwd=box)[0]
+                return self.run(self.test_cmd, cwd=box)[0]
         except Exception:  # noqa: BLE001  a crashing check is a failed check
             return False
 
