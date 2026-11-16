@@ -34,7 +34,11 @@ IDLE = 2 * MINUTES  # user rule: a box that waits 2 minutes is turned off
 JOB = os.environ.get("SPEC_JOB", "smoke")
 CFG = JOBS[JOB]
 BIG = CFG["big"]
-TP = int(CFG["gpu"].split(":")[1]) if ":" in CFG["gpu"] else 1
+GPU = [CFG["gpu"], *CFG.get("gpu_fallback", [])]  # Modal tries these in order when the first is short of capacity
+# Every box of a job runs in one broad region (Modal bills 1.15x for it). Unpinned, the first try put the drafter in
+# eu-west and the big box in ap-southeast; every call also goes through Modal's us-east router, so one bare call took
+# about 330 ms. The router stays us-east, so "us" keeps both legs short.
+REGION = os.environ.get("SPEC_REGION", "us")
 
 app = modal.App(CFG["app"])
 VOLS = {f"/w/{f}": modal.Volume.from_name(c["volume"], create_if_missing=True, version=2) for f, c in FAMILIES.items()}
@@ -44,7 +48,7 @@ image = (
     modal.Image.from_registry("vllm/vllm-openai:v0.33.0")  # the image the other tiers already start on
     .entrypoint([])
     .run_commands("ln -sf $(command -v python3) /usr/local/bin/python")
-    .env({"VLLM_CACHE_ROOT": "/vllm-cache", "SPEC_JOB": JOB})
+    .env({"VLLM_CACHE_ROOT": "/vllm-cache", "TRITON_CACHE_DIR": "/vllm-cache/triton", "SPEC_JOB": JOB})
 )
 if modal.is_local():
     image = (image.add_local_file(_repo / "bench" / "spec_modal_core.py", "/root/spec_modal_core.py")
@@ -61,8 +65,8 @@ def spec_flags(mode: str) -> list[str]:
     return ["--speculative-config", json.dumps(cfg)]
 
 
-def start_vllm(key: str, mode: str, tp: int, util: float):
-    cmd = ["vllm", "serve", path(key), "--served-model-name", key, "--host", "127.0.0.1", "--port", "8000",
+def start_vllm(key: str, mode: str, tp: int, util: float, extra=()):
+    cmd = ["vllm", "serve", path(key), "--served-model-name", key, "--host", "127.0.0.1", "--port", "8000", *extra,
            "--tensor-parallel-size", str(tp), "--max-model-len", "4096", "--max-num-seqs", "8",
            "--gpu-memory-utilization", str(util), "--enable-prefix-caching", "--max-logprobs", "5",
            "--enable-scale-out",  # registers /inference/v1/generate (token ids in and out) in v0.33.0
@@ -124,14 +128,16 @@ def test_ids(tok, key):
 
 
 # ---------- the big model (server) ----------
-@app.cls(image=image, gpu=CFG["gpu"], volumes=VOLS, secrets=[token], min_containers=0, max_containers=1,
+@app.cls(image=image, gpu=GPU if len(GPU) > 1 else GPU[0], volumes=VOLS, secrets=[token], min_containers=0, max_containers=1,
          cpu=8.0, memory=65536,
-         scaledown_window=IDLE, timeout=4 * 60 * MINUTES)
+         scaledown_window=IDLE, timeout=4 * 60 * MINUTES, region=REGION)
 @modal.concurrent(max_inputs=16)
 class Big:
     @modal.enter()
     def boot(self):
         self.t_enter, self.proc, self.mode, self.state, self.starts = time.time(), None, None, "booting", []
+        self.gpus = subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+                                   capture_output=True, text=True).stdout.strip().splitlines()
         self.tok = tokenizer(CFG["tok"])
         self.v = core.VLLM(BIG, stop=family(BIG)["eos"])
         self._start("plain")
@@ -140,15 +146,23 @@ class Big:
         self.state, self.mode = "starting", None  # a failed start leaves mode None, so the next switch restarts
         stop_vllm(self.proc)
         t0 = time.time()
-        self.proc = start_vllm(BIG, mode, TP, 0.92)
+        tp = len(self.gpus)  # tensor parallel over every GPU this box got (the fallback may have more, smaller GPUs)
+        # FP8 block quantization needs each MoE shard to be a multiple of 128; past that, split experts instead
+        moe = {"q3c_480b": 2560, "q3_235b": 1536, "q35_397b": 1024}.get(BIG)
+        ep = ["--enable-expert-parallel"] if moe and (moe // tp) % 128 else []
+        self.proc = start_vllm(BIG, mode, tp, 0.92, ep)
         ready = wait_ready(self.proc)
         self.v.fast, self.v.transport = False, "tito"
-        st = self.v.selftest(test_ids(self.tok, CFG["tok"])) if mode == "plain" else {}
+        ids = test_ids(self.tok, CFG["tok"])
+        st = self.v.selftest(ids) if mode == "plain" else {}
         if mode != "plain":
-            self.v.pick_transport(test_ids(self.tok, CFG["tok"]))
+            self.v.pick_transport(ids)
+        warm_s = self.v.warmup(ids, verify=mode == "plain")
+        for i, n in enumerate((48, 160, 400)):  # longer decodes: the verify shapes of vLLM's own spec modes
+            self.v.call((ids * 20)[:n], 48, f"warm-long-{i}")
         self.mode, self.state = mode, "ready"
         self.starts.append({"mode": mode, "vllm_ready_s": round(ready, 1), "start_s": round(time.time() - t0, 1),
-                            "selftest": st, "at": time.time()})
+                            "warmup_s": round(warm_s, 1), "selftest": st, "at": time.time()})
         print("big ready:", json.dumps(self.starts[-1]), flush=True)
 
     @modal.asgi_app()
@@ -178,8 +192,8 @@ class Big:
 
         @web.get("/health")
         def health():
-            return {"model": MODELS[BIG]["repo"], "gpu": CFG["gpu"], "mode": self.mode, "state": self.state,
-                    "where": where(),
+            return {"model": MODELS[BIG]["repo"], "gpu": CFG["gpu"], "gpus_seen": self.gpus, "mode": self.mode,
+                    "state": self.state, "where": where(),
                     "transport": self.v.transport, "fast_verify": self.v.fast, "fast_fallbacks": self.v.fallbacks,
                     "container_up_s": round(time.time() - self.t_enter, 1), "starts": self.starts}
 
@@ -229,7 +243,7 @@ class Big:
 # ---------- drafter boxes (the "local machine") ----------
 @app.cls(image=image, gpu="L40S", volumes=VOLS, secrets=[token], min_containers=0, max_containers=1,
          cpu=4.0, memory=32768,
-         scaledown_window=IDLE, timeout=3 * 60 * MINUTES)
+         scaledown_window=IDLE, timeout=3 * 60 * MINUTES, region=REGION)
 @modal.concurrent(max_inputs=4)
 class Draft:
     drafter: str = modal.parameter()
@@ -243,7 +257,9 @@ class Draft:
         self.vllm_ready_s = wait_ready(self.proc)
         self.v = core.VLLM(d["model"], stop=family(d["model"])["eos"])
         self.toks = {}
-        self.v.pick_transport(test_ids(self.tok(CFG["tok"]), CFG["tok"]))
+        ids = test_ids(self.tok(CFG["tok"]), CFG["tok"])
+        self.v.pick_transport(ids)
+        self.warm_s = self.v.warmup(ids, verify=False)
         self.boot_s = time.time() - t0
 
     def tok(self, key):
@@ -254,14 +270,15 @@ class Draft:
     @modal.method()
     def info(self):
         return {"drafter": self.drafter, "vllm_ready_s": round(self.vllm_ready_s, 1), "boot_s": round(self.boot_s, 1),
-                "transport": self.v.transport, "where": where()}
+                "warmup_s": round(self.warm_s, 1), "transport": self.v.transport, "where": where()}
 
     @modal.method()
     def run(self, prompts, warm, plan, url):
         return run_plan(prompts, warm, plan, url, self.tok(CFG["tok"]), self.v)
 
 
-@app.function(image=image, secrets=[token], cpu=1, memory=1024, timeout=60 * MINUTES, scaledown_window=IDLE)
+@app.function(image=image, secrets=[token], cpu=1, memory=1024, timeout=60 * MINUTES, scaledown_window=IDLE,
+              region=REGION)
 def switch_mode(url, mode):
     """Restart the big box's vLLM with another same-box mode (the bearer token stays inside Modal)."""
     r = big_client(url).post("/switch", json={"mode": mode}, timeout=None)
@@ -270,7 +287,7 @@ def switch_mode(url, mode):
 
 
 @app.function(image=image, volumes=VOLS, secrets=[token], cpu=2, memory=4096, timeout=2 * 60 * MINUTES,
-              scaledown_window=IDLE)
+              scaledown_window=IDLE, region=REGION)
 def client(prompts, warm, plan, url):
     """CPU-only client for big-alone runs and the near-tie check (no drafter GPU)."""
     if plan["mode"] == "margins":
@@ -407,7 +424,8 @@ def main():
     mt = CFG.get("max_tokens", 256)
     plans = [{"max_tokens": mt, "k": 4, **p} for p in CFG["plans"]]
     t0 = time.time()
-    meta = {"job": JOB, "app": CFG["app"], "big": BIG, "gpu": CFG["gpu"], "t0": t0, "plans": [], "drafters": {}}
+    meta = {"job": JOB, "app": CFG["app"], "big": BIG, "gpu": GPU, "region": REGION, "t0": t0, "plans": [],
+            "drafters": {}}
     warmers = {}
 
     def warm_drafter(key):  # boot the drafter box while something else runs, and keep it from idling out
@@ -477,8 +495,8 @@ def main():
                     res = {"rows": client.remote(items, [], plan, url) if items else []}
                 elif plan.get("drafter"):
                     warm_drafter(plan["drafter"])
-                    if nxt:
-                        warm_drafter(nxt)  # the next drafter boots while this plan runs
+                    if nxt and os.environ.get("SPEC_PREWARM", "1") == "1":
+                        warm_drafter(nxt)  # the next drafter boots while this plan runs (one more L40S for a while)
                     d = Draft(drafter=plan["drafter"])
                     meta["drafters"].setdefault(plan["drafter"], {"first_use": time.time(), **d.info.remote()})
                     res = d.run.remote(prompts, warm, plan, url)
