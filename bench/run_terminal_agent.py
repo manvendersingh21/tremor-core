@@ -136,6 +136,7 @@ def main() -> None:
     ap.add_argument("--label", default="auto")
     ap.add_argument("--only", type=int, nargs="*")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--no-bank", action="store_true", help="pass --no-bank to chimera code: measure the model tiers alone")
     a = ap.parse_args()
     if a.report:
         return report()
@@ -144,7 +145,7 @@ def main() -> None:
     for t in T:
         if a.only and t["id"] not in a.only:
             continue
-        r = run_task(t, a.mode, a.label, ns, [])
+        r = run_task(t, a.mode, a.label, ns, ["--no-bank"] if a.no_bank else [])
         print(f"#{r['id']:>2} {r['task']:<34} {'PASS' if r['passed'] else 'FAIL'} {r['tiers']} rep={r['repair_rounds']} tok={r['tokens']} ${r['dollars']:.5f} {r['agent_ms']/1000:.1f}s", flush=True)
         out.append(r)
     if not a.only:

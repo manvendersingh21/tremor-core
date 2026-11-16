@@ -142,10 +142,12 @@ def suite() -> list[str]:
 def terminal() -> list[str]:
     old = json.loads((ROOT / "bench/terminal_auto.json").read_text())
     cloud = json.loads((ROOT / "bench/terminal_cloud.json").read_text())
-    new = sorted(jl(ROOT / "bench/.scratch/terminal-agent/v3auto.jsonl"), key=lambda r: r["id"])
+    new = sorted(jl(ROOT / "bench/.scratch/terminal-agent/v3nobank.jsonl"), key=lambda r: r["id"])
+    warm = sorted(jl(ROOT / "bench/.scratch/terminal-agent/v3auto.jsonl"), key=lambda r: r["id"])
     L = ["| Run | Passed | Fully on the 30B | Reached the 763B | Calls | Repair rounds | Tokens | 763B $ | Model s (sum) | Median s per task |",
          "|---|---|---|---|---|---|---|---|---|---|"]
-    for name, rs in (("763B only (before)", cloud), ("ladder before tuning", old), ("**ladder tuned**", new)):
+    for name, rs in (("763B only (before)", cloud), ("ladder before tuning (no bank then)", old),
+                     ("**ladder tuned, bank off**", new), ("ladder tuned, bank on (filled by earlier runs)", warm)):
         if not rs:
             continue
         n = len(rs)
@@ -186,8 +188,8 @@ def bank() -> list[str]:
 # ---- faults ----------------------------------------------------------------------------------------------------
 def faults() -> list[str]:
     rows = jl(V3 / "faults.jsonl")
-    L = ["| Case | Variant | Calls | Answered | Right | Empty | Answered by | Call ms (median) | Heal s | Note |",
-         "|---|---|---|---|---|---|---|---|---|---|"]
+    L = ["| Case | Variant | Calls | Answered | Right | Empty answers | Failed (error, no answer) | Answered by | Call ms (median) | Heal s | Note |",
+         "|---|---|---|---|---|---|---|---|---|---|---|"]
     by = collections.defaultdict(list)
     for r in rows:
         by[(r["case"], r["variant"])].append(r)
@@ -204,7 +206,8 @@ def faults() -> list[str]:
             note.append(f"cache: {dict(collections.Counter(r['cache_status'] for r in rs))}; memory retrieve ms "
                         f"{[r['memory_ms'] for r in rs]}")
         L.append(f"| {c} | {v} | {len(rs)} | {sum(not r['empty'] for r in rs)} | {sum(r['right'] for r in rs)} | "
-                 f"{sum(r['empty'] for r in rs)} | {dict(collections.Counter(r['tier'] for r in rs))} | "
+                 f"{sum(r['empty'] and not r['error'] for r in rs)} | {sum(bool(r['error']) for r in rs)} | "
+                 f"{dict(collections.Counter(r['tier'] for r in rs))} | "
                  f"{statistics.median(r['ms'] for r in rs):.0f} | {spread(heal) if heal else '-'} | {'; '.join(note)} |")
     return L
 

@@ -18,3 +18,16 @@ def test_tier_checks_follow_the_pool(monkeypatch):
 
 def test_tier_checks_without_pool_keep_fixed_ladder():
     assert [c[0] for c in tier_checks(ChimeraConfig())][:1] == ["local"]
+
+
+def test_shared_cache_link_is_opened_at_build(monkeypatch):
+    # Found live (bench/results_backend_v3.md): the first lookup of each process ran past its 300 ms budget.
+    import threading
+
+    from chimera_core.cache import pgvector_cache as pg
+    from chimera_core.config import make_caches
+    pinged = threading.Event()
+    monkeypatch.setattr(pg.PgVectorCache, "ping", lambda self, timeout_s=3.0: pinged.set() or 1.0)
+    monkeypatch.setenv("CHIMERA_DB_URL", "postgresql://u@127.0.0.1:1/x")
+    shared = make_caches(ChimeraConfig(), embedder=object(), threshold=0.97)[2]
+    assert shared is not None and pinged.wait(5)

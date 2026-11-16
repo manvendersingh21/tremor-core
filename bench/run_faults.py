@@ -42,7 +42,9 @@ LONG = ("Write a Python function merge_intervals(intervals) that merges overlapp
 ENV = {"supabase": {"refused": {"CHIMERA_DB_URL": "postgresql://chimera@127.0.0.1:1/none"},
                     "no_answer": {"CHIMERA_DB_URL": f"postgresql://chimera@{BLACKHOLE}:5432/none?connect_timeout=5"}},
        "neo4j": {"refused": {"CHIMERA_GRAPH_URL": "neo4j://127.0.0.1:1"},
-                 "no_answer": {"CHIMERA_GRAPH_URL": f"neo4j://{BLACKHOLE}:7687"}}}
+                 "no_answer": {"CHIMERA_GRAPH_URL": f"neo4j://{BLACKHOLE}:7687"},
+                 # the same after the 60 s graph cooldown in memory.py (043ccc4): only the first call should wait
+                 "no_answer_after_fix": {"CHIMERA_GRAPH_URL": f"neo4j://{BLACKHOLE}:7687"}}}
 
 
 def done() -> set[tuple]:

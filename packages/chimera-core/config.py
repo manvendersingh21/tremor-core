@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import threading
 import tomllib
 from typing import Literal
 
@@ -201,7 +202,17 @@ def make_caches(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float)
     shared = PgVectorCache(emb, lambda: PgStore(dsn), threshold=threshold, tenant=cc.tenant,
                            fallback=None, store_text=cc.store_text, ttl_s=cc.ttl_s, top_k=cc.top_k,
                            budget_s=cc.budget_ms / 1000, guard=_guard(cfg))
+    # Open the DB link now, in the background (a dead DB must not block startup): a cold first lookup took about
+    # 310 ms, ran past its 300 ms budget and skipped the cache for the first call of every process.
+    threading.Thread(target=_ping, args=(shared,), daemon=True).start()
     return None, None, shared, emb
+
+
+def _ping(shared) -> None:
+    try:
+        shared.ping(10.0)
+    except Exception:  # noqa: BLE001  down: lookups report "unavailable" and the tiers answer
+        pass
 
 
 def make_memory(cfg: ChimeraConfig, embedder: Embedder | None):
