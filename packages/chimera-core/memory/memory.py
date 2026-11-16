@@ -17,6 +17,7 @@ MAX_CONTEXT_TOKENS = 800
 MIN_SCORE = 0.30          # below this a "similar" problem is not shown
 HALF_LIFE_S = 30 * 86400  # recency halves every 30 days
 SIMILAR_AT = 0.80         # problem-problem similar_to edge threshold
+GRAPH_COOLDOWN_S = 60.0   # after a graph error, skip the graph this long (an unreachable Aura cost 10 s per call)
 
 
 def est_tokens(text: str) -> int:
@@ -72,6 +73,16 @@ class Memory:
         self.extractor, self.max_tokens, self.min_score = extractor, max_tokens, min_score
         self.rejected = 0
         self.stored = 0
+        # After a graph error the graph is skipped for GRAPH_COOLDOWN_S. Without it an Aura that never answers
+        # cost every call the driver's 10 s connect timeout (bench/results_backend_v3.md).
+        self._graph_down_until = 0.0
+
+    def _graph_up(self) -> bool:
+        return time.monotonic() >= self._graph_down_until
+
+    def _graph_failed(self, what: str, e: Exception) -> None:
+        self._graph_down_until = time.monotonic() + GRAPH_COOLDOWN_S
+        log.warning("memory: %s (%s); graph skipped for %.0f s", what, type(e).__name__, GRAPH_COOLDOWN_S)
 
     def _emb(self, text: str) -> list[float]:
         v = [float(x) for x in self.embedder.embed(text)]
@@ -99,6 +110,9 @@ class Memory:
         except Exception as e:  # noqa: BLE001  never fail the caller's request because the teacher store is down
             log.warning("memory: teacher pair not saved (%s)", type(e).__name__)
             pid = 0
+        if not self._graph_up():
+            self.stored += 1
+            return pid
         try:
             concepts, why = self.extractor(prompt, answer)
             w = 1.0 if tests is True else min(1.0, (score or 4) / 5)
@@ -117,7 +131,7 @@ class Memory:
                 if other.id != prob and sim >= SIMILAR_AT:
                     self.graph.add_edge(t, prob, other.id, "similar_to", sim)
         except Exception as e:  # noqa: BLE001  the pair is saved; only the graph part is skipped
-            log.warning("memory: graph write skipped (%s)", type(e).__name__)
+            self._graph_failed("graph write skipped", e)
         self.stored += 1
         return pid
 
@@ -125,10 +139,12 @@ class Memory:
     def retrieve(self, prompt: str, k: int = 3) -> MemoryContext:
         """Three signals: (a) nearest stored problems, (b) 1-2 hop expansion over shared concepts,
         (c) rank = similarity x edge weight x recency."""
+        if not self._graph_up():
+            return MemoryContext()
         try:
             return self._retrieve(prompt, k)
         except Exception as e:  # noqa: BLE001  graph down: no memory context for this call, the call itself goes on
-            log.warning("memory: graph skipped for this call (%s)", type(e).__name__)
+            self._graph_failed("graph skipped for this call", e)
             return MemoryContext()
 
     def _retrieve(self, prompt: str, k: int) -> MemoryContext:
