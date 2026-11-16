@@ -79,3 +79,18 @@ def test_unsure_3b_answer_is_not_cached_and_mid_timeout_climbs_to_top():
     mid2.complete = boom
     out = r2.generate("q2")
     assert out.telemetry.tier_used == "top" and "mid" in out.telemetry.tier_ms
+
+
+def test_top_answer_is_cached_only_when_it_passes_the_check():
+    heavy = "Refactor and redesign the architecture, then implement it. " * 5
+    r, mid, top = make(heavy_threshold=0.3)
+    assert r.generate(heavy, check=lambda t: False).telemetry.tier_used == "top"
+    assert r.generate(heavy).telemetry.tier_used not in ("exact_cache", "semantic_cache")
+
+    r2, mid2, top2 = make(heavy_threshold=0.3)
+    assert r2.generate(heavy, check=lambda t: True).telemetry.tier_used == "top"
+    assert r2.generate(heavy).telemetry.tier_used == "exact_cache"
+
+    r3, mid3, top3 = make(heavy_threshold=0.3)
+    assert r3.generate(heavy, check=lambda t: 1 / 0).telemetry.tier_used == "top"  # a crashing check counts as failed
+    assert r3.generate(heavy).telemetry.tier_used == "top"
