@@ -37,7 +37,7 @@ For the Kiroween 2026 YouTube upload (must be under 3 minutes, public). Every nu
 
 **Shot 5 (1:05).** "This is chimera code, our terminal coding agent. First run: a self-hosted 30B fixes the bug, and the tests pass. Same task again: the fix comes from our bank of solved problems. It is served only after it passes the tests again. Zero tokens. Zero dollars."
 
-**Shot 6 (1:30).** "Here is the money. Against GPT-5.5, a 30B on rented H200s saves 62 to 87 percent a month, if 3 in 10 calls are repeats. Now the loss. Against a cheap big model, the 763B on Crusoe, at 100 thousand calls a day we cost more, not less. And our 30B gets about 1 in 10 coding tasks wrong. Tests have to catch those."
+**Shot 6 (1:30).** "Here is the money. Against GPT-5.5, a 30B on rented H200s saves 62 to 87 percent a month, if 3 in 10 calls are repeats. Now the loss. Against a cheap big model, the 763B on Crusoe, at 100 thousand calls a day we cost more, not less. And our 30B gets about 1 in 10 coding tasks wrong. Tests have to catch those. And on our own old V100, tuned, the 30B answers a coding task in under 3 seconds, 9 times in 10."
 
 **Shot 7 (1:55).** "We also tested speculative decoding on Modal. A small model drafts, a big model checks. With the drafter on its own box, it was 4 to 12 times slower. Inside the big model's own box, EAGLE-3 made the 235B 1.8 times faster. So we keep it in one box."
 
@@ -55,6 +55,7 @@ For the Kiroween 2026 YouTube upload (must be under 3 minutes, public). Every nu
 | 62% to 87% vs GPT-5.5 | `bench/results_company_cost.md` | h = 30% table |
 | 763B costs more at 100k a day | `bench/results_company_cost.md` | -607% (h = 30%), -611% (h = 0) |
 | about 1 in 10 wrong | `bench/results_company_cost.md` | 31 of 301 failed |
+| own V100, under 3 s, 9 in 10 | `bench/results_akash_tuning.md` | tuned 30B, 270/301, p50 2.7 s |
 | 4x to 12x slower, two boxes | `bench/results_spec_modal.md` | Phase A verdict, point 1 |
 | EAGLE-3 1.80x | `bench/results_spec_modal.md` | `a235_big_eagle_q3_235b`, 162.2 tok/s |
 | 4 bugs found, all fixed | `docs/handoff/property-tests.md`, `bench/results_backend_v2.md` | item 4 |

@@ -23,7 +23,7 @@ CHIMERA is one body stitched from many parts. It joins a Supabase cache, a bank 
 
 Companies send every coding call to one big paid model. That includes easy work like FizzBuzz.
 
-A self-hosted 30B got 99 of 101 trivial coding tasks right (`bench/results_company_cost.md`: 2 of 101 failed). GPT-5.5 costs $4.02 per 1,000 coding calls. A busy H200 running the 30B costs $0.070 per 1,000 (`bench/results_company_cost.md`).
+A self-hosted 30B got 99 of 101 trivial coding tasks right (`bench/results_company_cost.md`: 2 of 101 failed). GPT-5.5 costs $4.02 per 1,000 coding calls. A busy H200 running the 30B costs $0.070 per 1,000 (`bench/results_company_cost.md`). The same 30B on our own old V100, once tuned, answers a coding task in a median 2.7 s, passes 90% of 301 tasks and costs $0.18 to $0.52 per 1,000 when kept busy (`bench/results_akash_tuning.md`). Earlier drafts blamed a shared GPU for 78 s calls; the GPU was ours and idle, and the cause was CPU threads (4 CPUs, 149 Ollama threads).
 
 So most companies pay a top price for work a cheaper model can do. Nobody shows them the bill per call.
 
@@ -63,7 +63,8 @@ You see it in four places:
 | Bank, same problems | 75 of 80 served in all 3 repeats, 0 wrong served | win | `bench/results_company_cost.md` |
 | Bank, reworded problems | 24 of 80 served | mixed | `bench/results_company_cost.md` |
 | New prompts, empty cache | 763B tokens cut 56.2% ± 4.6% | win on cost | `bench/results_company_cost.md` |
-| Same, time | median 6.7 s vs 1.3 s for the 763B alone | loss | `bench/results_company_cost.md` |
+| Same, time | median 6.7 s vs 1.3 s for the 763B alone (30B before tuning, not rerun) | loss | `bench/results_company_cost.md` |
+| 30B on our V100 after tuning | 270/301 pass, median 2.7 s (was 78.0 s), $0.18 to $0.52 per 1,000 (was $11.02) | win vs GPT-5.5, not vs the 763B | `bench/results_akash_tuning.md` |
 | Monthly cost vs GPT-5.5 | 57% to 87% saved at 100k to 10M calls a day | win | `bench/results_company_cost.md` |
 | Monthly cost vs the 763B | no saving at 100k a day (7.1x the cost); saves only with 30% repeats at 1M a day or more | loss | `bench/results_company_cost.md` |
 | 30B on 301 coding tasks | 31 wrong (about 10%) vs 15 wrong for the 763B | loss | `bench/results_company_cost.md` |

@@ -29,7 +29,7 @@ Ticked `[x]` only where evidence exists. Evidence is a test or a bench file. `.v
 - [x] 8. Heavy-task handoff with no brief or brief <= 200 tokens (`inference/handoff.py`).
   - [x] 8a. Short brief measured on 4 heavy prompts. Evidence: `bench/results_ladder.md` (brief added 827 input tokens, cut 402 output tokens, same dollars, 4.4x slower). The brief is now off by default.
 - [x] 9. Benchmarks: Mac cascade vs Crusoe only (`bench/results.md`) and vs GPU only (`bench/results_gpu.md`).
-  - [ ] 9a. Rerun the GPU handoff tail (about 300 s for 4 handoffs). `bench/results_ladder.md` places the stall inside the shared 30B call (queueing), not the Mac or Crusoe. Not rerun on an idle box.
+  - [ ] 9a. Rerun the GPU handoff tail (about 300 s for 4 handoffs). `bench/results_ladder.md` places the stall inside the 30B call, not the Mac or Crusoe. It was blamed on a shared box; the real cause was CPU threads (4-CPU quota, 149 Ollama threads, `bench/results_akash_tuning.md`). Not rerun on the tuned box.
 
 ## Wave 2: Surfaces
 - [x] 10. Kiro CLI, MCP server and hook interceptor (`apps/kiro-trimmer/`). Evidence: `tests/test_chimera_app.py`.

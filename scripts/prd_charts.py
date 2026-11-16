@@ -42,14 +42,16 @@ def cost_per_1k() -> Path:
         ("30B on H200, 100% busy (64 at once)", 0.070, WIN),
         ("30B on H200, 100% busy (32 at once)", 0.096, WIN),
         ("763B DeepSeek-V4.1-Flash (Crusoe)", 0.1576, BLUE),
+        ("30B on tuned V100, 100% busy ($0.52/hr)", 0.178, WIN),  # results_akash_tuning.md
+        ("30B on tuned V100, 100% busy ($1.53/hr)", 0.522, MIX),
         ("30B on H200, 10% busy", 0.700, MIX),
         ("30B on H200, one request at a time", 1.089, MIX),
         ("Grok-4.5 (60-task subset)", 1.71, GREY),
         ("GPT-5.5 (60-task subset)", 4.02, GREY),
         ("30B on H200, 1% busy", 6.997, LOSS),
-        ("30B on shared V100 (Akash)", 11.02, LOSS),
+        ("30B on V100 before tuning (Akash)", 11.02, LOSS),
     ]
-    fig, ax = plt.subplots(figsize=(7.2, 4.0))
+    fig, ax = plt.subplots(figsize=(7.2, 4.6))
     labels = [r[0] for r in rows]
     vals = [max(r[1], 0.01) for r in rows]
     ax.barh(labels, vals, color=[r[2] for r in rows])
@@ -62,7 +64,7 @@ def cost_per_1k() -> Path:
     ax.set_xlim(0.008, 40)
     ax.set_title("Cost per 1,000 coding calls by tier")
     return _save(fig, "cost_per_1k.png",
-                 "bench/results_company_cost.md, results_cost_case.md, results_cost_case_h200.md")
+                 "bench/results_company_cost.md, results_cost_case.md, results_cost_case_h200.md, results_akash_tuning.md")
 
 
 def tokens_saved() -> Path:
@@ -185,19 +187,20 @@ def monthly_cost() -> Path:
     vols = ["100k / day", "1M / day", "10M / day"]
     series = [
         ("GPT-5.5 only", [12060, 120600, 1206000], GREY),
-        ("30B + GPT-5.5 for failures", [5159, 25216, 229058], WIN),
+        ("30B on H200s + GPT-5.5 for failures", [5159, 25216, 229058], WIN),
+        ("30B on tuned V100s ($0.52/hr) + GPT-5.5", [3083, 30227, 300174], MIX),
         ("763B only", [473, 4728, 47280], BLUE),
-        ("30B + 763B for failures", [3362, 7246, 49353], LOSS),
+        ("30B on H200s + 763B for failures", [3362, 7246, 49353], LOSS),
     ]
     fig, ax = plt.subplots(figsize=(7.2, 3.4))
-    w = 0.2
+    w = 0.16
     for i, (name, vals, c) in enumerate(series):
-        xs = [g + (i - 1.5) * w for g in range(3)]
+        xs = [g + (i - 2) * w for g in range(3)]
         ax.bar(xs, vals, w, label=name, color=c)
         for x, v in zip(xs, vals):
             ax.text(x, v * 1.15, f"${v:,.0f}", ha="center", fontsize=6, rotation=90, va="bottom")
     ax.set_yscale("log")
-    ax.set_ylim(100, 2e7)
+    ax.set_ylim(100, 8e7)
     ax.set_xticks(range(3), vols)
     ax.set_ylabel("$ per month (log scale)")
     ax.legend(ncol=2, fontsize=7, frameon=False, loc="upper left")

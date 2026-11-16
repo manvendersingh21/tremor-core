@@ -28,4 +28,4 @@ Crusoe tokens so far: TOP run only (see `per_tier` sums in `suite_TOP.jsonl`); j
 ## Final (2026-11-15)
 POOL ran 300/300 on Supabase cache -> 30B -> 763B (no 3B). `bench/results_suite.md/.csv` written by `bench/run_suite.py report`.
 Pg cache eval: all 4 configs done (`bench/results_cache_eval.json`). Rows and logs live in `bench/.scratch/` (git-ignored).
-Not re-measured: latency on an idle GPU (the box was shared). The old 3B-ladder rows are `bench/.scratch/ref_3b_ladder_POOL.jsonl`.
+Not re-measured: latency on the tuned GPU. (This note first said the box was shared; it was ours, and the 30B was thread-bound, see `bench/results_akash_tuning.md`.) The old 3B-ladder rows are `bench/.scratch/ref_3b_ladder_POOL.jsonl`.

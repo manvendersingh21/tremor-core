@@ -21,11 +21,12 @@ The earlier "60-80% token savings" target is **mostly not met**: only the 763B t
 | Shared Supabase cache, second machine | Hit rate 0.80, 48 of 60 GPU calls avoided, 0 false hits. Lookup 121 ms vs 8.9 ms local. | `docs/vector-store.md` |
 | Learned router, 180 graded prompts | 70.0%, same as the confidence gate. Off. | `bench/results_research_router.md` |
 | Modal H200 gpt-oss-120b vs 763B only | 763B calls 25 -> 0, asserts 24/24 both. But about $0.11 of H200 time vs $0.0058 of 763B tokens, median 1,352 ms vs 728 ms. Off by default. Qwen3.5-122B never served. | `bench/results_modal.md` |
+| GPU 30B on our V100, before vs after tuning (301 coding tasks) | 269/301 -> 270/301 pass, p50 78.0 s -> 2.7 s, $11.02 -> $0.18-0.52 per 1,000 calls (box kept busy). Earlier reports blamed a shared GPU; the GPU was ours and idle, the cause was a 4-CPU quota against 149 Ollama threads. | `bench/results_akash_tuning.md` |
 
 Not measured yet: N+1 memory end to end, `chimera code`, the cost case, the real-dataset suite (`bench/results_suite.md` does not exist), savings replay and LoRA distillation (both planned).
 
 What worked: cache hits cost $0 and answer in under 130 ms. 14 of 30 prompts were answered locally.
-What failed: long briefs raised input tokens on heavy tasks. Cache threshold 0.94 served wrong answers. The ladder and plain spec are slower than calling the top model. The GPU handoff tail is unexplained, and the ladder's slow calls came from a shared GPU box.
+What failed: long briefs raised input tokens on heavy tasks. Cache threshold 0.94 served wrong answers. The ladder and plain spec are slower than calling the top model. The GPU handoff tail is unexplained, and the ladder's slow calls came from the GPU 30B before tuning (CPU threads, not a shared box: `bench/results_akash_tuning.md`).
 Fixes in code: semantic threshold 0.97, heavy tasks skip the 3B, no brief by default. The ladder run measured the fixes: no wrong cached answer, and a 30B brief gave no dollar saving and was 4.4x slower.
 
 ## Surfaces
