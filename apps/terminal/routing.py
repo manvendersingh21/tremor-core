@@ -18,6 +18,7 @@ from chimera_core.tiers import TierCfg, TierPool  # noqa: E402
 LADDER = ["gpu-small", "cloud-deepseek"]  # Supabase cache first (the router), then the self-hosted 30B, then the 763B
 MODES = {"auto": LADDER, "local": LADDER[:1], "gpu": LADDER[:1], "cloud": LADDER[1:]}  # local = gpu = the 30B
 BIG = LADDER[-1]  # the 763B: the baseline for "$ saved" and "kept off the big model"
+H200 = "gpu-h200"  # the same 30B on a Modal H200: joins the 30B step while warm (TierCfg.warm_only), never a step of its own
 
 
 class _NoLocalCache:
@@ -98,6 +99,8 @@ class Cascade:
         return MODES[mode][floor:] if mode == "auto" else MODES[mode]
 
     def _pool(self, names: list[str], forced: bool) -> TierPool:
+        if "gpu-small" in names and H200 in self.by_name:  # the 30B step: the H200 copy first while warm
+            names = [H200, *names]
         key = (tuple(names), forced)
         if key not in self._pools:
             # The 30B tries every task (failed tests climb); a forced tier answers any task. Lift the ceiling.

@@ -1,7 +1,7 @@
 PY ?= .venv/bin/python
 HUD = apps/phantom-phone/hud-web
 
-.PHONY: setup test demo web bench serve-local site loop modal-up modal-down modal-qwen-up modal-qwen-down web-keep
+.PHONY: setup test demo web bench serve-local site loop modal-up modal-down modal-qwen-up modal-qwen-down web-keep gpu-keep
 
 setup:
 	python3 -m venv .venv
@@ -16,6 +16,9 @@ web:  # one page, one port: castle, dashboard and API on http://127.0.0.1:8765 (
 
 web-keep:  # make web under a restart loop (2 s after any exit); log: bench/.scratch/web.log
 	scripts/web_keep.sh
+
+gpu-keep:  # SSH tunnel to your GPU box, reconnected when it dies or its health probe misses; log: bench/.scratch/gpu_tunnel.log
+	scripts/gpu_tunnel_keep.sh
 
 demo:  # the same page fed by invented demo telemetry (labelled demo) instead of the real log
 	HUD_TELEMETRY=$(HUD)/telemetry.jsonl $(PY) $(HUD)/demo.py & HUD_TELEMETRY=$(HUD)/telemetry.jsonl $(PY) $(HUD)/server.py
