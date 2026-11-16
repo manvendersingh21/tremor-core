@@ -10,6 +10,11 @@ Tokenizer checks (SHA-256 of tokenizer.json from the Hugging Face API, 2026-11-1
 FAMILIES = {
     "qwen3": {"volume": "chimera-spec-w-qwen3", "eos": [151645, 151643], "chat": {}},
     "qwen35": {"volume": "chimera-spec-w-qwen35", "eos": [248046, 248044], "chat": {"enable_thinking": False}},
+    # Phase B. Llama 3.1 8B/70B/405B (RedHatAI FP8 builds) share one tokenizer.json (same SHA-256); gpt-oss 20B/120B
+    # share o200k_harmony; DeepSeek-V3 has no small member with its tokenizer, so it only runs same-box methods.
+    "llama31": {"volume": "chimera-spec-w-llama31", "eos": [128009, 128001, 128008], "chat": {}},
+    "gptoss": {"volume": "chimera-spec-w-gptoss", "eos": [200002, 199999, 200012], "chat": {"reasoning_effort": "low"}},
+    "dsv3": {"volume": "chimera-spec-w-dsv3", "eos": [1], "chat": {}},
 }
 
 WEIGHTS = ["*.json", "*.safetensors", "*.txt", "*.jinja", "*.py", "tokenizer*", "*.model"]
@@ -27,7 +32,17 @@ MODELS = {  # key: family, Hugging Face repo, extra vllm flags when served
     "q35_35b": {"family": "qwen35", "repo": "Qwen/Qwen3.5-35B-A3B-FP8", "flags": ["--language-model-only"]},
     "q35_397b": {"family": "qwen35", "repo": "Qwen/Qwen3.5-397B-A17B-FP8", "flags": ["--language-model-only"]},
     "q35_eagle_397b": {"family": "qwen35", "repo": "AQ-MedAI/Qwen3.5-397B-A17B-eagle3"},
+    # Phase B
+    "l31_8b": {"family": "llama31", "repo": "RedHatAI/Meta-Llama-3.1-8B-Instruct-FP8"},
+    "l31_70b": {"family": "llama31", "repo": "RedHatAI/Meta-Llama-3.1-70B-Instruct-FP8"},
+    "l31_405b": {"family": "llama31", "repo": "RedHatAI/Meta-Llama-3.1-405B-Instruct-FP8"},
+    "l31_eagle_405b": {"family": "llama31", "repo": "leptonai/EAGLE-Llama-3.1-405B-Instruct", "extra": ["*.bin"]},
+    "gpt_20b": {"family": "gptoss", "repo": "openai/gpt-oss-20b", "ignore": ["original/*", "metal/*"]},
+    "gpt_120b": {"family": "gptoss", "repo": "openai/gpt-oss-120b", "ignore": ["original/*", "metal/*"]},
+    "gpt_eagle_120b": {"family": "gptoss", "repo": "RedHatAI/gpt-oss-120b-speculator.eagle3"},
+    "dsv3": {"family": "dsv3", "repo": "deepseek-ai/DeepSeek-V3-0324"},
 }
+PHASE_B = ["l31_8b", "l31_70b", "l31_405b", "l31_eagle_405b", "gpt_20b", "gpt_120b", "gpt_eagle_120b", "dsv3"]
 
 
 def path(key: str) -> str:
@@ -50,6 +65,11 @@ MODES = {
     "eagle_q35_397b": {"method": "eagle3", "model": "q35_eagle_397b", "num_speculative_tokens": 3},
     "draft_q35_4b": {"method": "draft_model", "model": "q35_4b", "num_speculative_tokens": 4},
     "mtp2": {"method": "mtp", "num_speculative_tokens": 2},  # Qwen3.5 card: MTP with 2 tokens
+    "mtp1": {"method": "mtp", "num_speculative_tokens": 1},  # DeepSeek-V3 ships one MTP layer
+    "draft_l31_8b": {"method": "draft_model", "model": "l31_8b", "num_speculative_tokens": 4},
+    "eagle_l31_405b": {"method": "eagle", "model": "l31_eagle_405b", "num_speculative_tokens": 4},
+    "draft_gpt_20b": {"method": "draft_model", "model": "gpt_20b", "num_speculative_tokens": 4},
+    "eagle_gpt_120b": {"method": "eagle3", "model": "gpt_eagle_120b", "num_speculative_tokens": 3},
 }
 
 # ---------- drafter boxes (the "local machine"): model, GPU, and the drafter's own same-box helper ----------
@@ -62,6 +82,11 @@ DRAFTERS = {
     "q35_35b": {"model": "q35_35b", "gpu": "L40S", "mode": "plain"},
     "q35_4b": {"model": "q35_4b", "gpu": "L40S", "mode": "plain"},
     "q35_35b+mtp": {"model": "q35_35b", "gpu": "L40S", "mode": "mtp2"},
+    # Phase B (a drafter on more than one GPU uses Draft.with_options(gpu=...), tensor parallel over its GPUs)
+    "l31_8b": {"model": "l31_8b", "gpu": "L40S", "mode": "plain"},
+    "l31_70b": {"model": "l31_70b", "gpu": "L40S:2", "mode": "plain"},
+    "l31_70b+8b": {"model": "l31_70b", "gpu": "L40S:2", "mode": "draft_l31_8b"},  # 2-level: 8B -> 70B, then -> 405B
+    "gpt_20b": {"model": "gpt_20b", "gpu": "L40S", "mode": "plain"},
 }
 
 
@@ -191,3 +216,39 @@ JOBS = {
                           P("q397_margins_more", None, "margins", base="q397_big_alone",
                             runs=["q397_big_mtp2", "q397_big_eagle_q35_397b", "q397_chain_spec_k4"])]},
 }
+
+
+def phase_b(t, mid, small, chain, same):
+    """Phase B (other families): the same runs and checks as Phase A, most important first."""
+    plans = [P(f"{t}_big_alone", None, "big_alone"), P(f"{t}_rescore", None, "rescore", base=f"{t}_big_alone")]
+    if mid:
+        plans += [P(f"{t}_mid_alone", mid, "draft_alone"), P(f"{t}_spec_k4", mid, "spec", k=4),
+                  P(f"{t}_specplus", mid, "spec", **PLUS)]
+    if small:
+        plans += [P(f"{t}_small_alone", small, "draft_alone"), P(f"{t}_small_spec_k4", small, "spec", k=4)]
+    if chain:
+        plans += [P(f"{t}_chain_alone", chain, "draft_alone"), P(f"{t}_chain_spec_k4", chain, "spec", k=4)]
+    plans.append(P(f"{t}_big_alone_rep", None, "big_alone"))
+    first = [p["name"] for p in plans if p["mode"] in ("spec", "big_alone") and p["name"] != f"{t}_big_alone"]
+    plans.append(P(f"{t}_margins", None, "margins", base=f"{t}_big_alone", runs=first))
+    for m in same:
+        plans += [SW(m, t), P(f"{t}_big_{m}", None, "big_alone")]
+    if same:
+        plans += [SW("plain", t), P(f"{t}_margins_same", None, "margins", base=f"{t}_big_alone",
+                                    runs=[f"{t}_big_{m}" for m in same])]
+    return plans
+
+
+JOBS.update({
+    # Llama 3.1: 8B (1 L40S) and 70B (2 L40S) drafters, the 8B inside the 70B's box for the 2-level chain, 405B verifier
+    "qb_llama": {"app": "chimera-spec-qb-llama", "big": "l31_405b", "gpu": "H200:4", "gpu_fallback": ["H100:8"],
+                 "tok": "l31_405b", "plans": phase_b("l405", "l31_70b", "l31_8b", "l31_70b+8b",
+                                                       ["draft_l31_8b", "eagle_l31_405b", "ngram"])},
+    # gpt-oss: 20B drafter (1 L40S), 120B verifier on one H200 (MXFP4, the build the earlier Modal tier served)
+    "qb_gptoss": {"app": "chimera-spec-qb-gptoss", "big": "gpt_120b", "gpu": "H200", "gpu_fallback": ["H100"],
+                  "tok": "gpt_120b", "plans": phase_b("g120", None, "gpt_20b", None,
+                                                        ["eagle_gpt_120b", "draft_gpt_20b", "ngram"])},
+    # DeepSeek-V3-0324 671B on 8 H200: no smaller model shares its tokenizer, so only its own MTP layer and n-gram
+    "qb_dsv3": {"app": "chimera-spec-qb-dsv3", "big": "dsv3", "gpu": "H200:8", "tok": "dsv3",
+                "plans": phase_b("d671", None, None, None, ["mtp1", "ngram"])},
+})

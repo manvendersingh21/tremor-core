@@ -37,7 +37,8 @@ def fetch(key: str) -> dict:
     if done.exists():
         return json.loads(done.read_text())
     t0 = time.time()
-    snapshot_download(MODELS[key]["repo"], local_dir=str(dest), allow_patterns=WEIGHTS, max_workers=16)
+    snapshot_download(MODELS[key]["repo"], local_dir=str(dest), allow_patterns=WEIGHTS + MODELS[key].get("extra", []),
+                      ignore_patterns=MODELS[key].get("ignore"), max_workers=16)
     size = sum(p.stat().st_size for p in dest.rglob("*") if p.is_file())
     info = {"key": key, "repo": MODELS[key]["repo"], "gb": round(size / 1e9, 1), "seconds": round(time.time() - t0)}
     done.write_text(json.dumps(info))
