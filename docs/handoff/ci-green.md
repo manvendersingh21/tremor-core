@@ -23,6 +23,7 @@ Every dev run from 4431484 to e4e3267 failed for these reasons.
 | 43826653237 | e4e3267 | failure (numpy) |
 | 43826912877 | b8e28a6 | failure (suite.jsonl) |
 | **43827253093** | **322f594** | **success**: job 133163911144 `test (3.11)` 252 passed, 4 skipped; job 133163910749 `test (3.12)` 252 passed, 4 skipped; job 133163910968 `image` success |
+| **43827495749** | **2a05f8b** (this note) | **success**: `test (3.11)`, `test (3.12)` and `image` |
 
 Open pull requests: none. `jr/bank-terminal`, `jr/xfail-safety`, `jr/xfail-guard`, `jr/xfail-nul` and `jr/xfail-ladder` were squash-merged as PRs #1 to #5 before the fix, so no branch needed a rebase.
 
