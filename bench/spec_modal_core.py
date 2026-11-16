@@ -156,16 +156,17 @@ def accept_from_prompt_logprobs(pl, n_ctx: int, d: list[int]) -> tuple[int, int 
     return len(d), None
 
 
-def strip_eos(ids, eos=frozenset(EOS)):
-    ids = list(ids)
+def strip_eos(ids, eos=EOS):
+    ids, eos = list(ids), set(eos)
     while ids and ids[-1] in eos:
         ids.pop()
     return ids
 
 
-def first_diff(a, b):
-    """Index of the first differing token, or -1 when equal (the lossless check). Trailing EOS is ignored."""
-    a, b = strip_eos(a), strip_eos(b)
+def first_diff(a, b, eos=EOS):
+    """Index of the first differing token, or -1 when equal (the lossless check). Trailing EOS (of the model's own
+    family: pass it for Qwen3.5) is ignored."""
+    a, b = strip_eos(a, eos), strip_eos(b, eos)
     for i, (x, y) in enumerate(zip(a, b)):
         if x != y:
             return i
@@ -186,7 +187,7 @@ class VLLM:
 
             client = httpx.Client(timeout=600)
         self.name, self.base, self.c, self.stop = name, base, client, list(stop)
-        self.transport, self.fast, self.fallbacks = "tito", False, 0
+        self.transport, self.fast, self.fallbacks, self.fallback_errors = "tito", False, 0, []
 
     def call(self, ids, n, salt, transport=None, **sp):
         t = transport or self.transport
@@ -218,21 +219,32 @@ class VLLM:
         raise RuntimeError("neither /inference/v1/generate nor /v1/completions answers")
 
     def verify(self, ctx, d, salt, fast=None, transport=None):
+        return self.verify_info(ctx, d, salt, fast, transport)[:2]
+
+    def verify_info(self, ctx, d, salt, fast=None, transport=None):
+        """(m, next token, info). info: hit = prompt tokens read from the prefix cache (from the length of vLLM's
+        prompt_logprobs list, [None] + rows from the hit on), fb = the fast path failed and the round was scored in
+        full, so the trace can say where a slow round's time went."""
         if not d:
-            return 0, self.call(ctx, 1, salt, transport)[0][0]
+            return 0, self.call(ctx, 1, salt, transport)[0][0], {"hit": None, "fb": False}
         fast = self.fast if fast is None else fast
         sp = {"prompt_logprobs": 1}
         if fast:
             sp["skip_reading_prefix_cache"] = False
+        pl = None
         try:
             toks, pl = self.call(ctx + d, 1, salt, transport, **sp)
             m, miss = accept_from_prompt_logprobs(pl or [], len(ctx), d)
-        except Exception:
+        except Exception as e:
             if not fast:
                 raise
             self.fallbacks += 1  # the fast path failed (missing rows or a server error): score this round in full
-            return self.verify(ctx, d, salt + ":full", fast=False, transport=transport)
-        return m, (miss if m < len(d) else toks[0])
+            if len(self.fallback_errors) < 20:  # keep the first reasons for the report
+                self.fallback_errors.append(f"{e!r}"[:200] + f" | ctx {len(ctx)} draft {len(d)} rows "
+                                            f"{len(pl) if pl else None} none {sum(r is None for r in pl or [])}")
+            m, nxt, info = self.verify_info(ctx, d, salt + ":full", fast=False, transport=transport)
+            return m, nxt, {**info, "fb": True}
+        return m, (miss if m < len(d) else toks[0]), {"hit": len(ctx) + len(d) - len(pl or []), "fb": False}
 
     def warmup(self, ids, lengths=WARM_LENGTHS, verify=True, steps=(1, 2, 4, 8)) -> float:
         """Compile every kernel shape the runs will hit before anything is measured: Triton compiles the MoE and
@@ -250,6 +262,22 @@ class VLLM:
             if verify:
                 self.call(base[: n + 5], 1, salt + "-v", prompt_logprobs=1)
         return time.perf_counter() - t0
+
+    def rescore(self, prompt_ids, out, salt) -> dict:
+        """Score a finished answer in one forward pass and compare it with how it was decoded one token at a time.
+        flips: positions where the one-pass top-1 is not the token the decode wrote, as
+        [index in out, decoded token, one-pass top-1, logprob(top-1) - logprob(decoded)]. ties: how many output
+        positions have a top-1 minus top-2 gap under each threshold (how tie-prone the answer is)."""
+        _, pl = self.call(list(prompt_ids) + list(out), 1, salt, prompt_logprobs=2)
+        rows = pl[len(prompt_ids):]
+        flips, gaps = [], []
+        for i, (tok, row) in enumerate(zip(out, rows)):
+            r = ranked(row)
+            lp = dict(r)
+            gaps.append(r[0][1] - r[1][1] if len(r) > 1 else float("inf"))
+            if r[0][0] != tok:
+                flips.append([i, tok, r[0][0], round(r[0][1] - lp.get(tok, float("-inf")), 4)])
+        return {"n": len(rows), "flips": flips, "ties": {t: sum(g < t for g in gaps) for t in (0.01, 0.05, 0.1, 0.5)}}
 
     def top2(self, ctx, salt):
         """The two best next tokens after ctx with their logprobs, from a prefill row (near-tie check)."""

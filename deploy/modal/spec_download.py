@@ -15,7 +15,10 @@ _here = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_here))
 from spec_models import FAMILIES, MODELS, WEIGHTS, path  # noqa: E402
 
-app = modal.App("chimera-spec-download")
+import os  # noqa: E402
+
+# one app name per batch, so a first batch can finish (and be stopped) while a second one still downloads
+app = modal.App("chimera-spec-download" + (f"-{os.environ['SPEC_DL_TAG']}" if os.environ.get("SPEC_DL_TAG") else ""))
 vols = {f"/w/{f}": modal.Volume.from_name(c["volume"], create_if_missing=True, version=2) for f, c in FAMILIES.items()}
 image = (
     modal.Image.debian_slim(python_version="3.12")

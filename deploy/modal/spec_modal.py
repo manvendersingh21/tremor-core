@@ -193,7 +193,7 @@ class Big:
         @web.get("/health")
         def health():
             return {"model": MODELS[BIG]["repo"], "gpu": CFG["gpu"], "gpus_seen": self.gpus, "mode": self.mode,
-                    "state": self.state, "where": where(),
+                    "state": self.state, "where": where(), "fallback_errors": self.v.fallback_errors,
                     "transport": self.v.transport, "fast_verify": self.v.fast, "fast_fallbacks": self.v.fallbacks,
                     "container_up_s": round(time.time() - self.t_enter, 1), "starts": self.starts}
 
@@ -211,8 +211,8 @@ class Big:
         @web.post("/verify", dependencies=[Depends(auth)])
         def verify(b: dict):
             ready()
-            (m, nxt), ms = timed(lambda: self.v.verify(b["ctx"], b["draft"], b["salt"]))
-            return {"m": m, "next": nxt, "server_ms": ms}
+            (m, nxt, info), ms = timed(lambda: self.v.verify_info(b["ctx"], b["draft"], b["salt"]))
+            return {"m": m, "next": nxt, "server_ms": ms, **info}
 
         @web.post("/generate", dependencies=[Depends(auth)])
         def generate(b: dict):
@@ -224,6 +224,11 @@ class Big:
         def margin(b: dict):
             ready()
             return {"top2": self.v.top2(b["ctx"], b["salt"])}
+
+        @web.post("/rescore", dependencies=[Depends(auth)])
+        def rescore(b: dict):
+            ready()
+            return self.v.rescore(b["prompt_ids"], b["out"], b["salt"])
 
         @web.get("/stats", dependencies=[Depends(auth)])
         def stats():  # vLLM's own speculative-decoding counters, summed over labels
@@ -294,6 +299,11 @@ def client(prompts, warm, plan, url):
         cli = big_client(url)
         return [{**it, "top2": cli.post("/margin", json={"ctx": it["ctx"], "salt": f"margin:{i}"}).json()["top2"]}
                 for i, it in enumerate(prompts)]
+    if plan["mode"] == "rescore":
+        cli = big_client(url)
+        return [{"id": it["id"], **cli.post("/rescore", json={"prompt_ids": it["prompt_ids"], "out": it["out"],
+                                                             "salt": f"rescore:{i}"}).json()}
+                for i, it in enumerate(prompts)]
     return run_plan(prompts, warm, plan, url, tokenizer(CFG["tok"]), None)
 
 
@@ -312,7 +322,7 @@ def run_plan(prompts, warm, plan, url, tok, local):
     cli, mt, mode, name = big_client(url), plan["max_tokens"], plan["mode"], plan["name"]
     extra = plan.get("extra_rtt_ms", 0) / 1e3
     eos = set(family(CFG["tok"])["eos"])
-    rtt, srv = [], []
+    rtt, srv, trace = [], [], []  # trace: one row per verify round, see TRACE_COLS
 
     def verify(ctx, d, salt):
         t0 = time.perf_counter()
@@ -323,6 +333,8 @@ def run_plan(prompts, warm, plan, url, tok, local):
         j = r.json()
         rtt.append((time.perf_counter() - t0) * 1e3)
         srv.append(j["server_ms"])
+        trace.append([len(ctx), len(d), j["m"], round(j["server_ms"], 1), round(rtt[-1], 1), j.get("hit"),
+                      int(bool(j.get("fb")))])
         return j["m"], j["next"]
 
     def one(p, tag):
@@ -357,13 +369,15 @@ def run_plan(prompts, warm, plan, url, tok, local):
         pings.append((time.perf_counter() - t0) * 1e3)
     rtt.clear()
     srv.clear()
+    trace.clear()
     stats1 = cli.get("/stats").json()
     t_run = time.time()
     rows = [one(p, "run") for p in prompts]
     stats2 = cli.get("/stats").json()
     for r in rows:
         r["text"] = tok.decode(r["out"])
-    return {"rows": rows, "rtt_ms": rtt, "server_ms": srv, "t_run": t_run, "t_end": time.time(), "ping_ms": pings,
+    return {"rows": rows, "rtt_ms": rtt, "server_ms": srv, "trace": trace, "trace_cols": TRACE_COLS,
+            "t_run": t_run, "t_end": time.time(), "ping_ms": pings,
             "client_where": where(), "spec_counters": {"warm_delta": _delta(stats0, stats1), "run_delta": _delta(stats1, stats2)}}
 
 
@@ -376,8 +390,12 @@ def _delta(a, b):
     return {k: b[k] - a.get(k, 0.0) for k in b}
 
 
+TRACE_COLS = ["n_ctx", "n_draft", "accepted", "server_ms", "round_trip_ms", "cache_hit", "fallback"]
+
+
 def mismatches(out_dir, base, names):
     """Runs whose output differs from the big model alone: the context up to the first difference."""
+    eos = family(CFG["tok"])["eos"]
     if not (out_dir / f"{base}.json").exists():
         print(f"no {base}.json: near-tie check skipped", flush=True)
         return []
@@ -389,8 +407,8 @@ def mismatches(out_dir, base, names):
             continue
         for r in json.loads(f.read_text())["rows"]:
             ref = b.get(r["id"])
-            i = core.first_diff(r["out"], ref["out"]) if ref else -1
-            if 0 <= i < min(len(core.strip_eos(r["out"])), len(core.strip_eos(ref["out"]))):
+            i = core.first_diff(r["out"], ref["out"], eos) if ref else -1
+            if 0 <= i < min(len(core.strip_eos(r["out"], eos)), len(core.strip_eos(ref["out"], eos))):
                 items.append({"run": n, "id": r["id"], "pos": i, "other_tok": r["out"][i], "big_tok": ref["out"][i],
                               "ctx": ref["prompt_ids"] + ref["out"][:i]})
     return items
@@ -493,6 +511,9 @@ def main():
                 if plan["mode"] == "margins":
                     items = mismatches(out, plan["base"], plan["runs"])
                     res = {"rows": client.remote(items, [], plan, url) if items else []}
+                elif plan["mode"] == "rescore":  # the big model's own answers, scored again in one pass
+                    base_rows = json.loads((out / f"{plan['base']}.json").read_text())["rows"]
+                    res = {"rows": client.remote(base_rows, [], plan, url)}
                 elif plan.get("drafter"):
                     warm_drafter(plan["drafter"])
                     if nxt and os.environ.get("SPEC_PREWARM", "1") == "1":

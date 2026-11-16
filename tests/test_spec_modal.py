@@ -300,7 +300,9 @@ def test_jobs_are_consistent():
         names = [p["name"] for p in cfg["plans"]]
         assert len(names) == len(set(names)), name
         for p in cfg["plans"]:
-            assert p["mode"] in ("draft_alone", "big_alone", "spec", "margins", "switch"), p
+            assert p["mode"] in ("draft_alone", "big_alone", "spec", "margins", "switch", "rescore"), p
+            if p["mode"] == "rescore":
+                assert p["base"].endswith("_big_alone")
             if p["mode"] in ("draft_alone", "spec"):
                 d = sm.DRAFTERS[p["drafter"]]
                 assert sm.MODELS[d["model"]]["family"] == sm.MODELS[cfg["big"]]["family"], p  # same tokenizer
@@ -309,6 +311,8 @@ def test_jobs_are_consistent():
                 assert p["to"] in sm.MODES
             if p["mode"] == "margins":
                 assert set(p["runs"]) <= set(names) and p["base"] in names
+            if p["mode"] == "rescore" and name != "rescore_235b":
+                assert p["base"] in names
     assert len({c["app"] for c in sm.JOBS.values()}) == len(sm.JOBS)  # parallel jobs never share an app name
     for m in sm.MODES.values():
         assert m is None or "model" not in m or m["model"] in sm.MODELS
@@ -341,3 +345,13 @@ def test_warmup_touches_every_length_and_the_verify_path():
     calls.clear()
     v.warmup(PROMPT, lengths=(8,), steps=(1,), verify=False)
     assert all(not has_sp for _, _, has_sp in calls)
+
+
+def test_rescore_finds_where_one_pass_disagrees_with_the_decode():
+    v = core.VLLM("big", client=fake_vllm(big_model))
+    out = v.gen(PROMPT, 6, "g")
+    assert v.rescore(PROMPT, out, "r")["flips"] == []  # the fake's decode and one-pass scoring agree
+    bad = out[:3] + [13] + out[4:]  # as if the decode had picked another token at index 3
+    rep = v.rescore(PROMPT, bad, "r2")
+    assert rep["n"] == 6 and rep["flips"][0][:3] == [3, 13, out[3]] and rep["flips"][0][3] > 0
+    assert set(rep["ties"]) == {0.01, 0.05, 0.1, 0.5}
