@@ -139,3 +139,23 @@ def test_neo4j_live_roundtrip():
         a.purge()
         b.purge()
     assert a.stats()["problem"] == 0
+
+
+def test_graph_error_skips_the_graph_for_a_cooldown(monkeypatch):
+    # Found live (bench/run_faults.py neo4j): an Aura that never answers cost every call a 10 s connect timeout.
+    from chimera_core.memory import memory as mm
+    calls = []
+
+    class Down(InMemoryStore):
+        def nearest(self, *a, **kw):
+            calls.append(1)
+            raise TimeoutError
+
+    now = [100.0]
+    monkeypatch.setattr(mm.time, "monotonic", lambda: now[0])
+    m = Memory(Down(), BagEmbedder(), "x")
+    assert m.retrieve("sort a list").examples == [] and len(calls) == 1
+    assert m.retrieve("sort a list").examples == [] and len(calls) == 1  # within the cooldown: graph not asked
+    now[0] += mm.GRAPH_COOLDOWN_S
+    m.retrieve("sort a list")
+    assert len(calls) == 2  # cooldown over: tried again
