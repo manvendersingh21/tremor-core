@@ -132,6 +132,22 @@ def test_openai_tier_logprobs_become_confidence(monkeypatch):
     assert sent["logprobs"] is True and (text, tin, tout) == ("hi", 3, 2) and abs(conf - 0.75) < 1e-3
 
 
+def test_ollama_tier_sends_options_and_keep_alive(monkeypatch):
+    from chimera_core.inference import cloud_verifier as cv
+    from chimera_core.tiers import build_backend
+    sent = []
+
+    def post(self, path, body):
+        sent.append(body)
+        return {"message": {"content": "hi"}, "prompt_eval_count": 3, "eval_count": 2, "logprobs": [{"logprob": 0.0}]}
+    monkeypatch.setattr(cv.OllamaBackend, "_post", post)
+    t = cfg("gpu-small", 0.6).model_copy(update={"options": {"num_thread": 4}, "keep_alive": -1})
+    assert build_backend(t).complete("q", 8)[:3] == ("hi", 3, 2)
+    assert sent[0]["options"] == {"num_thread": 4, "num_predict": 8} and sent[0]["keep_alive"] == -1
+    build_backend(cfg("plain", 0.6)).complete("q", 8)  # unset: server defaults, no keep_alive field
+    assert sent[1]["options"] == {"num_predict": 8} and "keep_alive" not in sent[1]
+
+
 def test_disabled_tier_skipped_and_none_left_raises():
     p, _ = pool([cfg("off", 1.0, enabled=False), cfg("on", 1.0, 1)])
     assert p.generate("x", 0.1).tier == "on"
