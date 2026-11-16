@@ -33,6 +33,12 @@ FAILS_30B = {"trivial": 2, "everyday": 13, "hard": 16}
 N_TASKS = 301
 FAIL_RATE = sum(FAILS_30B.values()) / N_TASKS
 SUPABASE_MONTH = 25.0  # Pro plan base fee; compute add-ons for a busier DB not included (not measured)
+# Same 30B on our own V100 (Akash) after tuning: own Ollama, flash attention, q8 KV, 4 slots, num_thread 4
+# (results_akash_tuning.md, "All 301 tasks on the winner"): 301 calls in 369.9 s wall, 4 at once, 0 errors.
+V100_HOURS = (0.52, 1.53)  # $ per hour range for the box (results_akash_tuning.md); billed whether busy or idle
+V100_CAP = 301 / 369.9 * 86400  # calls per day at 100% busy
+V100_FULL = {p: p * 24 / V100_CAP * 1000 for p in V100_HOURS}  # $ per 1k calls with the box always full
+FAILS_V100 = {"trivial": 2, "everyday": 12, "hard": 17}  # 99/101, 108/120, 63/80 = 270/301
 
 
 def h200_per_1k(util: float, conc: int = 64) -> float:
@@ -50,23 +56,34 @@ def h200_count(calls_per_day: float, conc: int = 64, plan_util: float = PLAN_UTI
     return math.ceil(calls_per_day / (H200_CAP[conc] * plan_util)) if calls_per_day > 0 else 0
 
 
-def escalation_per_1k(model: str) -> float:
+def escalation_per_1k(model: str, fails: dict = FAILS_30B) -> float:
     """$ per 1k escalated calls: the big model's price weighted by where the 30B fails (mostly hard tasks)."""
-    n = sum(FAILS_30B.values())
-    return sum(PRICE[model][d] * k for d, k in FAILS_30B.items()) / n
+    n = sum(fails.values())
+    return sum(PRICE[model][d] * k for d, k in fails.items()) / n
+
+
+def box_month(calls_per_day: float, big: str, served_free: float, day_price: float, cap: float, fails: dict) -> dict:
+    """One month (30 days) of the cascade: cache/bank serve `served_free` of calls at $0, the 30B on always-on
+    boxes (each `day_price` a day, `cap` calls a day at 100% busy, planned at PLAN_UTIL) answers the rest, and the
+    30B's failures (caught by tests) are re-asked of `big`."""
+    to_30b = calls_per_day * (1 - served_free)
+    n = math.ceil(to_30b / (cap * PLAN_UTIL)) if to_30b > 0 else 0
+    gpu = n * day_price * DAYS
+    esc_calls = to_30b * sum(fails.values()) / N_TASKS
+    esc = esc_calls * DAYS * escalation_per_1k(big, fails) / 1000
+    db = SUPABASE_MONTH
+    return {"boxes": n, "h200s": n, "gpu": gpu, "escalated_per_day": esc_calls, "escalation": esc, "db": db,
+            "total": gpu + esc + db, "busy": to_30b / (n * cap) if n else 0.0}
 
 
 def monthly(calls_per_day: float, big: str, served_free: float = 0.0, conc: int = 64) -> dict:
-    """One month (30 days) of the cascade: cache/bank serve `served_free` of calls at $0, the 30B on always-on
-    H200s answers the rest, and the 30B's failures (caught by tests) are re-asked of `big`."""
-    to_30b = calls_per_day * (1 - served_free)
-    n = h200_count(to_30b, conc)
-    gpu = n * H200_DAY * DAYS
-    esc_calls = to_30b * FAIL_RATE
-    esc = esc_calls * DAYS * escalation_per_1k(big) / 1000
-    db = SUPABASE_MONTH
-    return {"h200s": n, "gpu": gpu, "escalated_per_day": esc_calls, "escalation": esc, "db": db,
-            "total": gpu + esc + db, "busy": to_30b / (n * H200_CAP[conc]) if n else 0.0}
+    """The cascade with the 30B on always-on H200s."""
+    return box_month(calls_per_day, big, served_free, H200_DAY, H200_CAP[conc], FAILS_30B)
+
+
+def v100_monthly(calls_per_day: float, big: str, served_free: float = 0.0, hour: float = V100_HOURS[0]) -> dict:
+    """The cascade with the 30B on always-on tuned V100s at `hour` $ per hour."""
+    return box_month(calls_per_day, big, served_free, 24 * hour, V100_CAP, FAILS_V100)
 
 
 def api_only(calls_per_day: float, model: str) -> float:
@@ -166,22 +183,44 @@ def per_1k_table() -> list[str]:
         L.append(f"| 30B on one H200, busy {u:.0%} of the day (concurrency 64) | ${h200_per_1k(u):.3f} | 270/301 = 90% | "
                  "`results_cost_case_h200.md` |")
     L += [f"| 30B on one H200, busy 100% (concurrency 32) | ${H200_FULL[32]:.3f} | 271/301 = 90% | `results_cost_case_h200.md` |",
-          "| 30B on one H200, one request at a time | $1.089 | 270/301 = 90% | `results_cost_case_h200.md` |",
-          "| 30B on the shared V100 (Akash), one request at a time | $11.02 | 269/301 = 89% | `results_cost_case.md` |",
+          "| 30B on one H200, one request at a time | $1.089 | 270/301 = 90% | `results_cost_case_h200.md` |"]
+    for p in V100_HOURS:
+        for u in (1.0, 0.5, 0.1):
+            L.append(f"| 30B on our tuned V100 (Akash), ${p:.2f}/hr, busy {u:.0%} of the day (4 at once) | ${V100_FULL[p] / u:.3f} | "
+                     "270/301 = 90% | `results_akash_tuning.md` |")
+    L += ["| 30B on the Akash V100 before tuning (default threads), one request at a time | $11.02 | 269/301 = 89% | "
+          "`results_cost_case.md` |",
           f"| DeepSeek-V4.1-Flash 763B (Crusoe list price) | ${PRICE['763B']['all']:.4f} | {PASS['763B']} | `results_cost_case.md` |",
           f"| GPT-5.5 (list price) | ${PRICE['GPT-5.5']['all']:.2f} | {PASS['GPT-5.5']} | `results_cost_case.md` |"]
+    lo, hi = V100_HOURS
+    v_be = {(p, m): V100_FULL[p] / PRICE[m]["all"] for p in V100_HOURS for m in ("763B", "GPT-5.5")}
+
+    def be(x: float) -> str:
+        return f"{x:.1%} busy" if x < 0.1 else (f"{x:.0%} busy" if x <= 1 else f"never (would need {x:.0%})")
+
     L += ["", "An idle H200 still bills: an always-on H200 is $4.54 x 24 = **$108.96 a day** with or without calls. "
           "So its price per call is the full-GPU price divided by how busy it is: "
           f"`$ per 1k = ${H200_FULL[64]:.4f} / busy share` at concurrency 64.", "",
-          "### Break-even: how busy the H200 must be", "",
-          "`break-even busy share = H200 $ per 1k when full / API $ per 1k`", "",
-          "| Against | API $ per 1k | Concurrency 64 (full: $%.4f) | Concurrency 32 (full: $%.4f) |" % (H200_FULL[64], H200_FULL[32]),
-          "|---|---|---|---|",
-          f"| 763B | ${PRICE['763B']['all']:.4f} | {u_m:.0%} busy | {break_even_util(PRICE['763B']['all'], 32):.0%} busy |",
-          f"| GPT-5.5 | ${PRICE['GPT-5.5']['all']:.2f} | {u_g:.1%} busy | {break_even_util(PRICE['GPT-5.5']['all'], 32):.1%} busy |", "",
+          f"The tuned V100 works the same way at a smaller size: ${lo:.2f} to ${hi:.2f} an hour is ${24 * lo:.2f} to ${24 * hi:.2f} a day, "
+          f"and it served 301 calls in 369.9 s with 4 at once, about {V100_CAP:,.0f} calls a day at 100% busy. "
+          f"So `$ per 1k = ${V100_FULL[lo]:.4f} (or ${V100_FULL[hi]:.4f}) / busy share`.", "",
+          "### Break-even: how busy the box must be", "",
+          "`break-even busy share = box $ per 1k when full / API $ per 1k`", "",
+          "| Against | API $ per 1k | H200, 64 at once (full: $%.4f) | H200, 32 at once (full: $%.4f) | Tuned V100 at $%.2f/hr (full: $%.4f) | "
+          "Tuned V100 at $%.2f/hr (full: $%.4f) |" % (H200_FULL[64], H200_FULL[32], lo, V100_FULL[lo], hi, V100_FULL[hi]),
+          "|---|---|---|---|---|---|",
+          f"| 763B | ${PRICE['763B']['all']:.4f} | {u_m:.0%} busy | {break_even_util(PRICE['763B']['all'], 32):.0%} busy | "
+          f"{be(v_be[(lo, '763B')])} | {be(v_be[(hi, '763B')])} |",
+          f"| GPT-5.5 | ${PRICE['GPT-5.5']['all']:.2f} | {u_g:.1%} busy | {break_even_util(PRICE['GPT-5.5']['all'], 32):.1%} busy | "
+          f"{be(v_be[(lo, 'GPT-5.5')])} | {be(v_be[(hi, 'GPT-5.5')])} |",
+          f"| tuned V100, full | ${V100_FULL[lo]:.4f} or ${V100_FULL[hi]:.4f} | {H200_FULL[64] / V100_FULL[lo]:.0%} or "
+          f"{H200_FULL[64] / V100_FULL[hi]:.0%} busy | {H200_FULL[32] / V100_FULL[lo]:.0%} or {H200_FULL[32] / V100_FULL[hi]:.0%} busy | | |", "",
           f"One H200 at concurrency 64 serves about {H200_CAP[64] / 1e6:.2f} million short coding calls a day at 100% busy. "
           f"Busy {u_g:.1%} of that is about {u_g * H200_CAP[64]:,.0f} calls a day: above that, one H200 is cheaper per call than GPT-5.5. "
-          f"Against the 763B it needs about {u_m * H200_CAP[64]:,.0f} calls a day ({u_m:.0%} busy)."]
+          f"Against the 763B it needs about {u_m * H200_CAP[64]:,.0f} calls a day ({u_m:.0%} busy).", "",
+          f"One tuned V100 beats GPT-5.5 per call above about {v_be[(lo, 'GPT-5.5')] * V100_CAP:,.0f} calls a day at ${lo:.2f}/hr "
+          f"({v_be[(hi, 'GPT-5.5')] * V100_CAP:,.0f} at ${hi:.2f}/hr). It never beats the 763B per call: even 100% busy it costs "
+          f"${V100_FULL[lo]:.3f} per 1k against ${PRICE['763B']['all']:.3f}."]
     return L
 
 
@@ -193,6 +232,19 @@ def projection(served_free: float) -> list[str]:
         cg, cm = monthly(d, "GPT-5.5", served_free), monthly(d, "763B", served_free)
         L.append(f"| {d:,} | {money(g)} | {money(cg['total'])} | {money(g - cg['total'])} ({1 - cg['total'] / g:.0%}) | {money(m)} | "
                  f"{money(cm['total'])} | {money(m - cm['total'])} ({1 - cm['total'] / m:+.0%}) | {cg['h200s']} ({cg['busy']:.0%}) |")
+    return L
+
+
+def v100_projection(served_free: float) -> list[str]:
+    L = ["| Coding calls a day | V100 $ per hour | V100s (busy) | 30B + GPT-5.5 for failures | Saved vs GPT-5.5 | "
+         "30B + 763B for failures | Saved vs 763B |", "|---|---|---|---|---|---|---|"]
+    for d in VOLUMES:
+        g, m = api_only(d, "GPT-5.5"), api_only(d, "763B")
+        for p in V100_HOURS:
+            cg, cm = v100_monthly(d, "GPT-5.5", served_free, p), v100_monthly(d, "763B", served_free, p)
+            L.append(f"| {d:,} | ${p:.2f} | {cg['boxes']} ({cg['busy']:.0%}) | {money(cg['total'])} | "
+                     f"{money(g - cg['total'])} ({1 - cg['total'] / g:.0%}) | {money(cm['total'])} | "
+                     f"{money(m - cm['total'])} ({1 - cm['total'] / m:+.0%}) |")
     return L
 
 
@@ -293,13 +345,23 @@ def report() -> None:
           "cascade        = H200s x $108.96 x 30                         # always on",
           f"               + D x (1 - h) x {FAIL_RATE:.3f} x 30 x P_fail / 1000  # the 30B's failures, caught by tests, re-asked",
           "               + $25                                          # Supabase Pro base fee",
+          "",
+          f"V100s          = ceil(D x (1 - h) / ({V100_CAP:,.0f} x 0.5))         # tuned V100, 4 at once, planned at half",
+          "cascade        = V100s x $ per hour x 24 x 30                 # always on, $0.52 or $1.53 an hour",
+          f"               + D x (1 - h) x {sum(FAILS_V100.values()) / N_TASKS:.3f} x 30 x P_fail / 1000  # its own failures, re-asked",
+          "               + $25",
           "```", "",
           f"P_api: GPT-5.5 ${PRICE['GPT-5.5']['all']:.2f}, 763B ${PRICE['763B']['all']:.4f} per 1k (measured mix of 101 trivial, 120 everyday, 80 hard). "
           f"P_fail is the same API's price weighted by where the 30B fails (2 trivial, 13 everyday, 16 hard): GPT-5.5 ${e_g:.2f}, 763B ${e_m:.3f} per 1k.", "",
-          "### h = 0: no repeats at all (the cautious case)", ""] + projection(0.0)
+          f"For the tuned V100, P_fail uses its own failures (2 trivial, 12 everyday, 17 hard): GPT-5.5 ${escalation_per_1k('GPT-5.5', FAILS_V100):.2f}, "
+          f"763B ${escalation_per_1k('763B', FAILS_V100):.3f} per 1k.", "",
+          "### h = 0: no repeats at all (the cautious case)", "", "30B on H200s:", ""] + projection(0.0)
+    L += ["", "30B on our tuned V100s (Akash), same math:", ""] + v100_projection(0.0)
     L += ["", "### h = 30%: three in ten calls are repeats or rewordings of solved problems", "",
           "30% is the share the bank served on reworded copies of problems it had already solved (bank run 3 below). "
-          "It is not a measured rate of company traffic. On open chat (oasst1, `results_replay.md`) under 1% of requests were repeats.", ""] + projection(0.30)
+          "It is not a measured rate of company traffic. On open chat (oasst1, `results_replay.md`) under 1% of requests were repeats.", "",
+          "30B on H200s:", ""] + projection(0.30)
+    L += ["", "30B on our tuned V100s (Akash), same math:", ""] + v100_projection(0.30)
     L += ["", *worked(), ""]
     L += ["## Repeated tests (3 runs each)", "",
           "Each repeat ran in its own Supabase tenant or namespace, which was deleted after the repeat. "
@@ -314,7 +376,8 @@ def report() -> None:
     L += bank_section()
     L += ["", "### 60-question ladder check: BASE (763B only), COLD (empty cache), WARM (same questions again)", "",
           "`bench/run_backend.py` unchanged: Supabase cache -> GPU 30B on the Akash V100 (gate 0.95) -> 763B. "
-          "The 30B here is the slow shared V100, not the H200.", ""]
+          "The 30B here is the Akash V100 before tuning (default Ollama threads, about 20 tokens/s), not the H200 and not the "
+          "tuned setup in `results_akash_tuning.md`. These repeats were not rerun after tuning.", ""]
     L += ladder_section()
     L += ["", "## Rerun", "", "```",
           "# .env: CHIMERA_DB_URL, CRUSOE_API_KEY, CHIMERA_GPU_URL (an SSH tunnel to your GPU box)",
