@@ -31,6 +31,8 @@ def run_task(t: dict, mode: str, label: str, ns: str, extra: list[str]) -> dict:
     d = SCRATCH / label / f"t{t['id']:02d}"
     shutil.rmtree(d, ignore_errors=True)
     d.mkdir(parents=True)
+    # its own git repo: inside this repo's git-ignored bench/.scratch, `chimera code` (git check-ignore) refused every file
+    subprocess.run(["git", "init", "-q", str(d)], check=True)
     for name, text in t["files"].items():
         (d / name).write_text(text)
     (d / "test_task.py").write_text(t["grade"])  # the task's tests: the agent's check; graded from a fresh copy
