@@ -121,7 +121,13 @@ class LadderRouter(SpeculativeCascadeRouter):
         t = time.perf_counter()
         text = self.top.complete(top_prompt, cfg.max_top_tokens)
         ms["top"] = (time.perf_counter() - t) * 1000
-        return self._emit(prompt, "top", text, t0, local_tokens=local_tokens, ms=ms, ev=ev)
+        passed = True
+        if check is not None:  # no tier above: a failing top answer is served but not cached
+            try:
+                passed = bool(check(text))
+            except Exception:  # noqa: BLE001  a crashing check counts as failed
+                passed = False
+        return self._emit(prompt, "top", text, t0, local_tokens=local_tokens, ms=ms, cache=passed, ev=ev)
 
     def _mid_says_escalate(self, prompt: str, answer: str) -> bool:
         return "ESCALATE" in self.mid.complete(CHECK_PROMPT.format(task=prompt, answer=answer), 8).upper()
