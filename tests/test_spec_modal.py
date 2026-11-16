@@ -4,6 +4,8 @@ import random
 import sys
 import time
 
+import pytest
+
 from chimera_core.inference import specplus as sp
 
 _p = pathlib.Path(__file__).resolve().parents[1] / "bench" / "spec_modal_core.py"
@@ -214,6 +216,8 @@ driver = importlib.util.module_from_spec(_d)
 _d.loader.exec_module(driver)
 
 
+@pytest.mark.skipif(not (pathlib.Path(__file__).resolve().parents[1] / "bench/datasets/suite.jsonl").exists(),
+                    reason="bench/datasets/suite.jsonl is git-ignored (bench/datasets/README.md builds it); not on CI")
 def test_prompt_set_is_mixed_and_warmups_are_not_measured():
     ps = driver.pick_prompts()
     ids = {p["id"] for p in ps["prompts"]}
