@@ -15,7 +15,10 @@ from chimera_core.cache.semantic_cache import SemanticCache
 from chimera_core.router import Events, RouterConfig, SpeculativeCascadeRouter
 
 text = st.text(max_size=60)
-ns = st.text(alphabet=st.characters(blacklist_characters="\x00"), max_size=8)  # prompt_hash refuses NUL in a namespace
+# prompt_hash refuses NUL in a namespace. codec="utf-8" drops lone surrogates ("\ud800"): no tenant name holds one
+# (tenants come from the key table), and SQLite cannot store one, so they made the semantic-cache tests fail at random.
+# prompt_hash itself is still tested with surrogates through `no_nul` below.
+ns = st.text(alphabet=st.characters(codec="utf-8", exclude_characters="\x00"), max_size=8)
 ASCII_WORDS = st.lists(st.text(alphabet="abcdefXYZ0189", min_size=1, max_size=6), min_size=1, max_size=6)
 
 
