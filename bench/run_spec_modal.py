@@ -24,7 +24,7 @@ OUT = ROOT / "bench" / ".scratch" / "spec_modal"
 MODAL = str(ROOT / ".venv" / "bin" / "modal")
 REPORT = ROOT / "bench" / "results_spec_modal.md"
 sys.path[:0] = [str(ROOT / "bench"), str(ROOT / "deploy" / "modal")]
-from spec_models import DRAFTERS, JOBS, MODELS  # noqa: E402
+from spec_models import DRAFTERS, JOBS, MODELS, family  # noqa: E402
 
 APP = "chimera-spec-modal"
 # (file, field, value, how many): 28 code + 20 chat, reasoning and short answers
@@ -102,18 +102,21 @@ def job(name: str) -> int:
     return run_logged(name, JOBS[name]["app"], [MODAL, "run", "-q", str(ROOT / "deploy" / "modal" / "spec_modal.py")], env)
 
 
-def download(keys: str) -> int:
-    return run_logged("download", "chimera-spec-download",
-                      [MODAL, "run", "-q", str(ROOT / "deploy" / "modal" / "spec_download.py"), "--keys", keys], dict(os.environ))
+def download(keys: str, tag: str = "") -> int:
+    """CPU-only weight download; tag gives the batch its own app name (chimera-spec-download-<tag>)."""
+    app = "chimera-spec-download" + (f"-{tag}" if tag else "")
+    env = {**os.environ, "SPEC_DL_TAG": tag}
+    return run_logged(f"download{('_' + tag) if tag else ''}", app,
+                      [MODAL, "run", "-q", str(ROOT / "deploy" / "modal" / "spec_download.py"), "--keys", keys], env)
 
 
 # ---------- offline report ----------
-def lossless(base: dict, run: dict) -> tuple[int, int]:
-    from spec_modal_core import first_diff
+def lossless(base: dict, run: dict, eos=None) -> tuple[int, int]:
+    from spec_modal_core import EOS, first_diff
 
     a = {r["id"]: r["out"] for r in base["rows"]}
     cmp = [(a[r["id"]], r["out"]) for r in run["rows"] if r["id"] in a]
-    return sum(first_diff(x, y) == -1 for x, y in cmp), len(cmp)
+    return sum(first_diff(x, y, eos or EOS) == -1 for x, y in cmp), len(cmp)
 
 
 def pct(xs, q):
@@ -203,9 +206,35 @@ def project(run: dict, net_ms: float) -> float:
     return toks / (wall - net + rounds * net_ms / 1e3)
 
 
+def why_not(name: str) -> str:
+    """Plain reason a plan has no result (no account ids in the committed report)."""
+    err = OUT / f"{name}.error.json"
+    if not err.exists():
+        return "not reached"
+    e = json.loads(err.read_text())["error"]
+    if "is disabled" in e or "spend limit" in e:
+        return "stopped: the account's credits ran out"
+    return re.sub(r"\b(ac|ap|fu|ta|in)-[A-Za-z0-9]{6,}", "<id>", e)[:120].replace("|", "/")
+
+
+def trace_stats(run: dict) -> dict:
+    """From the per-round trace: share of rounds that fell back to full scoring, and big-box ms with and without."""
+    t = run.get("trace") or []
+    if not t:
+        return {}
+    cols = run.get("trace_cols") or ["n_ctx", "n_draft", "accepted", "server_ms", "round_trip_ms", "cache_hit", "fallback"]
+    rows = [dict(zip(cols, x)) for x in t]
+    fast = [x["server_ms"] for x in rows if not x["fallback"]]
+    full = [x["server_ms"] for x in rows if x["fallback"]]
+    new = [x["n_ctx"] + x["n_draft"] - x["cache_hit"] for x in rows if x["cache_hit"] is not None and not x["fallback"]]
+    return {"fallback_share": len(full) / len(rows), "server_fast_p50": pct(fast, 0.5), "server_full_p50": pct(full, 0.5),
+            "new_tokens_p50": pct(new, 0.5)}
+
+
 def job_tables(job: str, runs: dict) -> str:
     cfg = JOBS[job]
     big = cfg["big"]
+    eos = family(cfg["tok"])["eos"]
     names = [p["name"] for p in cfg["plans"] if p["mode"] in ("big_alone", "draft_alone", "spec")]
     tag = names[0].split("_")[0]
     base = runs.get(f"{tag}_big_alone")
@@ -216,58 +245,82 @@ def job_tables(job: str, runs: dict) -> str:
              "(tok/s = all output tokens / all wall time; median = median of the per-prompt tok/s):", "",
              "| Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
-    rounds = ["Where a cross-box round goes (medians per round; network = round trip minus the big box's own time):", "",
-              "| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |",
-              "|---|---|---|---|---|---|---|---|---|---|"]
+    rounds = ["Where a cross-box round goes (medians per round; network = round trip minus the big box's own time; "
+              "full-scoring rounds = the cache-reading verify failed and the round was scored again from scratch):", "",
+              "| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | full-scoring rounds | big box ms cached / full | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    missing = []
     for n in names:
         r = runs.get(n)
         if not r or not r.get("rows"):
-            err = OUT / f"{n}.error.json"
-            why = json.loads(err.read_text())["error"][:120].replace("|", "/") if err.exists() else "not run"
-            speed.append(f"| `{n}` | | | {why} | | | | | | | |")
+            missing.append(f"`{n}` ({why_not(n)})")
             continue
         s = summarize(r)
         who, how = describe(r["plan"], big)
         rel = f"{s['tok_s'] / bs['tok_s']:.2f}x" if bs and n != f"{tag}_big_alone" else ""
         alpha = f1(s.get("alpha"), 2) if "alpha" in s else (f1(s.get("server_acceptance"), 2) + " (vLLM)" if "server_acceptance" in s else "")
         tpr = f1(s.get("tok_per_round"), 2) if "tok_per_round" in s else (f1(s.get("server_mean_accept_len"), 2) + " (vLLM)" if "server_mean_accept_len" in s else "")
-        same = ("%d/%d" % lossless(base, r)) if base and n != f"{tag}_big_alone" and r["plan"]["mode"] != "draft_alone" else ""
+        same = ("%d/%d" % lossless(base, r, eos)) if base and n != f"{tag}_big_alone" and r["plan"]["mode"] != "draft_alone" else ""
         speed.append(f"| `{n}` | {who} | {how} | {f1(s['tok_s'])} | {f1(s['median_tok_s'])} | {rel} | "
                      f"{f1(s.get('tok_s_code'))} | {f1(s.get('tok_s_chat'))} | {alpha} | {tpr} | {same} |")
         if r["plan"]["mode"] == "spec" and r.get("rtt_ms"):
             rows_n = sum(x["rounds"] for x in r["rows"])
             ping = f1(pct(r["ping_ms"], 0.5), 0) if r.get("ping_ms") else ""
+            ts = trace_stats(r)
+            fb = f"{ts['fallback_share']:.0%}" if ts else "not traced"
+            cf = f"{f1(ts.get('server_fast_p50'), 0)} / {f1(ts.get('server_full_p50'), 0)}" if ts else ""
             rounds.append(f"| `{n}` | {rows_n} | {f1(s['draft_ms_per_round'], 0)} | {f1(s['net_p50_ms'], 0)} | "
                           f"{f1(s['server_p50_ms'], 0)} | {f1(s['rtt_p50_ms'], 0)} / {f1(s['rtt_p90_ms'], 0)} | {ping} | "
-                          f"{f1(s['k_mean'])} | {f1(project(r, 20))} | {f1(project(r, 0))} |")
-    out = ["\n".join(speed), "\n".join(rounds)]
+                          f"{f1(s['k_mean'])} | {fb} | {cf} | {f1(project(r, 20))} | {f1(project(r, 0))} |")
+    out = ["\n".join(speed)]
+    if len(rounds) > 4:
+        out.append("\n".join(rounds))
+    if missing:
+        out.append("Not measured in this account: " + ", ".join(missing) + ".")
     inner = []  # a drafter with its own same-box helper must still write exactly what the drafter writes alone
     for a, b in ((f"{tag}_chain_alone", f"{tag}_mid_alone"), (f"{tag}_mideagle_alone", f"{tag}_mid_alone")):
         if a in runs and b in runs:
-            same, tot = lossless(runs[b], runs[a])
+            same, tot = lossless(runs[b], runs[a], eos)
             inner.append(f"`{a}` vs `{b}`: {same}/{tot} identical")
     if inner:
         out.append("Same-box helper inside the drafter box (must not change the drafter's own output): " + "; ".join(inner) + ".")
-    if f"{tag}_margins" in runs:
-        rows = runs[f"{tag}_margins"]["rows"]
-        gaps = sorted(round(x["top2"][0][1] - x["top2"][1][1], 3) for x in rows if len(x.get("top2", [])) == 2)
-        agree = sum(x["top2"][0][0] == x["other_tok"] for x in rows if x.get("top2"))
-        out.append(f"Every output that differs from the big model alone, checked at its first different token: {len(rows)} "
+    if f"{tag}_rescore" in runs:
+        rs = runs[f"{tag}_rescore"]["rows"]
+        flips = [f for x in rs for f in x["flips"]]
+        toks = sum(x["n"] for x in rs)
+        ties = {t: sum(x["ties"][str(t)] if str(t) in x["ties"] else x["ties"].get(t, 0) for x in rs) for t in (0.05, 0.1, 0.5)}
+        gaps = sorted(round(f[3], 3) for f in flips)
+        out.append(f"Root-cause check: the big model's own {toks} output tokens (big alone, {len(rs)} answers), scored "
+                   f"again in one forward pass over the whole answer (the shape a verify round uses). At {len(flips)} "
+                   f"positions in {sum(1 for x in rs if x['flips'])} answers the one-pass top-1 is not the token the "
+                   f"one-token-at-a-time decode wrote; how far the decoded token is below that top-1 there (nats): "
+                   f"{gaps if gaps else 'none'}. Positions whose top-1 and top-2 are within 0.05 / 0.1 / 0.5 nats: "
+                   f"{ties[0.05]} / {ties[0.1]} / {ties[0.5]} of {toks}.")
+    marg = [x for k in sorted(runs) if k.startswith(f"{tag}_margins") for x in runs[k]["rows"]]
+    if marg:
+        gaps = sorted(round(x["top2"][0][1] - x["top2"][1][1], 3) for x in marg if len(x.get("top2", [])) == 2)
+        agree = sum(x["top2"][0][0] == x["other_tok"] for x in marg if x.get("top2"))
+        out.append(f"Every output that differs from the big model alone, checked at its first different token: {len(marg)} "
                    f"cases. At {agree} of them the big model's own top-1 token, scored in one forward pass, is the token "
                    f"the other run wrote, not the one big alone wrote. Top-1 minus top-2 logprob gap there (nats): "
                    f"{gaps if gaps else 'none'}; {sum(g < 0.5 for g in gaps)} of {len(gaps)} are under 0.5.")
     meta = json.loads((OUT / f"meta_{job}.json").read_text()) if (OUT / f"meta_{job}.json").exists() else None
-    if meta:
+    if meta and meta.get("big_first_health_s"):
         starts = meta.get("health_end", {}).get("starts") if isinstance(meta.get("health_end"), dict) else None
         starts = starts or meta.get("big_health", {}).get("starts", [])
         st = ", ".join(f"{s['mode']} {s['start_s']:.0f} s" for s in starts)
+        sw = ", ".join(f"{s['mode']} {s['s']:.0f} s" for s in meta.get("switches", []))
         dr = ", ".join(f"{k} {v.get('boot_s'):.0f} s" for k, v in meta.get("drafters", {}).items() if v.get("boot_s"))
-        where = meta.get("big_health", {}).get("where", {})
+        h = meta.get("big_health", {})
+        where = h.get("where", {})
+        gpus = h.get("gpus_seen") or []
+        gpu = f"{len(gpus)}x {gpus[0].split(',')[0].replace('NVIDIA ', '')}" if gpus else cfg["gpu"]
         dwhere = {v.get("where", {}).get("MODAL_REGION") for v in meta.get("drafters", {}).values()}
-        out.append(f"Cold starts, not in any number above: big box first answer {meta.get('big_first_health_s'):.0f} s after "
-                   f"the job started (container, weights from the volume, vLLM start, self-test). vLLM starts per mode: "
-                   f"{st}. Drafter boxes: {dr}. Big box region {where.get('MODAL_REGION')} ({where.get('MODAL_CLOUD_PROVIDER')}); "
-                   f"drafter regions {sorted(x for x in dwhere if x)}. Job wall time {(meta.get('t_end', meta['t0']) - meta['t0']) / 60:.0f} min.")
+        out.append(f"Hardware and cold starts (not in any number above): big box {gpu}, region {where.get('MODAL_REGION')}; "
+                   f"drafter boxes 1x L40S, regions {sorted(x for x in dwhere if x)}. Big box first answer "
+                   f"{meta['big_first_health_s']:.0f} s after the job started (container, weights from the volume, vLLM "
+                   f"start, warm-up, self-test; first vLLM start {st}). Restarts for same-box modes: {sw or 'none'}. "
+                   f"Drafter boxes boot: {dr}. Job wall time {(meta.get('t_end', meta['t0']) - meta['t0']) / 60:.0f} min.")
     return "\n\n".join(out)
 
 
@@ -306,7 +359,7 @@ def main(argv):
     elif cmd == "job":
         sys.exit(job(argv[2]))
     elif cmd == "download":
-        sys.exit(download(argv[2]))
+        sys.exit(download(argv[2], argv[3] if len(argv) > 3 else ""))
     elif cmd == "stop":
         app = "chimera-spec-download" if argv[2] == "download" else JOBS[argv[2]]["app"]
         sys.exit(ensure_stopped(argv[2], app))

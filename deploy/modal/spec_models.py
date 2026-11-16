@@ -97,7 +97,29 @@ def phase_a(t, mid, small, chain, same, extra=()):
               P(f"{t}_big_alone_rep", None, "big_alone")]
     # only runs that must match big alone (spec, same-box modes, the repeat); a drafter alone is another model
     runs = [p["name"] for p in plans if p["mode"] in ("spec", "big_alone") and p["name"] != f"{t}_big_alone"]
-    return plans + [P(f"{t}_margins", None, "margins", base=f"{t}_big_alone", runs=runs)]
+    return plans + [P(f"{t}_rescore", None, "rescore", base=f"{t}_big_alone"),
+                    P(f"{t}_margins", None, "margins", base=f"{t}_big_alone", runs=runs)]
+
+
+def resume_235(t):
+    """235B runs in account C, in order of value: baseline, the runs account B never reached, then repeats."""
+    new = [P(f"{t}_big_alone", None, "big_alone"), P(f"{t}_rescore", None, "rescore", base=f"{t}_big_alone"),
+           P(f"{t}_chain_alone", "q3_30b+4b", "draft_alone"), P(f"{t}_chain_spec_k4", "q3_30b+4b", "spec", k=4),
+           P(f"{t}_chain_specplus", "q3_30b+4b", "spec", **PLUS),
+           P(f"{t}_mid_alone", "q3_30b", "draft_alone"),
+           P(f"{t}_small_alone", "q3_4b", "draft_alone"), P(f"{t}_small_spec_k4", "q3_4b", "spec", k=4),
+           P(f"{t}_big_alone_rep", None, "big_alone")]
+    first = [p["name"] for p in new if p["mode"] in ("spec", "big_alone") and p["name"] != f"{t}_big_alone"]
+    new.append(P(f"{t}_margins", None, "margins", base=f"{t}_big_alone", runs=first))
+    same = [SW("draft_q3_4b", t), P(f"{t}_big_draft_q3_4b", None, "big_alone")]
+    more = [SW("eagle_q3_235b", t), P(f"{t}_big_eagle_q3_235b", None, "big_alone"),
+            SW("ngram", t), P(f"{t}_big_ngram", None, "big_alone"), SW("plain", t),
+            P(f"{t}_spec_k4", "q3_30b", "spec", k=4), P(f"{t}_specplus", "q3_30b", "spec", **PLUS),
+            P(f"{t}_small_specplus", "q3_4b", "spec", **PLUS), P(f"{t}_spec_k8", "q3_30b", "spec", k=8),
+            P(f"{t}_mideagle_alone", "q3_30b+eagle", "draft_alone"),
+            P(f"{t}_mideagle_specplus", "q3_30b+eagle", "spec", **PLUS)]
+    rest = [p["name"] for p in same + more if p["mode"] in ("spec", "big_alone")]
+    return new + same + more + [P(f"{t}_margins_more", None, "margins", base=f"{t}_big_alone", runs=rest)]
 
 
 JOBS = {
@@ -118,6 +140,11 @@ JOBS = {
                 "plans": phase_a("a235", "q3_30b", "q3_4b", "q3_30b+4b", ["eagle_q3_235b", "ngram", "draft_q3_4b"],
                                  extra=[P("a235_mideagle_alone", "q3_30b+eagle", "draft_alone"),
                                         P("a235_mideagle_specplus", "q3_30b+eagle", "spec", **PLUS)])},
+    # Account C: the rest of the 235B runs. Account B's credits ran out during qa_235b (its numbers are kept as
+    # measured there). Own baseline first (every comparison stays inside one account and one box), then the runs
+    # account B never reached, then (time allows) repeats of what account B measured. Same GPU type first (4 H100).
+    "qb_235b": {"app": "chimera-spec-qb-235b", "big": "q3_235b", "gpu": "H100:4", "gpu_fallback": ["H200:2"],
+                "tok": "q3_235b", "plans": resume_235("b235")},
     "qa_480b": {"app": "chimera-spec-qa-480b", "big": "q3c_480b", "gpu": "H200:4", "gpu_fallback": ["H100:8"],
                 "tok": "q3c_480b", "subset": "code",
                 "plans": phase_a("c480", "q3_30b", "q3_4b", "q3_30b+4b", ["eagle_q3c_480b", "ngram", "draft_q3_4b"],
