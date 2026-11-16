@@ -24,7 +24,7 @@ def _long(m: re.Match) -> str:
     return "[KEY]" if re.search(r"\d", s) and re.search(r"[A-Za-z]", s) else s
 
 
-_CARD = re.compile(r"\b(?:\d[ -]?){13,16}\b")
+_CARD = re.compile(r"(?<!\d)(?:\d[ -]?){13,16}(?!\d)")  # lookarounds, not \b: a card glued to "_" or a letter is still caught
 
 
 def _card(m: re.Match) -> str:
