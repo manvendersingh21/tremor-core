@@ -20,9 +20,9 @@
     // fb: the painted dolly used while a clip is not made yet: [zoom, focus x, focus y] at the start and the end
     { id: 'a-approach', secs: 1.5, where: 'Before the iron gates', key: 'art/gate.webp', fb: [[1, 0.5, 0.62], [1.7, 0.5, 0.7]], say: 'Good evening. Hold W to walk up to the gates.' },
     { id: 'b-gates', secs: 0.8, win: [0, 2.4], where: 'Through the iron gates', key: 'game/clips/a-approach-last.jpg', fb: [[1, 0.5, 0.55], [2.4, 0.5, 0.5]], lock: 'gates', gate: true, say: 'The gates know me. Keep walking.' },
-    { id: 'c-drive', secs: 0.75, clip: false, where: 'The lantern drive', key: 'art/drive.webp', fb: [[1, 0.5, 0.56], [3.3, 0.5, 0.485]], say: 'Follow the lanterns. The door is at the top.' },
+    { id: 'c-drive', secs: 0.7, clip: false, where: 'The lantern drive', key: 'art/drive.webp', fb: [[1, 0.5, 0.56], [3.3, 0.5, 0.485]], say: 'Follow the lanterns. The door is at the top.' },
     { id: 'd-door', secs: 0.5, clip: false, where: 'The great door', key: 'art/drive.webp', fb: [[3.3, 0.5, 0.485], [3.3, 0.5, 0.485]], lock: 'door', rig: true, say: 'The door opens for you. Step inside.' },
-    { id: 'e-hall', secs: 0.7, clip: false, where: 'The Great Hall', key: 'art/hall-grand-1.webp', fb: [[1, 0.5, 0.6], [1.08, 0.5, 0.62]], say: 'Every door is a room. Pick one with A and D, then press E.' },
+    { id: 'e-hall', secs: 0.4, clip: false, where: 'The Great Hall', key: 'art/hall-grand-1.webp', fb: [[1, 0.5, 0.6], [1.08, 0.5, 0.62]], say: 'Every door is a room. Pick one with A and D, then press E.' },
   ];
   const LOCK_AT = { gates: 'Open the iron gates', door: 'Open the great door' };
 
@@ -38,12 +38,12 @@
       <canvas id="m-fx" aria-hidden="true"></canvas>
       <div class="m-doors" id="m-doors" hidden></div>
       <aside class="m-board" id="m-board" hidden aria-label="Savings board"></aside>
-      <div class="m-bar"><span id="m-where"></span><span id="m-fps" class="m-fps"></span>
-        <button class="m-btn" id="m-mapbtn" type="button">Map (M)</button><button class="m-btn" id="m-talkbtn" type="button">Talk to the Count (T)</button></div>
+      <div class="m-bar"><span id="m-mode" class="mode-badge" role="status">…</span><span id="m-where"></span><span id="m-fps" class="m-fps"></span>
+        <button class="m-btn m-gold" id="m-tourbtn" type="button">Tour (T)</button><button class="m-btn" id="m-mapbtn" type="button">Map (M)</button><button class="m-btn" id="m-talkbtn" type="button">Talk to the Count (C)</button></div>
       <div class="m-prompt" id="m-prompt"></div>
-      <div class="m-say" id="m-say"><b>Count Cuspid</b><span id="m-saytext"></span><small>Press <kbd>T</kbd> to talk to me</small></div>
+      <div class="m-say" id="m-say"><b>Count Cuspid</b><span id="m-saytext"></span><small>Press <kbd>C</kbd> to talk to me · <kbd>T</kbd> for a tour</small></div>
       <canvas id="m-mini" width="180" height="130" aria-hidden="true"></canvas>
-      <div class="m-help"><kbd>W</kbd> walk · <kbd>S</kbd> back · <kbd>Shift</kbd> run · <kbd>A</kbd><kbd>D</kbd>/mouse look · <kbd>E</kbd> open · <kbd>T</kbd> talk · <kbd>M</kbd> map · <kbd>Esc</kbd> leave</div>
+      <div class="m-help"><kbd>W</kbd> walk · <kbd>S</kbd> back · <kbd>Shift</kbd> run · <kbd>A</kbd><kbd>D</kbd>/mouse look · <kbd>E</kbd> open · <kbd>T</kbd> tour · <kbd>C</kbd> talk · <kbd>M</kbd> map · <kbd>Esc</kbd> leave</div>
       <div class="m-joy" id="m-joy"><i></i></div><button class="m-act" id="m-act" type="button" aria-label="Open">E</button>
       <section class="m-panel" id="m-panel" role="dialog" aria-modal="true" aria-labelledby="m-ptitle" hidden>
         <div class="m-ph"><h2 id="m-ptitle"></h2><button class="m-btn" id="m-pclose" type="button">Leave (Esc)</button></div>
@@ -155,13 +155,16 @@
     function board(on) {
       const b = $('m-board'); b.hidden = !on; clearInterval(boardTimer); if (!on) return;
       const n = (v) => Number(v || 0).toLocaleString('en-US');
+      const REPO = 'https://github.com/manvendersingh21/tremor-core/blob/dev/';
       const paint = async () => {
         try {
-          const [st, rs] = await Promise.all([fetch('/api/stats', { cache: 'no-store' }).then((r) => r.json()), fetch(`${site}results.json`).then((r) => r.json())]);
-          const g = st.global || {};
-          b.innerHTML = `<h3>Savings board</h3><dl><dt>Tokens kept off the big model</dt><dd>${n(g.tokens_kept_off_big)}</dd><dt>Dollars saved</dt><dd>$${Number(g.dollars_saved || 0).toFixed(4)}</dd><dt>Calls, cache hit rate</dt><dd>${n(g.calls)}, ${Math.round((g.hit_rate || 0) * 100)}%</dd></dl>` +
-            `<p>Best measured: ${esc(rs.headlines.repeat_tokens_off)} fewer 763B tokens on a repeat question <a href="https://github.com/manvendersingh21/tremor-core/blob/dev/bench/results_backend.md" target="_blank" rel="noopener">bench/results_backend.md</a></p>`;
-        } catch (e) { b.innerHTML = '<h3>Savings board</h3><p>Could not read /api/stats.</p>'; }
+          const M = window.ChimeraMode, demo = !M || (await M.detect()) === 'demo';
+          const [st, rs] = await Promise.all([M ? M.stats() : fetch('/api/stats', { cache: 'no-store' }).then((r) => r.json()), fetch(`${site}results.json`).then((r) => r.json())]);
+          const g = st.global && st.global.calls ? st.global : st.session || {};
+          const from = demo || st.source ? `Saved run: <a href="${REPO}bench/results_backend.csv" target="_blank" rel="noopener">${esc(st.source || 'bench/results_backend.csv')}</a>` : 'Live: every call on this machine (/api/stats)';
+          b.innerHTML = `<h3>Savings board</h3><dl><dt>Tokens kept off the big model</dt><dd class="m-big">${n(g.tokens_kept_off_big)}</dd><dt>Dollars saved</dt><dd>$${Number(g.dollars_saved || 0).toFixed(4)} <small>(spent $${Number(g.dollars_spent || 0).toFixed(4)})</small></dd><dt>Calls, cache hit rate</dt><dd>${n(g.calls)}, ${Math.round((g.hit_rate || 0) * 100)}%</dd></dl>` +
+            `<p class="m-from">${from}</p><p>Best measured: ${esc(rs.headlines.repeat_tokens_off)} fewer 763B tokens on a repeat question <a href="${REPO}bench/results_backend.md" target="_blank" rel="noopener">bench/results_backend.md</a></p>`;
+        } catch (e) { if (!b.querySelector('dl')) b.innerHTML = '<h3>Savings board</h3><p>The numbers could not be read. The rooms still show every saved result.</p>'; }
       };
       paint(); boardTimer = setInterval(paint, 5000);
     }
@@ -172,12 +175,12 @@
     async function openRoom(d) {
       if (!d || S.panel) return;
       leaveHall(); creak();
-      const clip = `${site}game/clips/room-${d.id}.mp4`;
-      let ok = false; try { ok = (await fetch(clip, { method: 'HEAD' })).ok; } catch (e) { ok = false; }
+      const clip = `${site}game/clips/room-${d.id}.mp4`, info = ROOMS.find((r) => r.id === d.id) || {};
+      let ok = false; if (info.clip !== false) { try { ok = (await fetch(clip, { method: 'HEAD' })).ok; } catch (e) { ok = false; } }   // clip:false = no door clip made, do not ask
       const v = vidFor(active + 1);
       if (ok) {
         v.src = clip; v.load(); vids.forEach((x) => x.classList.remove('on')); still.classList.remove('on'); v.classList.add('on');
-        v.playbackRate = 1; await v.play().catch(() => {});
+        v.playbackRate = S.tour ? 2.5 : 1; await v.play().catch(() => {});   // the guided tour plays door clips fast
         await new Promise((r) => { v.onended = r; setTimeout(r, 9000); });
       } else { fade(); still.src = `${site}art/${d.art}.webp`; still.classList.add('on'); vids.forEach((x) => x.classList.remove('on')); }
       S.room = d;
@@ -237,7 +240,8 @@
       if (k === 'escape') { if (S.map) closeMap(); else if (S.panel) closePanel(); else if (S.hall) { leaveHall(); } return; }
       if (typing(e.target) || S.panel || S.map) return;
       if (k === 'm') { openMap(); return; }
-      if (k === 't') { e.preventDefault(); talk(); return; }
+      if (k === 'c') { e.preventDefault(); talk(); return; }
+      if (k === 't') { e.preventDefault(); if (window.CastleTour) window.CastleTour.toggle(); return; }
       if ((k === 'e' || k === 'enter') && !e.repeat && !(k === 'enter' && /^(BUTTON|A)$/.test(e.target.tagName))) { e.preventDefault(); use(); return; }
       if (S.hall && (k === 'a' || k === 'arrowleft' || k === 'd' || k === 'arrowright') && !e.repeat) { S.door = (S.door + (k === 'a' || k === 'arrowleft' ? -1 : 1) + doors.length) % doors.length; markDoor(); e.preventDefault(); return; }
       if (S.hall && (k === 's' || k === 'arrowdown')) leaveHall();
@@ -366,13 +370,15 @@
       const pr = $('m-prompt'), l = !S.panel && !S.map && !S.hall && !S.walking && pendingLock();
       if (l) { pr.innerHTML = `<kbd>E</kbd> ${LOCK_AT[l]}`; pr.classList.add('on'); }
       else if (S.hall && !S.panel) { pr.innerHTML = `<kbd>A</kbd><kbd>D</kbd> choose a door · <kbd>E</kbd> enter ${esc(doors[S.door] ? doors[S.door].title : '')}`; pr.classList.add('on'); }
-      else if (!S.panel && !S.map && !S.walking && S.seg === 0 && S.t < 0.1) { pr.innerHTML = 'Hold <kbd>W</kbd> to walk to the castle'; pr.classList.add('on'); }
+      else if (!S.panel && !S.map && !S.walking && S.seg === 0 && S.t < 0.1) { pr.innerHTML = matchMedia('(pointer: coarse)').matches ? 'Push the stick up to walk to the castle' : 'Hold <kbd>W</kbd> to walk to the castle'; pr.classList.add('on'); }
       else pr.classList.remove('on');
       fN++; fT += dt; if (fT >= 1) { S.fps.push(fN / fT); if (S.fps.length > 120) S.fps.shift(); $('m-fps').textContent = Math.round(fN / fT) + ' fps'; fN = 0; fT = 0; }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
-    const api = { state: S, have, segs: SEGS, use, talk, openMap, jump, enterHall, closePanel, fps: () => S.fps.slice() };
+    if (window.ChimeraMode) window.ChimeraMode.badge($('m-mode')); else $('m-mode').remove();
+    $('m-tourbtn').addEventListener('click', () => { if (window.CastleTour) window.CastleTour.toggle(); });
+    const api = { state: S, have, segs: SEGS, doors, use, talk, openMap, jump, enterHall, closePanel, openRoom, say, fps: () => S.fps.slice() };
     window.MovieGame = api;
     return api;
   }

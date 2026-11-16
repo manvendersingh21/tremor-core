@@ -100,3 +100,32 @@
 /* dashboard blocks borrowed from #dash-store keep their own .dash styles */
 .w-dash { padding: .6rem 1rem 1.2rem; }
 .w-pb .w-dash .dash { display: block; }
+/* demo mode and the cache test (chat.js) */
+.c-form { flex-wrap: wrap; }
+.c-twice { border-color: #e9c46a; }
+.c-twice:disabled, #c-send:disabled { opacity: .55; cursor: wait; }
+.c-mock { font-size: .85rem; line-height: 1.4; background: #2a1a08cc; border: 1px solid #e9c46a66; border-radius: 8px; padding: .45rem .7rem; }
+.c-chips { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; font: 600 .85rem Inter, sans-serif; color: #f4d58d; }
+.c-chips[hidden] { display: none; }
+.c-chip-q { font: 500 .9rem Inter, sans-serif; color: #f1e6da; background: #2a0f2f; border: 1px solid #8f5aa8; border-radius: 999px; padding: .3rem .7rem; cursor: pointer; }
+.c-chip-q:hover, .c-chip-q:focus-visible { border-color: #e9c46a; outline: 2px solid #e9c46a; outline-offset: 1px; }
+.c-tag.c-demo, .c-demo { color: #e9c46a; font: 600 .8rem Inter, sans-serif; }
+.c-cmp { white-space: normal; }
+.c-cmpt { border-collapse: collapse; margin: .4rem 0; font: 500 .9rem Inter, sans-serif; }
+.c-cmpt th, .c-cmpt td { text-align: left; padding: .2rem .6rem .2rem 0; border-bottom: 1px solid #5b2a6a; }
+.c-win { color: #8fd3a8; font-weight: 600; }
+.c-lose { color: #ff8f86; font-weight: 600; }
+/* round 1 fixes: compact demo note, one row of saved questions, a wide cache-test card */
+.c-wrap { grid-template-columns: minmax(320px, 1.2fr) minmax(320px, 1fr); }
+.c-mock { margin: 0; }
+.c-mock a { color: #f4d58d; }
+.c-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: .2rem; scrollbar-width: thin; }
+.c-chip-q { white-space: nowrap; flex: none; }
+.c-msg.c-cmp { max-width: 100%; align-self: stretch; }
+.c-cmpt td, .c-cmpt th { white-space: nowrap; }
+.c-cmp p { margin: .35rem 0 0; }
+@media (max-width: 600px) {
+  .c-mon, .c-mock, .c-chip-q, .c-tag, .c-demo, .c-trace, .c-cmpt, .c-trace h4, .w-btn { font-size: 14px !important; }
+  .c-msg { font-size: 15px; }
+  .c-cmpt td, .c-cmpt th { white-space: normal; }
+}

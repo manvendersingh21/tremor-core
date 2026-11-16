@@ -1,5 +1,7 @@
 name: pages
 on:
+  push:
+    branches: [dev]
   workflow_dispatch:
 permissions:
   contents: read

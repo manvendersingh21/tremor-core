@@ -1,0 +1,3025 @@
+{
+ "built_from": [
+  "bench/results_backend.csv",
+  "bench/results_backend.md",
+  "bench/results_company_cost.md",
+  "bench/results_bank.csv",
+  "bench/results_bank.md",
+  "bench/results_spec_modal.md",
+  "bench/results_memory.md",
+  "docs/vector-store.md",
+  "bench/raw.json",
+  "bench/prompts.jsonl",
+  ".kiro/",
+  "powers/chimera/",
+  "tests/test_props_*.py"
+ ],
+ "stats": {
+  "global": {
+   "calls": 120,
+   "calls_today": 120,
+   "tokens": 15179,
+   "tokens_today": 15179,
+   "cache_hits": {
+    "exact": 0,
+    "local": 0,
+    "shared": 62
+   },
+   "hit_rate": 0.5167,
+   "cache": {
+    "all_time": {
+     "exact": 58,
+     "cosine": 4,
+     "false_hits": 0
+    },
+    "today": {
+     "exact": 58,
+     "cosine": 4,
+     "false_hits": 0
+    }
+   },
+   "gpu_calls_avoided": 62,
+   "big_calls_avoided": 75,
+   "dollars_saved": 0.01037128,
+   "dollars_spent": 0.01136542,
+   "tokens_kept_off_big": 13763,
+   "false_hits": 0,
+   "by_tier": {
+    "gpu": 13,
+    "top": 45,
+    "exact_cache": 58,
+    "semantic_cache": 4
+   },
+   "by_task": {
+    "easy": {
+     "calls": 20,
+     "tokens": 1718,
+     "cache_hits": 10,
+     "tokens_saved": 1500,
+     "dollars_saved": 0.00120577
+    },
+    "repeat": {
+     "calls": 6,
+     "tokens": 0,
+     "cache_hits": 6,
+     "tokens_saved": 936,
+     "dollars_saved": 0.00069732
+    },
+    "paraphrase": {
+     "calls": 10,
+     "tokens": 714,
+     "cache_hits": 7,
+     "tokens_saved": 664,
+     "dollars_saved": 0.00049195
+    },
+    "code_small": {
+     "calls": 12,
+     "tokens": 890,
+     "cache_hits": 6,
+     "tokens_saved": 1306,
+     "dollars_saved": 0.0010394
+    },
+    "code_heavy": {
+     "calls": 12,
+     "tokens": 4932,
+     "cache_hits": 6,
+     "tokens_saved": 3919,
+     "dollars_saved": 0.00292193
+    },
+    "mmlu": {
+     "calls": 20,
+     "tokens": 829,
+     "cache_hits": 10,
+     "tokens_saved": 949,
+     "dollars_saved": 0.00067288
+    },
+    "gsm8k": {
+     "calls": 20,
+     "tokens": 3263,
+     "cache_hits": 10,
+     "tokens_saved": 2716,
+     "dollars_saved": 0.00202524
+    },
+    "humaneval": {
+     "calls": 10,
+     "tokens": 1108,
+     "cache_hits": 5,
+     "tokens_saved": 1027,
+     "dollars_saved": 0.00076648
+    },
+    "mbpp": {
+     "calls": 10,
+     "tokens": 1725,
+     "cache_hits": 2,
+     "tokens_saved": 746,
+     "dollars_saved": 0.00055031
+    }
+   },
+   "series": {
+    "daily": [
+     {
+      "t": "COLD pass",
+      "calls": 60,
+      "hits": 5,
+      "tokens": 14665,
+      "tokens_saved": 1546,
+      "dollars_saved": 0.00126552,
+      "dollars_spent": 0.01113499
+     },
+     {
+      "t": "WARM pass",
+      "calls": 60,
+      "hits": 57,
+      "tokens": 514,
+      "tokens_saved": 12217,
+      "dollars_saved": 0.00910576,
+      "dollars_spent": 0.00023043
+     }
+    ],
+    "hourly": [
+     {
+      "t": "COLD pass",
+      "calls": 60,
+      "hits": 5,
+      "tokens": 14665,
+      "tokens_saved": 1546,
+      "dollars_saved": 0.00126552,
+      "dollars_spent": 0.01113499
+     },
+     {
+      "t": "WARM pass",
+      "calls": 60,
+      "hits": 57,
+      "tokens": 514,
+      "tokens_saved": 12217,
+      "dollars_saved": 0.00910576,
+      "dollars_spent": 0.00023043
+     }
+    ]
+   }
+  },
+  "session": {
+   "calls": 120,
+   "calls_today": 120,
+   "tokens": 15179,
+   "tokens_today": 15179,
+   "cache_hits": {
+    "exact": 0,
+    "local": 0,
+    "shared": 62
+   },
+   "hit_rate": 0.5167,
+   "cache": {
+    "all_time": {
+     "exact": 58,
+     "cosine": 4,
+     "false_hits": 0
+    },
+    "today": {
+     "exact": 58,
+     "cosine": 4,
+     "false_hits": 0
+    }
+   },
+   "gpu_calls_avoided": 62,
+   "big_calls_avoided": 75,
+   "dollars_saved": 0.01037128,
+   "dollars_spent": 0.01136542,
+   "tokens_kept_off_big": 13763,
+   "false_hits": 0,
+   "by_tier": {
+    "gpu": 13,
+    "top": 45,
+    "exact_cache": 58,
+    "semantic_cache": 4
+   },
+   "by_task": {
+    "easy": {
+     "calls": 20,
+     "tokens": 1718,
+     "cache_hits": 10,
+     "tokens_saved": 1500,
+     "dollars_saved": 0.00120577
+    },
+    "repeat": {
+     "calls": 6,
+     "tokens": 0,
+     "cache_hits": 6,
+     "tokens_saved": 936,
+     "dollars_saved": 0.00069732
+    },
+    "paraphrase": {
+     "calls": 10,
+     "tokens": 714,
+     "cache_hits": 7,
+     "tokens_saved": 664,
+     "dollars_saved": 0.00049195
+    },
+    "code_small": {
+     "calls": 12,
+     "tokens": 890,
+     "cache_hits": 6,
+     "tokens_saved": 1306,
+     "dollars_saved": 0.0010394
+    },
+    "code_heavy": {
+     "calls": 12,
+     "tokens": 4932,
+     "cache_hits": 6,
+     "tokens_saved": 3919,
+     "dollars_saved": 0.00292193
+    },
+    "mmlu": {
+     "calls": 20,
+     "tokens": 829,
+     "cache_hits": 10,
+     "tokens_saved": 949,
+     "dollars_saved": 0.00067288
+    },
+    "gsm8k": {
+     "calls": 20,
+     "tokens": 3263,
+     "cache_hits": 10,
+     "tokens_saved": 2716,
+     "dollars_saved": 0.00202524
+    },
+    "humaneval": {
+     "calls": 10,
+     "tokens": 1108,
+     "cache_hits": 5,
+     "tokens_saved": 1027,
+     "dollars_saved": 0.00076648
+    },
+    "mbpp": {
+     "calls": 10,
+     "tokens": 1725,
+     "cache_hits": 2,
+     "tokens_saved": 746,
+     "dollars_saved": 0.00055031
+    }
+   },
+   "series": {
+    "daily": [
+     {
+      "t": "COLD pass",
+      "calls": 60,
+      "hits": 5,
+      "tokens": 14665,
+      "tokens_saved": 1546,
+      "dollars_saved": 0.00126552,
+      "dollars_spent": 0.01113499
+     },
+     {
+      "t": "WARM pass",
+      "calls": 60,
+      "hits": 57,
+      "tokens": 514,
+      "tokens_saved": 12217,
+      "dollars_saved": 0.00910576,
+      "dollars_spent": 0.00023043
+     }
+    ],
+    "hourly": [
+     {
+      "t": "COLD pass",
+      "calls": 60,
+      "hits": 5,
+      "tokens": 14665,
+      "tokens_saved": 1546,
+      "dollars_saved": 0.00126552,
+      "dollars_spent": 0.01113499
+     },
+     {
+      "t": "WARM pass",
+      "calls": 60,
+      "hits": 57,
+      "tokens": 514,
+      "tokens_saved": 12217,
+      "dollars_saved": 0.00910576,
+      "dollars_spent": 0.00023043
+     }
+    ]
+   }
+  },
+  "recent": [
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Design and implement a small plugin architecture for a Python CLI tool: plugins ",
+    "task": "code_heavy",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 139.1,
+    "dollars": 0.0,
+    "dollars_saved": 0.0006183499999999999,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 131.3,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.0006183499999999999,
+      "ms": 139.1,
+      "tokens_kept_off_big": 830,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Optimize this code, which runs one SQL query per order (the N+1 problem), and re",
+    "task": "code_heavy",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 143.6,
+    "dollars": 0.0,
+    "dollars_saved": 0.00049141,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 139.32,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00049141,
+      "ms": 143.6,
+      "tokens_kept_off_big": 659,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Migrate this callback-style code to asyncio async/await and redesign the error h",
+    "task": "code_heavy",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 121.7,
+    "dollars": 0.0,
+    "dollars_saved": 0.00042286999999999994,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 118.47,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00042286999999999994,
+      "ms": 121.7,
+      "tokens_kept_off_big": 567,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Debug this concurrency problem: the counter sometimes ends below 4000. Explain t",
+    "task": "code_heavy",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 118.6,
+    "dollars": 0.0,
+    "dollars_saved": 0.00031707999999999997,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 111.37,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00031707999999999997,
+      "ms": 118.6,
+      "tokens_kept_off_big": 425,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Design the architecture for a rate limiter shared by 20 API servers (per-user li",
+    "task": "code_heavy",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 179.0,
+    "dollars": 0.0,
+    "dollars_saved": 0.0006150799999999998,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 172.02,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.0006150799999999998,
+      "ms": 179.0,
+      "tokens_kept_off_big": 825,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Refactor and redesign this code to remove the duplication and make it easy to ad",
+    "task": "code_heavy",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 145.9,
+    "dollars": 0.0,
+    "dollars_saved": 0.00045714,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 139.82,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00045714,
+      "ms": 145.9,
+      "tokens_kept_off_big": 613,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Write a Python function `roman_to_int(s)` that converts a Roman numeral string (",
+    "task": "code_small",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 139.0,
+    "dollars": 0.0,
+    "dollars_saved": 9.685e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 134.33,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 9.685e-05,
+      "ms": 139.0,
+      "tokens_kept_off_big": 130,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Write a Python function `merge_intervals(intervals)` that takes a list of [start",
+    "task": "code_small",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 102.7,
+    "dollars": 0.0,
+    "dollars_saved": 0.00016091999999999997,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 97.3,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00016091999999999997,
+      "ms": 102.7,
+      "tokens_kept_off_big": 216,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Write a Python function `word_count(text)` that returns a dict mapping each lowe",
+    "task": "code_small",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 145.2,
+    "dollars": 0.0,
+    "dollars_saved": 0.00011025999999999999,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 140.13,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00011025999999999999,
+      "ms": 145.2,
+      "tokens_kept_off_big": 148,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Write a Python function `flatten(items)` that flattens an arbitrarily nested lis",
+    "task": "code_small",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 157.5,
+    "dollars": 0.0,
+    "dollars_saved": 9.805e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 144.67,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 9.805e-05,
+      "ms": 157.5,
+      "tokens_kept_off_big": 131,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Write a Python function `fizzbuzz(n)` that returns a list of strings for 1..n: '",
+    "task": "code_small",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 147.0,
+    "dollars": 0.0,
+    "dollars_saved": 8.045999999999999e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 143.38,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 8.045999999999999e-05,
+      "ms": 147.0,
+      "tokens_kept_off_big": 108,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Write a Python function `is_palindrome(s)` that returns True if the string is a ",
+    "task": "code_small",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 138.3,
+    "dollars": 0.0,
+    "dollars_saved": 8.612999999999999e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 133.43,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 8.612999999999999e-05,
+      "ms": 138.3,
+      "tokens_kept_off_big": 115,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Which planet is the biggest one in our solar system?",
+    "task": "paraphrase",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 160.8,
+    "dollars": 0.0,
+    "dollars_saved": 3.873999999999999e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 154.62,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 3.873999999999999e-05,
+      "ms": 160.8,
+      "tokens_kept_off_big": 52,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "What does a 404 status code in HTTP signify?",
+    "task": "paraphrase",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 139.6,
+    "dollars": 0.0,
+    "dollars_saved": 0.00029651,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 134.14,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00029651,
+      "ms": 139.6,
+      "tokens_kept_off_big": 398,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "How many days does a leap year have?",
+    "task": "paraphrase",
+    "tier": "semantic_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 0.9834,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 114.6,
+    "dollars": 0.0,
+    "dollars_saved": 5.1859999999999995e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "semantic",
+      "score": 0.9834,
+      "guard": "pass",
+      "ms": 108.81,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "semantic_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 5.1859999999999995e-05,
+      "ms": 114.6,
+      "tokens_kept_off_big": 69,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "What is the chemical symbol of gold?",
+    "task": "paraphrase",
+    "tier": "semantic_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 0.9949,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 116.0,
+    "dollars": 0.0,
+    "dollars_saved": 1.3409999999999999e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "semantic",
+      "score": 0.9949,
+      "guard": "pass",
+      "ms": 111.61,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "semantic_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 1.3409999999999999e-05,
+      "ms": 116.0,
+      "tokens_kept_off_big": 18,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "Which city is the capital of France?",
+    "task": "paraphrase",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 117.7,
+    "dollars": 0.0,
+    "dollars_saved": 1.192e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 111.53,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 1.192e-05,
+      "ms": 117.7,
+      "tokens_kept_off_big": 16,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "What is the largest planet in our solar system?",
+    "task": "repeat",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 128.3,
+    "dollars": 0.0,
+    "dollars_saved": 6.853999999999999e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 121.58,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 6.853999999999999e-05,
+      "ms": 128.3,
+      "tokens_kept_off_big": 92,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "What does HTTP status code 404 mean?",
+    "task": "repeat",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 133.0,
+    "dollars": 0.0,
+    "dollars_saved": 0.00026968999999999995,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 125.66,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 0.00026968999999999995,
+      "ms": 133.0,
+      "tokens_kept_off_big": 362,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   },
+   {
+    "ts": null,
+    "pass": "WARM",
+    "prompt": "What is the capital of France?",
+    "task": "repeat",
+    "tier": "exact_cache",
+    "model": null,
+    "cache": "shared",
+    "score": 1.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "ms": 122.7,
+    "dollars": 0.0,
+    "dollars_saved": 1.043e-05,
+    "steps": [
+     {
+      "hit": true,
+      "status": "ok",
+      "threshold": 0.97,
+      "kind": "exact",
+      "score": 1.0,
+      "guard": null,
+      "ms": 117.71,
+      "step": "cache_shared"
+     },
+     {
+      "tier": "exact_cache",
+      "model": null,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "cached_tokens": 0,
+      "dollars": 0.0,
+      "dollars_saved": 1.043e-05,
+      "ms": 122.7,
+      "tokens_kept_off_big": 14,
+      "cache": "shared",
+      "step": "final"
+     }
+    ]
+   }
+  ],
+  "events": [
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 23,
+    "dollars_saved": 1.395e-05,
+    "latency_ms": 36810.9
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 27,
+    "dollars_saved": 1.784e-05,
+    "latency_ms": 43086.7
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 86,
+    "dollars_saved": 8.772999999999999e-05,
+    "latency_ms": 28892.8
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 36,
+    "dollars_saved": 2.6819999999999997e-05,
+    "latency_ms": 38618.5
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 27478.7
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 123,
+    "dollars_saved": 0.00013121999999999998,
+    "latency_ms": 49580.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 51499.9
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 38916.4
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 105,
+    "dollars_saved": 0.00010961999999999998,
+    "latency_ms": 31975.3
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 27,
+    "dollars_saved": 1.784e-05,
+    "latency_ms": 78046.6
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 14,
+    "dollars_saved": 1.043e-05,
+    "latency_ms": 113.9
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 362,
+    "dollars_saved": 0.00026968999999999995,
+    "latency_ms": 123.5
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 92,
+    "dollars_saved": 6.853999999999999e-05,
+    "latency_ms": 236.0
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 24,
+    "dollars_saved": 1.424e-05,
+    "latency_ms": 47219.2
+   },
+   {
+    "tier_used": "semantic_cache",
+    "tokens_saved": 18,
+    "dollars_saved": 1.3409999999999999e-05,
+    "latency_ms": 352.1
+   },
+   {
+    "tier_used": "semantic_cache",
+    "tokens_saved": 69,
+    "dollars_saved": 5.1859999999999995e-05,
+    "latency_ms": 124.5
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 50150.7
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 64726.8
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 109,
+    "dollars_saved": 8.803e-05,
+    "latency_ms": 54149.0
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91872.7
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91792.9
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 146,
+    "dollars_saved": 0.00012514999999999998,
+    "latency_ms": 89800.9
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 203,
+    "dollars_saved": 0.00019355,
+    "latency_ms": 42396.5
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91576.6
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 2340.3
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 80132.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1987.2
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 2439.3
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 3017.9
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 93676.6
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 82,
+    "dollars_saved": 2.5600000000000002e-05,
+    "latency_ms": 70861.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91595.8
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91531.9
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91655.2
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 741.5
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 756.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 787.6
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 631.7
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 671.0
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 649.6
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1422.6
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1520.9
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1570.8
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1266.4
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1208.7
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1094.3
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1134.0
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1976.7
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1699.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1457.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1117.9
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 989.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1421.4
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 877.8
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 1061.4
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 881.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 867.2
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 2490.2
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 964.5
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91462.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 14,
+    "dollars_saved": 1.043e-05,
+    "latency_ms": 105.8
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 18,
+    "dollars_saved": 1.3409999999999999e-05,
+    "latency_ms": 131.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 68,
+    "dollars_saved": 5.0660000000000006e-05,
+    "latency_ms": 141.6
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 24,
+    "dollars_saved": 1.7879999999999998e-05,
+    "latency_ms": 240.4
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 362,
+    "dollars_saved": 0.00026968999999999995,
+    "latency_ms": 142.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 73,
+    "dollars_saved": 5.484e-05,
+    "latency_ms": 147.4
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 353,
+    "dollars_saved": 0.00026344,
+    "latency_ms": 160.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 49,
+    "dollars_saved": 3.696e-05,
+    "latency_ms": 109.6
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 92,
+    "dollars_saved": 6.853999999999999e-05,
+    "latency_ms": 161.5
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 20,
+    "dollars_saved": 1.49e-05,
+    "latency_ms": 138.8
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 14,
+    "dollars_saved": 1.043e-05,
+    "latency_ms": 122.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 362,
+    "dollars_saved": 0.00026968999999999995,
+    "latency_ms": 133.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 92,
+    "dollars_saved": 6.853999999999999e-05,
+    "latency_ms": 128.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 16,
+    "dollars_saved": 1.192e-05,
+    "latency_ms": 117.7
+   },
+   {
+    "tier_used": "semantic_cache",
+    "tokens_saved": 18,
+    "dollars_saved": 1.3409999999999999e-05,
+    "latency_ms": 116.0
+   },
+   {
+    "tier_used": "semantic_cache",
+    "tokens_saved": 69,
+    "dollars_saved": 5.1859999999999995e-05,
+    "latency_ms": 114.6
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 398,
+    "dollars_saved": 0.00029651,
+    "latency_ms": 139.6
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 52,
+    "dollars_saved": 3.873999999999999e-05,
+    "latency_ms": 160.8
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 115,
+    "dollars_saved": 8.612999999999999e-05,
+    "latency_ms": 138.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 108,
+    "dollars_saved": 8.045999999999999e-05,
+    "latency_ms": 147.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 131,
+    "dollars_saved": 9.805e-05,
+    "latency_ms": 157.5
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 148,
+    "dollars_saved": 0.00011025999999999999,
+    "latency_ms": 145.2
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 216,
+    "dollars_saved": 0.00016091999999999997,
+    "latency_ms": 102.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 130,
+    "dollars_saved": 9.685e-05,
+    "latency_ms": 139.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 613,
+    "dollars_saved": 0.00045714,
+    "latency_ms": 145.9
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 825,
+    "dollars_saved": 0.0006150799999999998,
+    "latency_ms": 179.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 425,
+    "dollars_saved": 0.00031707999999999997,
+    "latency_ms": 118.6
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 567,
+    "dollars_saved": 0.00042286999999999994,
+    "latency_ms": 121.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 659,
+    "dollars_saved": 0.00049141,
+    "latency_ms": 143.6
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 830,
+    "dollars_saved": 0.0006183499999999999,
+    "latency_ms": 139.1
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 81,
+    "dollars_saved": 6.08e-05,
+    "latency_ms": 117.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 100,
+    "dollars_saved": 7.45e-05,
+    "latency_ms": 134.1
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 84,
+    "dollars_saved": 6.258e-05,
+    "latency_ms": 120.2
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 48,
+    "dollars_saved": 3.5759999999999996e-05,
+    "latency_ms": 140.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 58,
+    "dollars_saved": 4.321e-05,
+    "latency_ms": 108.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 101,
+    "dollars_saved": 7.57e-05,
+    "latency_ms": 141.8
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 46,
+    "dollars_saved": 3.4269999999999995e-05,
+    "latency_ms": 128.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 154,
+    "dollars_saved": 0.00011473,
+    "latency_ms": 149.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 62,
+    "dollars_saved": 4.6189999999999997e-05,
+    "latency_ms": 109.2
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 133,
+    "dollars_saved": 9.954e-05,
+    "latency_ms": 152.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 281,
+    "dollars_saved": 0.00020979999999999998,
+    "latency_ms": 139.1
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 257,
+    "dollars_saved": 0.00019192,
+    "latency_ms": 163.7
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 344,
+    "dollars_saved": 0.00025627999999999995,
+    "latency_ms": 125.4
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 170,
+    "dollars_saved": 0.00012665000000000002,
+    "latency_ms": 139.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 228,
+    "dollars_saved": 0.00016985999999999998,
+    "latency_ms": 131.5
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 222,
+    "dollars_saved": 0.00016539,
+    "latency_ms": 144.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 215,
+    "dollars_saved": 0.00016062999999999999,
+    "latency_ms": 111.5
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 410,
+    "dollars_saved": 0.00030544999999999997,
+    "latency_ms": 129.9
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 265,
+    "dollars_saved": 0.00019788,
+    "latency_ms": 119.4
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 324,
+    "dollars_saved": 0.00024137999999999997,
+    "latency_ms": 132.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 157,
+    "dollars_saved": 0.00011741999999999998,
+    "latency_ms": 116.3
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 239,
+    "dollars_saved": 0.00017850999999999997,
+    "latency_ms": 107.1
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 263,
+    "dollars_saved": 0.00019639,
+    "latency_ms": 128.1
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 124,
+    "dollars_saved": 9.237999999999999e-05,
+    "latency_ms": 120.9
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 244,
+    "dollars_saved": 0.00018177999999999998,
+    "latency_ms": 143.6
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91804.1
+   },
+   {
+    "tier_used": "gpu",
+    "tokens_saved": 165,
+    "dollars_saved": 0.00011700999999999999,
+    "latency_ms": 82155.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 473,
+    "dollars_saved": 0.00035284,
+    "latency_ms": 136.1
+   },
+   {
+    "tier_used": "top",
+    "tokens_saved": 0,
+    "dollars_saved": 0,
+    "latency_ms": 91635.0
+   },
+   {
+    "tier_used": "exact_cache",
+    "tokens_saved": 108,
+    "dollars_saved": 8.045999999999999e-05,
+    "latency_ms": 138.3
+   }
+  ],
+  "source": "bench/results_backend.csv (COLD + WARM passes, 2026-11-14)"
+ },
+ "chat": {
+  "examples": [
+   {
+    "id": "e1",
+    "q": "What is the capital of France?",
+    "answer": "The capital of France is Paris.",
+    "first": [
+     [
+      "cache_shared",
+      {
+       "hit": false,
+       "status": "unavailable",
+       "threshold": 0.97,
+       "kind": null,
+       "score": null,
+       "guard": null,
+       "ms": 300.98
+      }
+     ],
+     [
+      "decide",
+      {
+       "tier": "gpu-small",
+       "reason": "the tier that answered in the saved run"
+      }
+     ],
+     [
+      "call",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "ok": true,
+       "ms": 36810.9,
+       "tokens_in": 15,
+       "tokens_out": 8
+      }
+     ],
+     [
+      "draft",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "confidence": 1.0,
+       "gate": 0.95
+      }
+     ],
+     [
+      "memory",
+      {
+       "op": "store",
+       "stored": false,
+       "tier": "gpu-small",
+       "tests_passed": null
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "tokens_in": 15,
+       "tokens_out": 8,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 1.395e-05,
+       "ms": 36810.9,
+       "tokens_kept_off_big": 23,
+       "cache": null
+      }
+     ]
+    ],
+    "repeat": [
+     [
+      "cache_shared",
+      {
+       "hit": true,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": "exact",
+       "score": 1.0,
+       "guard": null,
+       "ms": 100.62
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "exact_cache",
+       "model": null,
+       "tokens_in": 0,
+       "tokens_out": 0,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 1.043e-05,
+       "ms": 105.8,
+       "tokens_kept_off_big": 14,
+       "cache": "shared"
+      }
+     ]
+    ],
+    "base_ms": 1023.7,
+    "base_tokens": 20
+   },
+   {
+    "id": "e2",
+    "q": "What is the chemical symbol for gold?",
+    "answer": "The chemical symbol for gold is Au.",
+    "first": [
+     [
+      "cache_shared",
+      {
+       "hit": false,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": null,
+       "score": 0.1875,
+       "guard": null,
+       "ms": 104.75
+      }
+     ],
+     [
+      "decide",
+      {
+       "tier": "gpu-small",
+       "reason": "the tier that answered in the saved run"
+      }
+     ],
+     [
+      "call",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "ok": true,
+       "ms": 43086.7,
+       "tokens_in": 16,
+       "tokens_out": 11
+      }
+     ],
+     [
+      "draft",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "confidence": 1.0,
+       "gate": 0.95
+      }
+     ],
+     [
+      "memory",
+      {
+       "op": "store",
+       "stored": false,
+       "tier": "gpu-small",
+       "tests_passed": null
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "tokens_in": 16,
+       "tokens_out": 11,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 1.784e-05,
+       "ms": 43086.7,
+       "tokens_kept_off_big": 27,
+       "cache": null
+      }
+     ]
+    ],
+    "repeat": [
+     [
+      "cache_shared",
+      {
+       "hit": true,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": "exact",
+       "score": 1.0,
+       "guard": null,
+       "ms": 123.89
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "exact_cache",
+       "model": null,
+       "tokens_in": 0,
+       "tokens_out": 0,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 1.3409999999999999e-05,
+       "ms": 131.0,
+       "tokens_kept_off_big": 18,
+       "cache": "shared"
+      }
+     ]
+    ],
+    "base_ms": 531.5,
+    "base_tokens": 22
+   },
+   {
+    "id": "e3",
+    "q": "How many days are in a leap year?",
+    "answer": "A leap year has 366 days.",
+    "first": [
+     [
+      "cache_shared",
+      {
+       "hit": false,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": null,
+       "score": 0.1474,
+       "guard": null,
+       "ms": 133.23
+      }
+     ],
+     [
+      "decide",
+      {
+       "tier": "gpu-small",
+       "reason": "the tier that answered in the saved run"
+      }
+     ],
+     [
+      "call",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "ok": true,
+       "ms": 28892.8,
+       "tokens_in": 17,
+       "tokens_out": 69
+      }
+     ],
+     [
+      "draft",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "confidence": 0.9539,
+       "gate": 0.95
+      }
+     ],
+     [
+      "memory",
+      {
+       "op": "store",
+       "stored": false,
+       "tier": "gpu-small",
+       "tests_passed": null
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "tokens_in": 17,
+       "tokens_out": 69,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 8.772999999999999e-05,
+       "ms": 28892.8,
+       "tokens_kept_off_big": 86,
+       "cache": null
+      }
+     ]
+    ],
+    "repeat": [
+     [
+      "cache_shared",
+      {
+       "hit": true,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": "exact",
+       "score": 1.0,
+       "guard": null,
+       "ms": 134.32
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "exact_cache",
+       "model": null,
+       "tokens_in": 0,
+       "tokens_out": 0,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 5.0660000000000006e-05,
+       "ms": 141.6,
+       "tokens_kept_off_big": 68,
+       "cache": "shared"
+      }
+     ]
+    ],
+    "base_ms": 673.9,
+    "base_tokens": 22
+   },
+   {
+    "id": "e4",
+    "q": "Who wrote the novel Pride and Prejudice?",
+    "answer": "The novel *Pride and Prejudice* was written by Jane Austen.",
+    "first": [
+     [
+      "cache_shared",
+      {
+       "hit": false,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": null,
+       "score": 0.0688,
+       "guard": null,
+       "ms": 114.69
+      }
+     ],
+     [
+      "decide",
+      {
+       "tier": "gpu-small",
+       "reason": "the tier that answered in the saved run"
+      }
+     ],
+     [
+      "call",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "ok": true,
+       "ms": 38618.5,
+       "tokens_in": 18,
+       "tokens_out": 18
+      }
+     ],
+     [
+      "draft",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "confidence": 0.9951,
+       "gate": 0.95
+      }
+     ],
+     [
+      "memory",
+      {
+       "op": "store",
+       "stored": false,
+       "tier": "gpu-small",
+       "tests_passed": null
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "tokens_in": 18,
+       "tokens_out": 18,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 2.6819999999999997e-05,
+       "ms": 38618.5,
+       "tokens_kept_off_big": 36,
+       "cache": null
+      }
+     ]
+    ],
+    "repeat": [
+     [
+      "cache_shared",
+      {
+       "hit": true,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": "exact",
+       "score": 1.0,
+       "guard": null,
+       "ms": 233.87
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "exact_cache",
+       "model": null,
+       "tokens_in": 0,
+       "tokens_out": 0,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 1.7879999999999998e-05,
+       "ms": 240.4,
+       "tokens_kept_off_big": 24,
+       "cache": "shared"
+      }
+     ]
+    ],
+    "base_ms": 609.4,
+    "base_tokens": 35
+   },
+   {
+    "id": "e5",
+    "q": "What does HTTP status code 404 mean?",
+    "answer": "HTTP status code 404 stands for \"Not Found.\"",
+    "first": [
+     [
+      "cache_shared",
+      {
+       "hit": false,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": null,
+       "score": 0.1064,
+       "guard": null,
+       "ms": 121.09
+      }
+     ],
+     [
+      "decide",
+      {
+       "tier": "cloud-deepseek",
+       "reason": "the tier that answered in the saved run"
+      }
+     ],
+     [
+      "call",
+      {
+       "tier": "cloud-deepseek",
+       "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+       "ok": true,
+       "ms": 27478.7,
+       "tokens_in": 13,
+       "tokens_out": 336
+      }
+     ],
+     [
+      "draft",
+      {
+       "tier": "cloud-deepseek",
+       "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+       "confidence": 0.9329,
+       "gate": 0.95
+      }
+     ],
+     [
+      "memory",
+      {
+       "op": "store",
+       "stored": false,
+       "tier": "cloud-deepseek",
+       "tests_passed": null
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "cloud-deepseek",
+       "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+       "tokens_in": 13,
+       "tokens_out": 336,
+       "cached_tokens": 0,
+       "dollars": 0.00040697,
+       "dollars_saved": 0.0,
+       "ms": 27478.7,
+       "tokens_kept_off_big": 0,
+       "cache": null
+      }
+     ]
+    ],
+    "repeat": [
+     [
+      "cache_shared",
+      {
+       "hit": true,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": "exact",
+       "score": 1.0,
+       "guard": null,
+       "ms": 137.15
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "exact_cache",
+       "model": null,
+       "tokens_in": 0,
+       "tokens_out": 0,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 0.00026968999999999995,
+       "ms": 142.7,
+       "tokens_kept_off_big": 362,
+       "cache": "shared"
+      }
+     ]
+    ],
+    "base_ms": 1643.3,
+    "base_tokens": 218
+   },
+   {
+    "id": "e6",
+    "q": "Convert 100 degrees Celsius to Fahrenheit.",
+    "answer": "To convert 100 degrees Celsius to Fahrenheit, we use the standard conversion formula:",
+    "first": [
+     [
+      "cache_shared",
+      {
+       "hit": false,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": null,
+       "score": 0.1806,
+       "guard": null,
+       "ms": 110.11
+      }
+     ],
+     [
+      "decide",
+      {
+       "tier": "gpu-small",
+       "reason": "the tier that answered in the saved run"
+      }
+     ],
+     [
+      "call",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "ok": true,
+       "ms": 49580.1,
+       "tokens_in": 18,
+       "tokens_out": 105
+      }
+     ],
+     [
+      "draft",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "confidence": 0.9802,
+       "gate": 0.95
+      }
+     ],
+     [
+      "memory",
+      {
+       "op": "store",
+       "stored": false,
+       "tier": "gpu-small",
+       "tests_passed": null
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "gpu-small",
+       "model": "qwen3:30b-instruct",
+       "tokens_in": 18,
+       "tokens_out": 105,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 0.00013121999999999998,
+       "ms": 49580.1,
+       "tokens_kept_off_big": 123,
+       "cache": null
+      }
+     ]
+    ],
+    "repeat": [
+     [
+      "cache_shared",
+      {
+       "hit": true,
+       "status": "ok",
+       "threshold": 0.97,
+       "kind": "exact",
+       "score": 1.0,
+       "guard": null,
+       "ms": 143.41
+      }
+     ],
+     [
+      "final",
+      {
+       "tier": "exact_cache",
+       "model": null,
+       "tokens_in": 0,
+       "tokens_out": 0,
+       "cached_tokens": 0,
+       "dollars": 0.0,
+       "dollars_saved": 5.484e-05,
+       "ms": 147.4,
+       "tokens_kept_off_big": 73,
+       "cache": "shared"
+      }
+     ]
+    ],
+    "base_ms": 876.9,
+    "base_tokens": 95
+   }
+  ],
+  "source": "bench/results_backend.csv",
+  "answers_from": "bench/raw.json",
+  "note": "Route, time and tokens: the COLD pass (first ask) and the WARM pass (the same question again) of bench/results_backend.csv. The answer text is the saved one from the first benchmark (bench/raw.json)."
+ },
+ "cost": {
+  "file": "bench/results_company_cost.md",
+  "per_1k": [
+   {
+    "tier": "Supabase cache hit (exact or cosine 0.97)",
+    "usd_per_1k": "$0 in tokens",
+    "pass": "0 wrong in the repeats below",
+    "source": "this file"
+   },
+   {
+    "tier": "Solved-problem bank hit (served after its tests pass)",
+    "usd_per_1k": "$0 in tokens, plus one test run on CPU",
+    "pass": "0 wrong served",
+    "source": "this file, results_bank.md"
+   },
+   {
+    "tier": "30B on one H200, busy 100% of the day (concurrency 64)",
+    "usd_per_1k": "$0.070",
+    "pass": "270/301 = 90%",
+    "source": "results_cost_case_h200.md"
+   },
+   {
+    "tier": "30B on one H200, busy 50% of the day (concurrency 64)",
+    "usd_per_1k": "$0.140",
+    "pass": "270/301 = 90%",
+    "source": "results_cost_case_h200.md"
+   },
+   {
+    "tier": "30B on one H200, busy 10% of the day (concurrency 64)",
+    "usd_per_1k": "$0.700",
+    "pass": "270/301 = 90%",
+    "source": "results_cost_case_h200.md"
+   },
+   {
+    "tier": "30B on one H200, busy 1% of the day (concurrency 64)",
+    "usd_per_1k": "$6.997",
+    "pass": "270/301 = 90%",
+    "source": "results_cost_case_h200.md"
+   },
+   {
+    "tier": "30B on one H200, busy 100% (concurrency 32)",
+    "usd_per_1k": "$0.096",
+    "pass": "271/301 = 90%",
+    "source": "results_cost_case_h200.md"
+   },
+   {
+    "tier": "30B on one H200, one request at a time",
+    "usd_per_1k": "$1.089",
+    "pass": "270/301 = 90%",
+    "source": "results_cost_case_h200.md"
+   },
+   {
+    "tier": "30B on the shared V100 (Akash), one request at a time",
+    "usd_per_1k": "$11.02",
+    "pass": "269/301 = 89%",
+    "source": "results_cost_case.md"
+   },
+   {
+    "tier": "DeepSeek-V4.1-Flash 763B (Crusoe list price)",
+    "usd_per_1k": "$0.1576",
+    "pass": "286/301 = 95%",
+    "source": "results_cost_case.md"
+   },
+   {
+    "tier": "GPT-5.5 (list price)",
+    "usd_per_1k": "$4.02",
+    "pass": "60/60 = 100% (60-item subset)",
+    "source": "results_cost_case.md"
+   }
+  ],
+  "scale": {
+   "no_repeats": [
+    {
+     "calls_a_day": 100000,
+     "gpt55_only": 12060.0,
+     "cascade_gpt55": 5159.0,
+     "saved_gpt55": "$6,901 (57%)",
+     "top763_only": 473.0,
+     "cascade_763": 3362.0,
+     "saved_763": "-$2,889 (-611%)",
+     "h200s": "1 (6%)"
+    },
+    {
+     "calls_a_day": 1000000,
+     "gpt55_only": 120600.0,
+     "cascade_gpt55": 25216.0,
+     "saved_gpt55": "$95,384 (79%)",
+     "top763_only": 4728.0,
+     "cascade_763": 7246.0,
+     "saved_763": "-$2,518 (-53%)",
+     "h200s": "2 (32%)"
+    },
+    {
+     "calls_a_day": 10000000,
+     "gpt55_only": 1206000.0,
+     "cascade_gpt55": 229058.0,
+     "saved_gpt55": "$976,942 (81%)",
+     "top763_only": 47280.0,
+     "cascade_763": 49353.0,
+     "saved_763": "-$2,073 (-4%)",
+     "h200s": "13 (49%)"
+    }
+   ],
+   "repeats_30": [
+    {
+     "calls_a_day": 100000,
+     "gpt55_only": 12060.0,
+     "cascade_gpt55": 4600.0,
+     "saved_gpt55": "$7,460 (62%)",
+     "top763_only": 473.0,
+     "cascade_763": 3342.0,
+     "saved_763": "-$2,869 (-607%)",
+     "h200s": "1 (4%)"
+    },
+    {
+     "calls_a_day": 1000000,
+     "gpt55_only": 120600.0,
+     "cascade_gpt55": 16351.0,
+     "saved_gpt55": "$104,249 (86%)",
+     "top763_only": 4728.0,
+     "cascade_763": 3772.0,
+     "saved_763": "$956 (+20%)",
+     "h200s": "1 (45%)"
+    },
+    {
+     "calls_a_day": 10000000,
+     "gpt55_only": 1206000.0,
+     "cascade_gpt55": 160021.0,
+     "saved_gpt55": "$1,045,979 (87%)",
+     "top763_only": 47280.0,
+     "cascade_763": 34228.0,
+     "saved_763": "$13,052 (+28%)",
+     "h200s": "9 (50%)"
+    }
+   ]
+  },
+  "idle_h200_day": "$108.96",
+  "pass_30b": "31 of 301"
+ },
+ "cache": [
+  [
+   "First ask (COLD), hit rate",
+   "0.08 (3 exact, 2 cosine)",
+   "bench/results_backend.md"
+  ],
+  [
+   "Same questions again (WARM), hit rate",
+   "0.95 (55 exact, 2 cosine)",
+   "bench/results_backend.md"
+  ],
+  [
+   "Wrong cache answers",
+   "0 of 50",
+   "bench/results_backend.md"
+  ],
+  [
+   "Lookup p50 / p90",
+   "122 / 145 ms",
+   "bench/results_backend.md"
+  ],
+  [
+   "3 repeats of 60 prompts",
+   "49 of 60 served in each of 3 repeats (36 exact, 13 cosine), 0 wrong",
+   "bench/results_company_cost.md"
+  ],
+  [
+   "Second machine, shared cache",
+   "hit rate 0.80, 48 of 60 GPU calls avoided",
+   "docs/vector-store.md"
+  ]
+ ],
+ "bank": {
+  "file": "bench/results_bank.md",
+  "runs": [
+   {
+    "run": 1,
+    "problems": 80,
+    "served": 0,
+    "served_exact": 0,
+    "served_cosine": 0,
+    "hint_only": 11,
+    "miss": 69,
+    "tests_run": 0,
+    "wrong_caught": 0,
+    "calls_30b": 80,
+    "calls_big": 12,
+    "big_usd": 0.00433,
+    "big_tokens": 5310,
+    "solved": 75,
+    "median_lookup_ms": 298,
+    "name": "1 cold"
+   },
+   {
+    "run": 2,
+    "problems": 80,
+    "served": 75,
+    "served_exact": 75,
+    "served_cosine": 0,
+    "hint_only": 2,
+    "miss": 3,
+    "tests_run": 75,
+    "wrong_caught": 0,
+    "calls_30b": 5,
+    "calls_big": 5,
+    "big_usd": 0.00256,
+    "big_tokens": 2581,
+    "solved": 75,
+    "median_lookup_ms": 472,
+    "name": "2 same problems"
+   },
+   {
+    "run": 3,
+    "problems": 80,
+    "served": 24,
+    "served_exact": 0,
+    "served_cosine": 24,
+    "hint_only": 40,
+    "miss": 16,
+    "tests_run": 24,
+    "wrong_caught": 0,
+    "calls_30b": 56,
+    "calls_big": 7,
+    "big_usd": 0.00647,
+    "big_tokens": 5770,
+    "solved": 75,
+    "median_lookup_ms": 336,
+    "name": "3 reworded copies"
+   }
+  ],
+  "size": "374 pairs"
+ },
+ "spec": {
+  "file": "bench/results_spec_modal.md",
+  "title": "Phase A: Qwen3-235B-A22B verifier on 4x H100 (Modal)",
+  "rows": [
+   {
+    "run": "235B alone",
+    "how": "none",
+    "tok_s": "89.8",
+    "vs": "1.00x",
+    "same": "baseline"
+   },
+   {
+    "run": "235B alone",
+    "how": "none",
+    "tok_s": "86.2",
+    "vs": "1.00x",
+    "same": "baseline (48/48 equal to account B's)"
+   },
+   {
+    "run": "Same box: EAGLE-3 head",
+    "how": "inside the 235B box",
+    "tok_s": "162.2",
+    "vs": "1.80x",
+    "same": "27/48"
+   },
+   {
+    "run": "Same box: n-gram lookup",
+    "how": "inside the 235B box",
+    "tok_s": "100.6",
+    "vs": "1.12x",
+    "same": "48/48"
+   },
+   {
+    "run": "Same box: 4B draft model",
+    "how": "inside the 235B box",
+    "tok_s": "27.3",
+    "vs": "0.32x",
+    "same": "48/48"
+   },
+   {
+    "run": "30B-A3B drafter alone",
+    "how": "1 L40S, no check",
+    "tok_s": "129.7 / 130.1",
+    "vs": "1.44x / 1.51x",
+    "same": "another model"
+   },
+   {
+    "run": "4B drafter alone",
+    "how": "1 L40S, no check",
+    "tok_s": "132.2",
+    "vs": "1.53x",
+    "same": "another model"
+   },
+   {
+    "run": "Cross-box, 30B drafter, Spec+",
+    "how": "30B (L40S) -> 235B",
+    "tok_s": "24.4",
+    "vs": "0.27x",
+    "same": "23/48"
+   },
+   {
+    "run": "Cross-box, 30B drafter, K=8",
+    "how": "30B (L40S) -> 235B",
+    "tok_s": "22.7",
+    "vs": "0.25x",
+    "same": "30/48"
+   },
+   {
+    "run": "Cross-box, 30B drafter, K=4",
+    "how": "30B (L40S) -> 235B",
+    "tok_s": "20.5",
+    "vs": "0.23x",
+    "same": "26/48"
+   },
+   {
+    "run": "Cross-box, 30B drafter, K=4, +100 ms per round",
+    "how": "30B (L40S) -> 235B",
+    "tok_s": "14.0",
+    "vs": "0.16x",
+    "same": "26/48"
+   },
+   {
+    "run": "Cross-box, 4B drafter, K=4",
+    "how": "4B (L40S) -> 235B",
+    "tok_s": "13.2",
+    "vs": "0.15x",
+    "same": "24/48"
+   },
+   {
+    "run": "Cross-box, 2-level chain, K=4",
+    "how": "4B -> 30B (one L40S) -> 235B",
+    "tok_s": "7.3",
+    "vs": "0.09x",
+    "same": "26/48"
+   }
+  ]
+ },
+ "storage": [
+  [
+   "Teacher pairs stored (Supabase)",
+   "200",
+   "bench/results_memory.md"
+  ],
+  [
+   "Concept graph nodes (Neo4j Aura)",
+   "968",
+   "bench/results_memory.md"
+  ],
+  [
+   "Concept graph edges (Neo4j Aura)",
+   "1138",
+   "bench/results_memory.md"
+  ],
+  [
+   "Solved-problem bank",
+   "374 pairs",
+   "bench/results_bank.md"
+  ]
+ ],
+ "kiro": {
+  "steering": [
+   "api",
+   "product",
+   "security",
+   "structure",
+   "tech",
+   "testing",
+   "ui"
+  ],
+  "specs": [
+   "cache-and-verify",
+   "castle-3d-ui",
+   "chimera-speculative-os",
+   "lora-distill",
+   "n1-memory-and-bank",
+   "savings-replay",
+   "terminal-agent"
+  ],
+  "spec_tasks": [
+   56,
+   99
+  ],
+  "ears": 135,
+  "hooks": [
+   "api-contract-reminder",
+   "secret-scan-stop",
+   "secret-scan-commit",
+   "Chimera Local 3B Spec-Compliance & Cache Shield",
+   "Run the test file for the saved module",
+   "Run the site tests"
+  ],
+  "agents": [
+   "backend-owner",
+   "bench-runner",
+   "frontend-owner",
+   "reviewer"
+  ],
+  "mcp_tools": [
+   "chimera_generate",
+   "chimera_risk_score",
+   "chimera_stats"
+  ],
+  "mcp_servers": [
+   "chimera",
+   "context7",
+   "github-readonly",
+   "huggingface",
+   "neo4j-aura-readonly",
+   "playwright",
+   "supabase-readonly"
+  ],
+  "power": "chimera",
+  "skills": [
+   "castle-ui",
+   "kiro-setup",
+   "router-ladder"
+  ],
+  "properties": 39,
+  "property_files": 5,
+  "bugs_found": 4,
+  "bugs_fixed": 4,
+  "xfail_left": 0,
+  "handoffs": 10,
+  "posters": [
+   {
+    "title": "Steering",
+    "big": "7 files",
+    "lines": [
+     "api, product, security, structure, tech, testing, ui.",
+     "Rules every Kiro chat loads: one URL, real numbers only, secrets stay in .env."
+    ],
+    "src": [
+     ".kiro/steering/",
+     ".kiro/steering"
+    ]
+   },
+   {
+    "title": "Specs",
+    "big": "7 specs",
+    "lines": [
+     "135 EARS requirements (SHALL). 56 of 99 tasks ticked.",
+     "cache-and-verify, castle-3d-ui, chimera-speculative-os, lora-distill, n1-memory-and-bank, savings-replay, terminal-agent."
+    ],
+    "src": [
+     ".kiro/specs/",
+     ".kiro/specs"
+    ]
+   },
+   {
+    "title": "Hooks",
+    "big": "6 hooks",
+    "lines": [
+     "api-contract-reminder, secret-scan-stop, secret-scan-commit, Chimera Local 3B Spec-Compliance & Cache Shield, Run the test file for the saved module, Run the site tests.",
+     "Secret scan on stop and before every commit; tests on save."
+    ],
+    "src": [
+     ".kiro/hooks/",
+     ".kiro/hooks"
+    ]
+   },
+   {
+    "title": "Custom agents",
+    "big": "4 agents",
+    "lines": [
+     "backend-owner, bench-runner, frontend-owner, reviewer.",
+     "Each one can write only its own folders and never reads .env."
+    ],
+    "src": [
+     ".kiro/agents/",
+     ".kiro/agents"
+    ]
+   },
+   {
+    "title": "MCP",
+    "big": "3 tools",
+    "lines": [
+     "chimera_generate, chimera_risk_score, chimera_stats: the router as an MCP server.",
+     "7 MCP servers in the workspace config, all read-only for data."
+    ],
+    "src": [
+     "apps/kiro-trimmer/mcp_server.py",
+     "apps/kiro-trimmer/mcp_server.py"
+    ]
+   },
+   {
+    "title": "Kiro Power",
+    "big": "chimera",
+    "lines": [
+     "3 skills: castle-ui, kiro-setup, router-ladder.",
+     "One folder to install the router into any Kiro workspace."
+    ],
+    "src": [
+     "powers/chimera/",
+     "powers/chimera"
+    ]
+   },
+   {
+    "title": "Kiro Crew",
+    "big": "10 handoffs",
+    "lines": [
+     "A backend chat and a frontend chat built this, each owning its folders.",
+     "Finished work items left 10 handoff notes in docs/handoff/."
+    ],
+    "src": [
+     "docs/handoff/",
+     "docs/handoff"
+    ]
+   },
+   {
+    "title": "Property tests",
+    "big": "39 properties",
+    "lines": [
+     "Hypothesis tried to break 39 rules in 5 files, 200 examples each.",
+     "4 real bugs found, 4 fixed: 4 xfailed then 0. Now 0 xfail markers left."
+    ],
+    "src": [
+     "docs/handoff/property-tests.md",
+     "docs/handoff/property-tests.md"
+    ]
+   }
+  ],
+  "base": "https://github.com/manvendersingh21/tremor-core/blob/dev/"
+ },
+ "tour": [
+  {
+   "at": "landing",
+   "secs": 7,
+   "say": "Good evening. I am Count Cuspid. This castle sends every AI question to the cheapest helper that can answer it. Come, I will walk you in."
+  },
+  {
+   "at": "walk",
+   "secs": 5,
+   "say": "The iron gates open as we arrive, and the great door too. Four seconds from the road to the hall."
+  },
+  {
+   "at": "hall",
+   "secs": 10,
+   "say": "The Great Hall. The board shows the saved run of the real stack: 120 calls, 52% answered from the cache, 13,763 tokens kept off the big model."
+  },
+  {
+   "room": "observatory",
+   "secs": 16,
+   "say": "The Observatory counts every call. The second time the same 60 questions came in, 57 were served from the cache with no model, and the ladder spent $0.00023."
+  },
+  {
+   "room": "crypt",
+   "secs": 15,
+   "say": "The Crypt is the cache in Supabase. Asked again, the hit rate was 0.95. A lookup takes 122 ms. 0 of 50 graded cache answers were wrong."
+  },
+  {
+   "room": "ladder",
+   "secs": 16,
+   "say": "The Ladder climbs one rung at a time: cache, then our own 30B, then the 763B. Per 1,000 coding calls the 763B costs $0.1576, GPT-5.5 costs $4.02. The bank of solved problems served 75 of 80 repeats, 0 wrong."
+  },
+  {
+   "room": "familiar",
+   "secs": 9,
+   "say": "The Familiar is a small model for your phone. It is written, but no phone has run it yet. I will not pretend otherwise."
+  },
+  {
+   "room": "workshop",
+   "secs": 20,
+   "say": "The Workshop shows how Kiro built this castle: 7 steering files, 7 specs, 6 hooks, 4 custom agents, 3 MCP tools and a Power. Hypothesis tried 39 property tests and found 4 real bugs. 4 are fixed."
+  },
+  {
+   "room": "tower",
+   "secs": 14,
+   "say": "The Tower holds the biggest models. We tried speculative decoding on Modal: EAGLE-3 in the same box ran 1.80x as fast, but a drafter on another box ran at only 0.23x. We show both."
+  },
+  {
+   "room": "gpus",
+   "secs": 14,
+   "say": "The Manor is our own GPU. A 30B on an H200 kept busy costs $0.070 per 1,000 calls. On the shared V100, one call at a time, it costs $11.02."
+  },
+  {
+   "room": "guild",
+   "secs": 10,
+   "say": "The Guild is for companies: an OpenAI-style gateway, keys per tenant, metrics for Prometheus. Change one address and one key."
+  },
+  {
+   "room": "gate",
+   "secs": 9,
+   "say": "The Gate: four commands and it runs on your machine. The tests need no models and no keys."
+  },
+  {
+   "room": "ledger",
+   "secs": 24,
+   "chart": true,
+   "say": "And the bill. At 1 million coding calls a day, GPT-5.5 alone costs $120,600 a month. With the cache, the bank and our 30B first: $25,216, 79% less. Against the cheap 763B we do not save at that volume: the ladder costs $2,518 a month more. Every number here comes from a file. Good night."
+  }
+ ]
+}

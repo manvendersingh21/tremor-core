@@ -153,3 +153,95 @@
 .m-doors.m-spots .m-door.sel .m-plaque span { max-width: 16vw; }
 .m-doors.m-spots .m-door.m-edge-l .m-plaque { left: 60%; transform: none; }
 .m-doors.m-spots .m-door.m-edge-r .m-plaque { left: auto; right: 60%; transform: none; }
+/* LIVE / DEMO badge (site/mode.js) */
+.mode-badge { font: 700 .78rem Inter, sans-serif; letter-spacing: .06em; padding: .22rem .6rem; border-radius: 999px; border: 1px solid currentColor; background: #0b0510c8; white-space: nowrap; }
+.mode-badge.live { color: #6ee7a0; }
+.mode-badge.demo { color: #e9c46a; }
+.m-gold { border-color: #e9c46a; background: linear-gradient(#4a2a0ccc, #2a0f2fcc); }
+/* the savings board */
+.m-board .m-big { font-size: 1.6em; color: #f4d58d; }
+.m-board small { font: 500 .8rem Inter, sans-serif; color: #d9c9e0; }
+.m-from { font: 500 .85rem Inter, sans-serif; color: #d9c9e0; }
+.m-board a, .m-pb a { color: #f4d58d; }
+/* the guided tour (tour.js) */
+.m-tour { position: absolute; left: 50%; bottom: 1.2rem; transform: translateX(-50%); z-index: 30; width: min(760px, 94vw); background: #f3e9dcf4; color: #2a1230; border: 2px solid #c99a3a; border-radius: 14px; padding: .8rem 1rem .9rem; box-shadow: 0 12px 40px #000c; }
+.m-tour[hidden] { display: none; }
+.m-tour-h { display: flex; justify-content: space-between; gap: 1rem; font: 700 .8rem Cinzel, serif; letter-spacing: .12em; color: #8a1a3a; }
+.m-tour-h span { font: 600 .8rem Inter, sans-serif; letter-spacing: 0; color: #5a3a60; }
+#m-tour-say { margin: .35rem 0 .55rem; font: 600 1.2rem/1.38 "Cormorant Garamond", Georgia, serif; }
+.m-tour-p { height: 4px; background: #d9c9b8; border-radius: 4px; overflow: hidden; }
+.m-tour-p i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #b8862e, #e9c46a); }
+.m-tour-b { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .55rem; }
+.m-tour .m-btn { color: #f1e6da; }
+.m-tour .m-btn[hidden] { display: none; }
+/* saved-result blocks in rooms (panels.js) */
+.m-data { margin: 0 0 1.2rem; }
+.m-loading, .m-err { font: 500 1rem Inter, sans-serif; color: #d9c9e0; }
+.m-err { color: #ff8f86; }
+.m-keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; margin: 0 0 1rem; }
+.m-keys > div { background: #2a0f2fcc; border: 1px solid #c99a3a; border-radius: 12px; padding: .7rem .9rem; }
+.m-keys b { display: block; font: 700 2.2rem/1.05 Cinzel, serif; color: #f4d58d; }
+.m-keys span { font: 500 .95rem Inter, sans-serif; color: #e8dcef; }
+.m-win { color: #8fd3a8 !important; }
+.m-lose { color: #ff8f86 !important; }
+.m-h3 { font: 700 1.1rem Cinzel, serif; color: #f4d58d; letter-spacing: .04em; margin: 1rem 0 .4rem; }
+.m-t { width: 100%; border-collapse: collapse; font: 500 .95rem Inter, sans-serif; margin: .4rem 0; }
+.m-t th, .m-t td { text-align: left; padding: .35rem .6rem .35rem 0; border-bottom: 1px solid #5b2a6a; vertical-align: top; }
+.m-t th { color: #f4d58d; font-weight: 600; }
+.m-note { font: 500 .95rem/1.45 Inter, sans-serif; color: #e8dcef; max-width: 80ch; }
+.m-data .fn a, .m-data .fn { font: 500 .9rem Inter, sans-serif; }
+/* the cost chart (Ledger) */
+.m-cost { background: #12071acc; border: 1px solid #c99a3a; border-radius: 14px; padding: 1rem 1.1rem; }
+.m-cost-h { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; justify-content: space-between; }
+.m-cost h3 { margin: 0; font: 700 1.35rem Cinzel, serif; color: #f4d58d; }
+.m-seg button { font: 600 .9rem Inter, sans-serif; color: #f1e6da; background: #2a0f2f; border: 1px solid #8f5aa8; padding: .3rem .7rem; cursor: pointer; }
+.m-seg button:first-child { border-radius: 999px 0 0 999px; } .m-seg button:last-child { border-radius: 0 999px 999px 0; }
+.m-seg button[aria-pressed="true"] { background: #e9c46a; color: #1a0d1e; border-color: #e9c46a; }
+.m-seg button:focus-visible { outline: 2px solid #e9c46a; outline-offset: 2px; }
+.m-cost-g { margin: 1rem 0 .4rem; }
+.m-cost-g h4 { margin: 0 0 .35rem; font: 700 1.05rem Cinzel, serif; color: #f1e6da; }
+.m-cost-g h4 small { font: 500 .85rem Inter, sans-serif; color: #c9b8d8; margin-left: .5rem; }
+.m-bar-row { display: grid; grid-template-columns: minmax(130px, 15rem) 1fr 6.5rem; gap: .6rem; align-items: center; margin: .2rem 0; font: 500 .95rem Inter, sans-serif; }
+.m-bar-row b { text-align: right; font-variant-numeric: tabular-nums; }
+.m-bt { height: 14px; background: #2a1830; border-radius: 7px; overflow: hidden; }
+.m-bt i { display: block; height: 100%; border-radius: 7px; }
+.m-bt i.gpt { background: #c3a4e6; } .m-bt i.top { background: #8f7aa8; } .m-bt i.lad { background: linear-gradient(90deg, #b8862e, #e9c46a); }
+.m-sv { margin: .15rem 0 .5rem; font: 500 .95rem Inter, sans-serif; color: #e8dcef; }
+@media (max-width: 640px) {
+  .m-bar-row { grid-template-columns: 1fr 5.5rem; } .m-bar-row .m-bt { grid-column: 1 / -1; grid-row: 2; }
+  .m-t { font-size: .9rem; } .m-tour { bottom: .6rem; } #m-tour-say { font-size: 1.1rem; }
+}
+/* round 1 fixes, phone (390 px): one tidy top bar, the bubble under it, named doors, nothing under 14 px */
+@media (max-width: 600px) {
+  .m-bar { flex-wrap: wrap; gap: .4rem .45rem; padding: .5rem .55rem; background: linear-gradient(#0b0510e0, #0b051000); }
+  .m-bar .mode-badge { font-size: 14px; padding: .2rem .5rem; }
+  #m-where { order: 1; flex: 1 1 0; min-width: 0; margin: 0; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-fps { order: 2; font-size: 14px; }
+  .m-bar .m-btn { order: 3; flex: 1 1 0; font-size: 14px; padding: .45rem .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .m-root kbd { font-size: 14px; }
+  .m-say { top: 6.4rem; left: .55rem; right: .55rem; max-width: none; font-size: 1.05rem; }
+  .m-say b, .m-say small { font-size: 14px; }
+  .m-root.m-inhall .m-say { display: none; }
+  .m-prompt { bottom: 196px; max-width: 92vw; white-space: normal; text-align: center; font-size: 15px; }
+  .m-root.m-inhall .m-prompt, .m-root.m-inhall .m-act, .m-root.m-inhall .m-joy { display: none; }
+  .m-board { top: 6.4rem; left: .55rem; right: .55rem; width: auto; font-size: 14px; }
+  .m-board h3 { font-size: 14px; }
+  .m-board dt { font-size: 14px; line-height: 1.2; }
+  .m-board dd { font-size: 1.15rem; }
+  .m-board .m-big { font-size: 1.15rem; }
+  .m-board small { display: none; }
+  .m-board p { display: none; } .m-board p.m-from { display: block; font-size: 14px; }
+  /* the doors become a list of named gold doors you tap */
+  .m-doors.m-arcade { left: .55rem; right: .55rem; bottom: 112px; display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+  .m-doors.m-arcade .m-door { width: auto; aspect-ratio: auto; height: 46px; border-radius: 10px; display: flex; align-items: center; padding: 0 .4rem 0 44px; transform: none;
+    background: url(../art/door.webp) 6px 50% / 28px 40px no-repeat, linear-gradient(#3a1a3ae8, #1d0a22e8); box-shadow: 0 0 0 2px #b8862e, 0 6px 16px #000a; }
+  .m-doors.m-arcade .m-door.sel { transform: none; box-shadow: 0 0 0 2px #ffd27a, 0 0 18px 2px #ffb44a88; }
+  .m-doors.m-arcade .m-door .m-plaque, .m-doors.m-arcade .m-door:not(.sel) .m-plaque { position: static; transform: none; opacity: 1; background: none; color: #f4d58d; max-width: none; padding: 0; text-align: left; box-shadow: none; }
+  .m-doors.m-arcade .m-plaque strong, .m-doors.m-arcade .m-door.sel .m-plaque strong { font-size: 14px; line-height: 1.15; }
+  .m-panel { inset: 6.2rem .45rem .45rem; }
+  .m-ph h2 { font-size: 1.1rem; }
+  .m-tour-h, .m-tour-h span { font-size: 14px; }
+  .m-tour .m-btn { font-size: 14px; }
+  .m-pb .fn, .m-pb .fn a, .m-poster p, .m-poster li { font-size: 15px; }
+  .m-keys b { font-size: 1.8rem; } .m-keys span, .m-cost-g h4 small, .m-seg button { font-size: 14px; }
+}

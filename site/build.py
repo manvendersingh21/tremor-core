@@ -1,7 +1,8 @@
-"""Write the no-JS fallback (doors and rooms) into index.html from rooms.js.
+"""Write the no-JS fallback (doors and rooms) into index.html from rooms.js, and the saved results.
 
-Usage: python3 site/build.py          rewrite index.html and results.json (numbers from bench/*.md)
-       python3 site/build.py --check  exit 1 if index.html is out of date
+Usage: python3 site/build.py          rewrite index.html, results.json, demo.json and docs/tour_script.md
+       python3 site/build.py --check  exit 1 if any of them is out of date
+results.json: headline numbers from bench/*.md (results.py). demo.json: what the page shows with no backend (demo.py).
 """
 import json
 import pathlib
@@ -13,9 +14,13 @@ HERE = pathlib.Path(__file__).parent
 BASE = "https://github.com/manvendersingh21/tremor-core/blob/dev/"
 
 
-def load():
+def load(kiro_posters=None):
     raw = (HERE / "rooms.js").read_text(encoding="utf-8")
-    return json.loads(raw.split("=", 1)[1].strip().rstrip(";"))
+    rooms = json.loads(raw.split("=", 1)[1].strip().rstrip(";"))
+    for r in rooms:
+        if r.get("generated") == "kiro" and kiro_posters is not None:
+            r["posters"] = kiro_posters   # counted from .kiro/ and tests/ at build time (demo.py kiro())
+    return rooms
 
 
 def poster(p):
@@ -44,8 +49,8 @@ def sections(rooms):
         '<p><a href="#hall">Back to the hall</a></p></section>' for r in rooms)
 
 
-def build():
-    rooms = load()
+def build(kiro_posters=None):
+    rooms = load(kiro_posters)
     html = (HERE / "index.html").read_text(encoding="utf-8")
     for name, val in (("doors", doors(rooms)), ("rooms", sections(rooms))):
         html = re.sub(rf"(<!-- BUILD:{name} -->).*?(<!-- /BUILD:{name} -->)",
@@ -53,13 +58,22 @@ def build():
     return html
 
 
-if __name__ == "__main__":
+def outputs():
+    """{path: text} of every file this build writes. Numbers are read from bench/, .kiro/ and tests/, never typed."""
     sys.path.insert(0, str(HERE))
+    import demo
     import results
-    out, path = build(), HERE / "index.html"
-    res, rpath = results.build(), HERE / "results.json"   # numbers read from bench/*.md, never typed
+    d = demo.build_dict()
+    return {HERE / "index.html": build(d["kiro"]["posters"]), HERE / "results.json": results.build(),
+            HERE / "demo.json": json.dumps(d, indent=1, ensure_ascii=False) + "\n", HERE / "docs" / "tour_script.md": demo.tour_script(d)}
+
+
+if __name__ == "__main__":
+    out = outputs()
     if "--check" in sys.argv:
-        ok = out == path.read_text(encoding="utf-8") and rpath.is_file() and res == rpath.read_text(encoding="utf-8")
-        sys.exit(0 if ok else 1)
-    path.write_text(out, encoding="utf-8")
-    rpath.write_text(res, encoding="utf-8")
+        stale = [str(p.relative_to(HERE)) for p, t in out.items() if not p.is_file() or p.read_text(encoding="utf-8") != t]
+        if stale:
+            print("out of date (run python3 site/build.py):", ", ".join(stale), file=sys.stderr)
+        sys.exit(1 if stale else 0)
+    for p, t in out.items():
+        p.write_text(t, encoding="utf-8")
