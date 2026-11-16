@@ -23,6 +23,7 @@
     return `<div class="m-keys"><div><b>${k.properties}</b><span>property tests (Hypothesis)</span></div><div><b>${k.bugs_found}</b><span>real bugs found</span></div>` +
       `<div><b class="m-win">${k.bugs_fixed}</b><span>fixed, ${k.xfail_left} xfail left</span></div><div><b>${k.property_files}</b><span>property test files in tests/</span></div></div>` + posters(k.posters);
   }
+  const h200s = (s) => { const m = /^(\d+) \((\d+%)\)$/.exec(s); return m ? `${m[1]} H200${m[1] === '1' ? '' : 's'}, ${m[2]} busy` : s + ' H200s busy'; };
   function cost(D, h) {
     const c = D.cost, rows = c.scale[h || 'no_repeats'];
     const bar = (v, max, cls, label) => `<div class="m-bar-row"><span class="m-bl">${label}</span><span class="m-bt"><i class="${cls}" style="width:${Math.max(0.6, v / max * 100).toFixed(2)}%"></i></span><b>${usd0(v)}</b></div>`;
@@ -34,7 +35,7 @@
       `<span class="m-seg" role="group" aria-label="Share of repeats"><button type="button" data-h="no_repeats" aria-pressed="${h !== 'repeats_30'}">no repeats</button><button type="button" data-h="repeats_30" aria-pressed="${h === 'repeats_30'}">30% repeats</button></span></div>` +
       rows.map((r) => {
         const max = Math.max(r.gpt55_only, r.cascade_gpt55, r.top763_only, r.cascade_763);
-        return `<div class="m-cost-g"><h4>${r.calls_a_day.toLocaleString('en-US')} calls a day <small>${esc(r.h200s)} H200s busy</small></h4>` +
+        return `<div class="m-cost-g"><h4>${r.calls_a_day.toLocaleString('en-US')} calls a day <small>${esc(h200s(r.h200s))}</small></h4>` +
           bar(r.gpt55_only, max, 'gpt', 'GPT-5.5 only') + bar(r.cascade_gpt55, max, 'lad', 'Ladder, GPT-5.5 for failures') +
           `<p class="m-sv">vs GPT-5.5: ${sv(r.saved_gpt55)}</p>` +
           bar(r.top763_only, max, 'top', '763B only') + bar(r.cascade_763, max, 'lad', 'Ladder, 763B for failures') +
@@ -65,7 +66,13 @@
     if (cross.length) out.push(`A drafter on a second box was slower than the 235B alone in ${cross.filter((r) => parseFloat(r.vs) < 1).length} of ${cross.length} runs.`);
     return out.length ? `<p class="m-note">${out.join(' ')}</p>` : '';
   }
-  const DATA = { workshop, ledger: (D) => cost(D), crypt, tower };
+  function gpus(D) {   // the cost case: what the 30B costs per 1,000 calls on each box (bench/results_company_cost.md)
+    const c = D.cost, rows = c.per_1k.filter((r) => /^30B on/.test(r.tier));
+    const pick = (re, cls) => { const r = rows.find((x) => re.test(x.tier)); return r ? `<div><b class="${cls}">${esc(r.usd_per_1k)}</b><span>${esc(r.tier)} · pass ${esc(r.pass)}</span></div>` : ''; };
+    return `<div class="m-keys">${pick(/busy 100% of the day/, 'm-win')}${pick(/busy 10%/, '')}${pick(/tuned V100.*busy 100%/, 'm-win')}${pick(/one request at a time$/, 'm-lose')}${pick(/before tuning/, 'm-lose')}</div>` +
+      `<p class="m-note">Per 1,000 coding calls. An idle H200 still bills ${esc(c.idle_h200_day)} a day, so the price per call depends on how busy it is.</p>${src(c.file)}`;
+  }
+  const DATA = { workshop, ledger: (D) => cost(D), crypt, tower, gpus };
 
   function room(pb, d, opts) {
     const r = (window.ROOMS || []).find((x) => x.id === d.id);
