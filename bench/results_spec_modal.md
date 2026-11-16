@@ -17,6 +17,26 @@ Single runs, no repeats except where named. Phase A (Qwen family, below 700B) is
 - **Tokenizers.** Every Qwen3 model here (4B to Coder-480B) has the same `tokenizer.json` (same SHA-256 on Hugging Face), so they can draft for each other. Qwen3.5 has its own tokenizer (248,320 tokens vs 151,936), so it is a separate chain. No open Qwen model is above 700B: the biggest Qwen3 is Coder-480B-A35B and the biggest Qwen3.5 is 397B-A17B. DeepSeek 763B on Crusoe has another tokenizer and its API rejects `echo`, so it cannot score drafts.
 - **Code.** `deploy/modal/spec_modal.py` (boxes and jobs runner), `deploy/modal/spec_models.py` (models, modes, job plans), `deploy/modal/spec_download.py` (weights to Modal volumes, CPU only), `bench/run_spec_modal.py` (driver: runs one job, stops its app, saves `modal app list`; writes the tables below). Raw rows: `bench/.scratch/spec_modal/` (git-ignored).
 
+## Phase A summary (Qwen3-235B-A22B verifier on 4x H100)
+
+| Run | Who drafts -> who checks | tok/s | vs 235B alone | Same output as 235B alone | Account |
+|---|---|---|---|---|---|
+| 235B alone | none | 89.8 | 1.00x | baseline | B |
+| 235B alone | none | 86.2 | 1.00x | baseline (48/48 equal to account B's) | C |
+| Same box: EAGLE-3 head | inside the 235B box | 162.2 | 1.80x | 27/48 | B |
+| Same box: n-gram lookup | inside the 235B box | 100.6 | 1.12x | 48/48 | B |
+| Same box: 4B draft model | inside the 235B box | 27.3 | 0.32x | 48/48 | C |
+| 30B-A3B drafter alone | 1 L40S, no check | 129.7 / 130.1 | 1.44x / 1.51x | another model | B / C |
+| 4B drafter alone | 1 L40S, no check | 132.2 | 1.53x | another model | C |
+| Cross-box, 30B drafter, Spec+ | 30B (L40S) -> 235B | 24.4 | 0.27x | 23/48 | B |
+| Cross-box, 30B drafter, K=8 | 30B (L40S) -> 235B | 22.7 | 0.25x | 30/48 | B |
+| Cross-box, 30B drafter, K=4 | 30B (L40S) -> 235B | 20.5 | 0.23x | 26/48 | B |
+| Cross-box, 30B drafter, K=4, +100 ms per round | 30B (L40S) -> 235B | 14.0 | 0.16x | 26/48 | B |
+| Cross-box, 4B drafter, K=4 | 4B (L40S) -> 235B | 13.2 | 0.15x | 24/48 | C |
+| Cross-box, 2-level chain, K=4 | 4B -> 30B (one L40S) -> 235B | 7.3 | 0.09x | 26/48 | C |
+
+Ratios use the 235B-alone run of the same account. In account C the drafter boxes ran in us-east and the big box in us-west (a bare call 91 to 98 ms vs 46 ms in account B), so its cross-box rows carry a longer network. Full tables, per-round breakdowns and cold starts follow.
+
 ## Phase A results
 
 Three Modal accounts were used. Account A hit its spend limit before any GPU run. Account B ran the smoke test and most of the 235B job; its $30 of free credits ran out at 01:03 PST (the job stopped with "workspace is disabled"). Account C runs the rest. Every table below compares runs inside one account only, against that account's own "big alone" baseline, because the big box's GPUs and kernels can differ between accounts.
