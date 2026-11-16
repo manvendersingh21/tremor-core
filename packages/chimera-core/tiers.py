@@ -2,13 +2,20 @@
 
 Routing: cheapest enabled, healthy tier whose max_complexity >= the task's complexity. On low
 confidence, a timeout or an error, climb to the next tier that fits. A tier that keeps failing is
-skipped for a cooldown (circuit breaker); health probes are cached. Speculative verify is allowed
-only between tiers of the same `family`.
+skipped for a cooldown (circuit breaker); health probes are cached, and a failed call marks the tier
+down until its next probe. A `warm_only` tier (Modal H200) goes first, but only while warm: its warm
+check runs in the background, and a cold check wakes it while the call falls through to the next tier.
+Speculative verify is allowed only between tiers of the same `family`.
 Every call returns per-tier token usage in `PoolResult.per_tier` (Telemetry has no per_tier field yet).
 """
 from __future__ import annotations
 
+import json
 import os
+import pathlib
+import shutil
+import subprocess
+import threading
 import time
 import urllib.request
 from typing import Callable, Literal
@@ -17,7 +24,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from .router import complexity_score
 
-HUD_KEYS = {"phone_3b", "mac_3b", "gpu_small", "gpu_large", "crusoe"}
+HUD_KEYS = {"phone_3b", "mac_3b", "gpu_small", "gpu_large", "gpu_h200", "crusoe"}
 DEVICE_LABEL = {"phone": "Phone", "laptop": "Mac", "gpu": "GPU", "cloud": "Crusoe"}  # HUD labels
 PROBES = {"llamacpp": "/health", "ollama": "/api/tags", "openai": "/v1/models"}
 
@@ -37,6 +44,11 @@ class TierCfg(BaseModel):
     template_kwargs: dict = Field(default_factory=dict)  # openai backend: chat_template_kwargs
     api_key_env: str = "CRUSOE_API_KEY"  # openai backend: env var holding the key (never the key itself)
     teacher: bool = False  # a big model: its checked answers are stored as N+1 memory (the top tier counts if none is set)
+    # A scale-to-zero GPU (Modal): used only while warm, tried before every other tier then (it is billed by the
+    # second while up, so a call costs nothing extra). Cold: skipped at once and woken in the background.
+    warm_only: bool = False
+    modal_app: str = ""  # warm_only: Modal app name; warm = a running container (read-only `modal container list`)
+    logprobs: bool = False  # openai backend: ask for token logprobs and gate on mean token probability (vLLM)
 
     @field_validator("url")
     @classmethod
@@ -100,11 +112,11 @@ def build_backend(t: TierCfg):
             return text, u["prompt_tokens"], u["completion_tokens"], conf
     else:
         cb = TopBackend(t.model, t.template_kwargs, api_key=os.environ.get(t.api_key_env, ""),
-                        base_url=os.path.expandvars(t.url), timeout=t.timeout_s)
+                        base_url=os.path.expandvars(t.url), timeout=t.timeout_s, logprobs=t.logprobs)
 
         def run(prompt: str, n: int):
             text = cb.complete(prompt, n)
-            return text, cb.last_usage["prompt_tokens"], cb.last_usage["completion_tokens"], None
+            return text, cb.last_usage["prompt_tokens"], cb.last_usage["completion_tokens"], cb.last_confidence
 
     class _B:
         complete = staticmethod(run)
@@ -125,6 +137,38 @@ def http_probe(t: TierCfg) -> bool:
         return False
 
 
+def modal_running(app: str) -> bool | None:
+    """True when the Modal app has a running container, None when the modal CLI cannot tell. Never wakes the app."""
+    exe = shutil.which("modal") or str(pathlib.Path(__file__).resolve().parents[2] / ".venv/bin/modal")
+    try:
+        out = subprocess.run([exe, "container", "list", "--json"], capture_output=True, text=True, timeout=20).stdout
+        return any(c.get("app_name") == app for c in json.loads(out))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def warm_probe(t: TierCfg) -> bool:
+    """warm_only tiers: a running container that answers /v1/models. Without the modal CLI, the HTTP probe alone."""
+    running = modal_running(t.modal_app) if t.modal_app else None
+    return running is not False and http_probe(t)
+
+
+def wake(t: TierCfg) -> None:
+    """One request makes Modal start a container; it returns when the server is up (cold start: minutes)."""
+    req = urllib.request.Request(os.path.expandvars(t.url).rstrip("/") + PROBES[t.backend],
+                                 headers={"User-Agent": "chimera/0.1"})
+    if os.environ.get(t.api_key_env):
+        req.add_header("Authorization", "Bearer " + os.environ[t.api_key_env])
+    try:
+        urllib.request.urlopen(req, timeout=900).close()  # noqa: S310 (configured URL)
+    except Exception:  # noqa: BLE001  not deployed or still starting: the next refresh tries again
+        pass
+
+
+def _spawn(fn: Callable[[], None]) -> None:
+    threading.Thread(target=fn, daemon=True).start()
+
+
 class TierPool:
     def __init__(
         self, tiers: list[TierCfg], *, min_confidence: float = 0.85, max_tokens: int = 1024,
@@ -132,12 +176,19 @@ class TierPool:
         backend_factory: Callable[[TierCfg], object] = build_backend,
         health_ttl_s: float = 15.0, breaker_threshold: int = 3, breaker_cooldown_s: float = 30.0,
         clock: Callable[[], float] = time.monotonic,
+        warm_check: Callable[[TierCfg], bool] = warm_probe, waker: Callable[[TierCfg], None] = wake,
+        spawn: Callable[[Callable[[], None]], None] = _spawn,
     ) -> None:
-        # Cheapest first; owned hardware (cost 0) is ordered by capability, small before large.
+        # Warm-only tiers first (already paid for while up), then cheapest; owned hardware (cost 0) is ordered by
+        # capability, small before large. Ties keep config order.
         self.tiers = sorted((t for t in tiers if t.enabled),
-                            key=lambda t: (t.cost_per_1k_in + t.cost_per_1k_out, t.max_complexity))
+                            key=lambda t: (not t.warm_only, t.cost_per_1k_in + t.cost_per_1k_out, t.max_complexity))
         self.min_confidence, self.max_tokens = min_confidence, max_tokens
         self._probe, self._factory, self._clock = probe, backend_factory, clock
+        self._warm_check, self._waker, self._spawn = warm_check, waker, spawn
+        self._refreshing: set[str] = set()
+        self._waking: set[str] = set()
+        self._bg = threading.Lock()
         self._ttl, self._threshold, self._cooldown = health_ttl_s, breaker_threshold, breaker_cooldown_s
         self._health: dict[str, tuple[float, bool]] = {}
         self._fails: dict[str, int] = {}
@@ -148,18 +199,54 @@ class TierPool:
         now = self._clock()
         if self._open_until.get(t.name, 0.0) > now:
             return False
+        if t.warm_only:
+            return self._warm(t, now)
         cached = self._health.get(t.name)
         if cached is None or now - cached[0] > self._ttl:
             cached = (now, self._probe(t))
             self._health[t.name] = cached
         return cached[1]
 
+    def _warm(self, t: TierCfg, now: float) -> bool:
+        """Never blocks a call: answer from the last check and refresh it in the background when stale.
+        Unknown counts as cold. A cold check starts one wake request, so the next calls find it warm."""
+        cached = self._health.get(t.name)
+        with self._bg:
+            go = (cached is None or now - cached[0] > self._ttl) and t.name not in self._refreshing
+            if go:
+                self._refreshing.add(t.name)
+        if go:
+            self._spawn(lambda: self._refresh_warm(t))
+        return bool(cached and cached[1])
+
+    def _refresh_warm(self, t: TierCfg) -> None:
+        try:
+            warm = bool(self._warm_check(t))
+        except Exception:  # noqa: BLE001
+            warm = False
+        self._health[t.name] = (self._clock(), warm)
+        with self._bg:
+            self._refreshing.discard(t.name)
+            wake_now = not warm and t.name not in self._waking
+            if wake_now:
+                self._waking.add(t.name)
+        if wake_now:
+            def run() -> None:
+                try:
+                    self._waker(t)
+                finally:
+                    with self._bg:
+                        self._waking.discard(t.name)
+            self._spawn(run)
+
     def _record(self, t: TierCfg, ok: bool) -> None:
         if ok:
             self._fails[t.name] = 0
             return
         self._fails[t.name] = self._fails.get(t.name, 0) + 1
-        self._health.pop(t.name, None)
+        # Down until the next probe (health_ttl_s): a hung tier whose /api/tags still answers (a dead SSH tunnel)
+        # costs one timeout, not one per call until the breaker opens.
+        self._health[t.name] = (self._clock(), False)
         if self._fails[t.name] >= self._threshold:
             self._open_until[t.name] = self._clock() + self._cooldown
             self._fails[t.name] = 0
@@ -186,6 +273,10 @@ class TierPool:
         fallback: tuple[str, TierCfg, float | None] | None = None  # last low-confidence answer
         why, skipped = f"cheapest healthy tier that covers complexity {score:.2f}", []
         for t in (x for x in self.tiers if x.max_complexity >= score):
+            low = fallback[1] if fallback else None
+            if low and t.family and t.family == low.family and t.max_complexity <= low.max_complexity:
+                skipped.append(t.name)  # same family, no stronger (H200 30B -> Akash 30B): would not be surer
+                continue
             if not self.healthy(t):
                 skipped.append(t.name)
                 continue

@@ -70,6 +70,68 @@ def test_unhealthy_skipped_and_health_cached():
     assert calls.count("a") == 1  # cached within ttl
 
 
+def test_failed_call_marks_tier_down_until_next_probe():
+    # A dead tunnel whose /api/tags still answers: one timeout, then skipped (not re-probed) for the health ttl.
+    now = [0.0]
+    p, log = pool([cfg("a", 0.5), cfg("b", 1.0, 1)], {"a": Fake("a", fail=True)}, clock=lambda: now[0], health_ttl_s=15)
+    for _ in range(4):
+        assert p.generate("x", 0.1).tier == "b"
+    assert log.count("a") == 1
+    now[0] = 16  # ttl over: probed again and tried again
+    p.generate("x", 0.1)
+    assert log.count("a") == 2
+
+
+def h200(**kw):
+    return TierCfg(name="h200", device="gpu", backend="openai", url="http://x", family="qwen", max_complexity=0.6,
+                   warm_only=True, modal_app="app", **kw)
+
+
+def test_warm_only_tier_cold_falls_through_and_wakes_once_then_serves_when_warm():
+    now, warm, woke, later = [0.0], [False], [], []
+    p, log = pool([cfg("gpu-small", 0.6), h200(), cfg("top", 1.0, 1, family="ds")], clock=lambda: now[0],
+                  warm_check=lambda t: warm[0], waker=lambda t: woke.append(t.name), spawn=later.append)
+    assert [t.name for t in p.tiers] == ["h200", "gpu-small", "top"]
+    assert p.generate("x", 0.1).tier == "gpu-small"  # unknown = cold: no wait, next tier answers
+    for f in later[:]:
+        later.remove(f)
+        f()  # the background warm check: cold, so it queues one wake
+    while later:
+        later.pop(0)()
+    assert woke == ["h200"] and "h200" not in log
+    p.generate("x", 0.1)
+    assert not later  # checked moments ago: no new check, no second wake
+    warm[0], now[0] = True, 16
+    assert p.generate("x", 0.1).tier == "gpu-small"  # stale: answers from the last check, refreshes behind
+    while later:
+        later.pop(0)()
+    assert p.generate("x", 0.1).tier == "h200" and woke == ["h200"]
+
+
+def test_low_confidence_skips_a_same_family_tier_that_is_no_stronger():
+    p, log = pool([h200(), cfg("gpu-small", 0.6), cfg("top", 1.0, 1, family="ds")], {"h200": Fake("h200", conf=0.3)},
+                  min_confidence=0.95, warm_check=lambda t: True, spawn=lambda f: f())
+    p.generate("x", 0.1)  # first call: warm state unknown, the check runs (synchronously here)
+    log.clear()
+    r = p.generate("x", 0.1)
+    assert r.tier == "top" and log == ["h200", "top"]  # the Akash 30B (same model) is not asked again
+
+
+def test_openai_tier_logprobs_become_confidence(monkeypatch):
+    from chimera_core import ladder
+    from chimera_core.tiers import build_backend
+    sent = {}
+
+    def post(self, path, body):
+        sent.update(body)
+        return {"choices": [{"message": {"content": "hi"}, "logprobs": {"content": [{"logprob": 0.0}, {"logprob": -0.6931}]}}],
+                "usage": {"prompt_tokens": 3, "completion_tokens": 2}}
+    monkeypatch.setattr(ladder.TopBackend, "_post", post)
+    monkeypatch.setenv("CRUSOE_API_KEY", "test")
+    text, tin, tout, conf = build_backend(h200(logprobs=True, api_key_env="CRUSOE_API_KEY")).complete("q", 8)
+    assert sent["logprobs"] is True and (text, tin, tout) == ("hi", 3, 2) and abs(conf - 0.75) < 1e-3
+
+
 def test_disabled_tier_skipped_and_none_left_raises():
     p, _ = pool([cfg("off", 1.0, enabled=False), cfg("on", 1.0, 1)])
     assert p.generate("x", 0.1).tier == "on"
@@ -86,7 +148,14 @@ def test_same_family_rule():
 def test_example_config_loads():
     from chimera_core.config import ROOT, load_config
     names = [t.name for t in load_config(ROOT / "chimera.example.toml").tiers]
-    assert names == ["phone-3b", "mac-3b", "gpu-small", "gpu-large", "cloud-mid", "cloud-top", "cloud-deepseek", "cloud-coder", "cloud-largest"]
+    assert names == ["phone-3b", "mac-3b", "gpu-h200", "gpu-small", "gpu-large", "cloud-mid", "cloud-top", "cloud-deepseek",
+                     "cloud-coder", "cloud-largest"]
+
+
+def test_default_order_is_h200_if_warm_then_gpu_30b_then_763b():
+    from chimera_core.config import ROOT, load_config
+    order = [t.name for t in TierPool(load_config(ROOT / "chimera.example.toml").tiers).tiers]
+    assert order == ["gpu-h200", "gpu-small", "cloud-deepseek"]
 
 
 def test_router_uses_pool_behind_flag(tmp_path):

@@ -1,6 +1,6 @@
 # Copy to chimera.toml. No secrets here: CRUSOE_API_KEY comes from the environment or .env only.
 
-use_pool = true               # production: Supabase cache -> GPU 30B -> (Modal H200 120B) -> Crusoe 763B, from [[tiers]] below
+use_pool = true               # production: Supabase cache -> H200 30B (only while warm) -> GPU 30B -> Crusoe 763B, from [[tiers]] below
 
 [local]                      # tier 1: llama.cpp llama-server on this machine
 url = "http://127.0.0.1:8080"
@@ -73,6 +73,22 @@ family = "qwen"
 max_complexity = 0.4
 timeout_s = 60
 enabled = false              # experiment only: not in the product ladder (speculative-decoding benches use it)
+
+[[tiers]]
+name = "gpu-h200"            # Modal H200: vLLM Qwen3-30B-A3B-Instruct-2507 (deploy/modal/vllm_qwen30b.py, make modal-qwen-up)
+device = "gpu"               # the same 30B as gpu-small, about 100x faster (bench/results_cost_case_h200.md)
+backend = "openai"
+url = "$MODAL_QWEN_URL"      # from .env
+model = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+family = "qwen"
+max_complexity = 0.6
+timeout_s = 90
+api_key_env = "MODAL_VLLM_TOKEN"
+logprobs = true              # gate on mean token probability, like the Ollama tier
+warm_only = true             # flag: tried first only while a container runs; cold -> skipped and woken in the background
+modal_app = "chimera-qwen30b"   # scales to zero after 2 idle minutes (scaledown_window=120)
+enabled = true               # false: the ladder is cache -> gpu-small -> cloud-deepseek again
+# Cost is H200 seconds ($4.54/hr) while a container is up, not per token, so per-token prices stay 0 here.
 
 [[tiers]]
 name = "gpu-small"           # GPU 30B (self-hosted): the smallest product tier. V100 box, Ollama via an SSH tunnel to your GPU box

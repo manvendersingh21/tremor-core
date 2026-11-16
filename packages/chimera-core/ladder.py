@@ -8,6 +8,7 @@ Heavy tasks skip the 3B and the mid's own answer: mid only writes the brief.
 """
 from __future__ import annotations
 
+import math
 import time
 from typing import Callable, Protocol
 
@@ -43,16 +44,23 @@ class LadderConfig(RouterConfig):
 class TopBackend(CrusoeBackend):
     """Crusoe chat with caller-chosen chat_template_kwargs (gpt-oss: reasoning_effort, DeepSeek: thinking)."""
 
-    def __init__(self, model: str, template_kwargs: dict | None = None, **kw) -> None:
+    def __init__(self, model: str, template_kwargs: dict | None = None, logprobs: bool = False, **kw) -> None:
         super().__init__(model=model, **kw)
         self.template_kwargs = template_kwargs or {}
+        self.logprobs = logprobs  # vLLM: mean token probability of the answer -> last_confidence (the 30B gate)
+        self.last_confidence: float | None = None
 
     def complete(self, prompt: str, max_tokens: int = 2500) -> str:
         body = {"model": self.model, "max_tokens": max_tokens, "chat_template_kwargs": self.template_kwargs,
                 "messages": [{"role": "user", "content": prompt}]}
         if "reasoning_effort" in self.template_kwargs:  # vLLM gpt-oss reads it top-level, not from the template
             body["reasoning_effort"] = self.template_kwargs["reasoning_effort"]
+        if self.logprobs:
+            body["logprobs"] = True
         data = self._post("/v1/chat/completions", body)
+        lps = [x["logprob"] for x in ((data["choices"][0].get("logprobs") or {}).get("content") or [])
+               if x.get("logprob") is not None]
+        self.last_confidence = sum(math.exp(x) for x in lps) / len(lps) if lps else None
         u = data.get("usage", {})
         self.last_usage = {
             "prompt_tokens": u.get("prompt_tokens", 0), "completion_tokens": u.get("completion_tokens", 0),
@@ -133,7 +141,7 @@ class LadderRouter(SpeculativeCascadeRouter):
                      "dollars_saved": round(dollars, 6), "ms": round(lat, 1), "tokens_kept_off_big": saved, "cache": source})
         tel = Telemetry(
             tier_used=tier, tokens_saved=saved, latency_ms=lat, dollars_saved=dollars,
-            local_tokens=local_tokens, gpu_tokens=est_out if tier == "gpu" else 0,
+            gpu_tokens=est_out if tier == "gpu" else 0, local_tokens=local_tokens,
             cloud_tokens=est_out if tier == "top" else 0, tier_ms=ms or {}, cache_source=source, events=ev.log,
         )
         self.tracker.emit(tel)

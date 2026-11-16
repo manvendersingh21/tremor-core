@@ -201,6 +201,19 @@ def test_no_local_cache_file_is_written(tmp_path, monkeypatch):
     assert not pathlib.Path(":memory:").exists()
 
 
+def test_h200_joins_the_30b_step_only(monkeypatch):
+    """The H200 30B is tried before the Akash 30B on the 30B step; a failed test round climbs past both."""
+    from apps.terminal import routing
+    from chimera_core.config import ROOT, load_config
+
+    tiers = load_config(ROOT / "chimera.example.toml").tiers
+    c = routing.Cascade(router=type("R", (), {"cfg": __import__("chimera_core.router", fromlist=["x"]).RouterConfig()})(),
+                        tiers=tiers)
+    names = lambda floor: [t.name for t in c._pool(c.names("auto", floor), False).tiers]  # noqa: E731
+    assert names(0) == ["gpu-h200", "gpu-small", "cloud-deepseek"]
+    assert names(1) == ["cloud-deepseek"]
+
+
 def test_cache_key_hashes_context_files(tmp_path):
     (tmp_path / "a.py").write_text("x = 1\n")
     s, _ = sess(tmp_path, [])
