@@ -1,5 +1,7 @@
 # Backend v2: GPU link self-heal, H200 30B tier, bank in `chimera code`, xfail fixes, live checks
 
+> **Correction, 2026-11-16 ([`results_akash_tuning.md`](results_akash_tuning.md)).** Earlier reports, this one included, said the Akash V100 was shared and busy, and blamed it for the slow 30B calls. That was wrong. The GPU was ours, and no one else used it. The 30B was slow because the box gives our container 4 CPUs, while Ollama ran the model with 149 threads, so it decoded 20 tokens/s instead of 98. In some runs our own jobs on the same box (other chats, the speculative-decoding verifier) may also have queued calls or held GPU memory; that part is not proven. Tuned (`num_thread = 4`, then our own Ollama with flash attention, q8 KV cache, 4 slots, `keep_alive = -1`), the 30B passes 270/301 cost-case tasks (was 269/301) at a median 2.7 s per call (was 78.0 s) and $0.18 to $0.52 per 1,000 calls (was $11.02). The numbers below are kept as measured, before tuning.
+
 Date 2026-11-15 (PST). A senior chat on the Mac led two junior `kiro-cli` 3.3.0 agents, k1 (4 CPU, 7 GB) and k2 (2 CPU, 3 GB). Neither box has a GPU or any key. The juniors wrote code and offline tests with fakes. Each change went in as a pull request. The senior read every diff, ran the full suite on the Mac against dev, and squash-merged. Live checks ran only from the Mac. Each run happened once, with no repeats.
 
 ## Result per item

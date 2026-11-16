@@ -79,7 +79,8 @@ def write(test, train, ok):
 
     def pct(x):
         return f"{100 * x:.1f}%"
-    L = ["# N+1 memory: does the 30B get better when the big model's solved problems are remembered?", ""]
+    L = ["# N+1 memory: does the 30B get better when the big model's solved problems are remembered?", "",
+         (pathlib.Path(__file__).resolve().parents[2] / "bench/akash_correction_note.md").read_text().strip(), ""]
     L += ["Single run, temperature 0, one try per problem (pass@1). All code was graded by running its unit tests in the sandbox "
           "(`bench/datasets/grade.py`). Test set: %d coding problems. Memory is filled from a separate train stream of %d problems; "
           "no problem is in both (checked by prompt text). Near-duplicate families (same concept, different problem) can sit "

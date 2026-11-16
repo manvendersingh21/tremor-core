@@ -110,6 +110,7 @@ def main() -> None:
                       f"{A[t]['hard']['rate'] * 100:.0f}% vs 763B {A['top']['hard']['rate'] * 100:.0f}%.")
 
     L += ["# Cost case: what share of everyday coding a local or self-hosted model solves", "",
+          (ROOT / "bench/akash_correction_note.md").read_text().strip(), "",
           "Single run per tier, no repeats, thinking off, temperature as each server defaults (Mac 0.2). Every answer is graded by running its code against "
           "asserts in a subprocess (10 s timeout, empty environment, network blocked). "
           f"{len(TASKS)} tasks: {MIX['trivial']} trivial, {MIX['everyday']} everyday, {MIX['hard']} hard.", "", "## Summary in plain words", ""]
