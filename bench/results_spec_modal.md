@@ -37,9 +37,9 @@ Speed, 48 prompts, greedy, max 256 new tokens, one request at a time (tok/s = al
 | `a235_big_eagle_q3_235b` | inside Qwen3-235B-A22B | same box: EAGLE-3 head | 162.2 | 157.0 | 1.80x | 164.8 | 159.7 | 0.63 (vLLM) | 2.88 (vLLM) | 27/48 |
 | `a235_big_ngram` | inside Qwen3-235B-A22B | same box: n-gram (prompt lookup) | 100.6 | 84.8 | 1.12x | 106.8 | 88.4 | 0.09 (vLLM) | 1.38 (vLLM) | 48/48 |
 
-Where a cross-box round goes (medians per round; network = round trip minus the big box's own time; full-scoring rounds = the cache-reading verify failed and the round was scored again from scratch):
+Where a cross-box round goes (medians per round; network = round trip minus the big box's own time; new tokens = tokens the big box computes in a round: the context after its last cached 16-token block, plus the draft):
 
-| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | full-scoring rounds | big box ms cached / full | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |
+| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | rounds with > 16 new tokens | big box ms at <= 16 / > 16 new tokens | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `a235_spec_k4` | 1567 | 47 | 59 | 41 | 102 / 306 | 46 | 4.0 | not traced |  | 25.5 | 29.1 |
 | `a235_specplus` | 881 | 70 | 58 | 223 | 281 / 315 | 38 | 10.2 | not traced |  | 28.0 | 30.3 |
@@ -55,12 +55,29 @@ Hardware and cold starts (not in any number above): big box 4x H100 80GB HBM3, r
 ### Qwen3: 4B and 30B-A3B drafters, 2-level chain, same-box draft model, 235B-A22B verifier, account C
 
 <!-- tables:qb_235b -->
-Speed, 0 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all output tokens / all wall time; median = median of the per-prompt tok/s):
+Speed, 48 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all output tokens / all wall time; median = median of the per-prompt tok/s):
 
 | Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |
 |---|---|---|---|---|---|---|---|---|---|---|
+| `b235_big_alone` | Qwen3-235B-A22B alone | no speculation | 86.2 | 82.6 |  | 83.0 | 94.9 |  |  |  |
+| `b235_chain_alone` | Qwen3-4B -> Qwen3-30B-A3B alone (L40S) | no speculation (same-box helper on the drafter) | 36.7 | 34.9 | 0.43x | 39.9 | 31.2 |  |  |  |
+| `b235_chain_spec_k4` | Qwen3-4B -> Qwen3-30B-A3B (L40S) -> Qwen3-235B-A22B | plain spec, K=4 | 7.3 | 7.6 | 0.09x | 8.1 | 6.0 | 0.80 | 4.15 | 26/48 |
+| `b235_mid_alone` | Qwen3-30B-A3B alone (L40S) | no speculation | 130.1 | 125.5 | 1.51x | 127.0 | 135.4 |  |  |  |
+| `b235_small_alone` | Qwen3-4B alone (L40S) | no speculation | 132.2 | 131.2 | 1.53x | 131.0 | 133.8 |  |  |  |
 
-Not measured in this account: `b235_big_alone` (not reached), `b235_chain_alone` (not reached), `b235_chain_spec_k4` (not reached), `b235_chain_specplus` (not reached), `b235_mid_alone` (not reached), `b235_small_alone` (not reached), `b235_small_spec_k4` (not reached), `b235_big_alone_rep` (not reached), `b235_big_draft_q3_4b` (not reached), `b235_big_alone_rep2` (not reached), `b235_spec_k4` (not reached), `b235_specplus` (not reached), `b235_small_specplus` (not reached), `b235_spec_k8` (not reached), `b235_mideagle_alone` (not reached), `b235_mideagle_specplus` (not reached), `b235_big_eagle_q3_235b` (not reached), `b235_big_ngram` (not reached).
+Where a cross-box round goes (medians per round; network = round trip minus the big box's own time; new tokens = tokens the big box computes in a round: the context after its last cached 16-token block, plus the draft):
+
+| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | rounds with > 16 new tokens | big box ms at <= 16 / > 16 new tokens | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `b235_chain_spec_k4` | 1563 | 318 | 162 | 37 | 201 / 376 | 91 | 4.0 | 27% | 36 / 209 | 9.8 | 10.3 |
+
+Not measured in this account: `b235_chain_specplus` (skipped to save credits: the chain drafter box alone writes 36.7 tok/s, so Spec+ cannot change the verdict), `b235_small_spec_k4` (not reached), `b235_big_alone_rep` (not reached), `b235_big_draft_q3_4b` (not reached), `b235_big_alone_rep2` (not reached), `b235_spec_k4` (not reached), `b235_spec_k4_cap16` (not reached), `b235_specplus` (not reached), `b235_small_specplus` (not reached), `b235_spec_k8` (not reached), `b235_mideagle_alone` (not reached), `b235_mideagle_specplus` (not reached), `b235_big_eagle_q3_235b` (not reached), `b235_big_ngram` (not reached).
+
+Same-box helper inside the drafter box (must not change the drafter's own output): `b235_chain_alone` vs `b235_mid_alone`: 30/48 identical.
+
+Root-cause check: the big model's own 6544 output tokens (big alone, 48 answers), scored again in one forward pass over the whole answer (the shape a verify round uses). At 76 positions in 23 answers the one-pass top-1 is not the token the one-token-at-a-time decode wrote; how far the decoded token is below that top-1 there (nats): [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.375, 0.375, 0.375, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.625, 0.625, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 1.0, 1.0, 1.0, 1.0, 1.25, 1.75, 2.25, 3.0]. Positions whose top-1 and top-2 are within 0.05 / 0.1 / 0.5 nats: 35 / 35 / 115 of 6544.
+
+Hardware and cold starts (not in any number above): big box 4x H100 80GB HBM3, region us-west; drafter boxes 1x L40S, regions ['us-east']. Big box first answer 769 s after the job started (container, weights from the volume, vLLM start, warm-up, self-test; first vLLM start plain 578 s). Restarts for same-box modes: none. Drafter boxes boot: q3_30b+4b 171 s, q3_30b 135 s, q3_4b 107 s. Job wall time 35 min.
 <!-- /tables:qb_235b -->
 
 ### Qwen3-Coder-480B-A35B verifier (4 H200), code prompts only
@@ -71,7 +88,7 @@ Speed, 0 prompts, greedy, max 256 new tokens, one request at a time (tok/s = all
 | Run | Who drafts -> who checks | Method | tok/s | median | vs big alone | code tok/s | chat tok/s | alpha (accepted / drafted) | tokens per round | same output as big alone |
 |---|---|---|---|---|---|---|---|---|---|---|
 
-Not measured in this account: `c480_big_alone` (not reached), `c480_coder_alone` (not reached), `c480_coder_spec_k4` (not reached), `c480_coder_specplus` (not reached), `c480_mid_alone` (not reached), `c480_spec_k4` (not reached), `c480_big_alone_rep` (not reached), `c480_big_eagle_q3c_480b` (not reached), `c480_big_ngram` (not reached), `c480_specplus` (not reached), `c480_chain_alone` (not reached), `c480_chain_spec_k4` (not reached).
+Not measured in this account: `c480_big_alone` (not reached), `c480_coder_alone` (not reached), `c480_coder_spec_k4` (not reached), `c480_coder_spec_k4_cap16` (not reached), `c480_big_alone_rep` (not reached), `c480_big_eagle_q3c_480b` (not reached), `c480_big_ngram` (not reached), `c480_coder_specplus` (not reached), `c480_mid_alone` (not reached), `c480_spec_k4` (not reached), `c480_chain_alone` (not reached), `c480_chain_spec_k4` (not reached).
 <!-- /tables:qa_480b -->
 
 ### Qwen3.5: 4B / 35B-A3B drafters, 397B-A17B verifier (4 H200)
@@ -101,9 +118,9 @@ Speed, 3 prompts, greedy, max 48 new tokens, one request at a time (tok/s = all 
 | `s_big_eagle_q3_30b` | inside Qwen3-30B-A3B | same box: EAGLE-3 head | 97.1 | 94.6 | 1.68x | 97.1 |  | 0.73 (vLLM) | 3.20 (vLLM) | 2/3 |
 | `s_big_draft_q3_4b` | inside Qwen3-30B-A3B | same box: Qwen3-4B draft model | 37.5 | 39.0 | 0.65x | 37.5 |  | 0.95 (vLLM) | 4.81 (vLLM) | 2/3 |
 
-Where a cross-box round goes (medians per round; network = round trip minus the big box's own time; full-scoring rounds = the cache-reading verify failed and the round was scored again from scratch):
+Where a cross-box round goes (medians per round; network = round trip minus the big box's own time; new tokens = tokens the big box computes in a round: the context after its last cached 16-token block, plus the draft):
 
-| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | full-scoring rounds | big box ms cached / full | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |
+| Run | rounds | draft ms | network ms | big box ms | round trip p50 / p90 ms | bare call (ping) p50 ms | mean K | rounds with > 16 new tokens | big box ms at <= 16 / > 16 new tokens | tok/s at 20 ms network (projected) | tok/s at 0 ms (projected) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `s_spec_k4` | 27 | 38 | 198 | 66 | 265 / 271 |  | 4.0 | not traced |  | 38.7 | 46.1 |
 | `s_specplus` | 16 | 44 | 201 | 67 | 270 / 279 |  | 9.1 | not traced |  | 61.5 | 72.4 |

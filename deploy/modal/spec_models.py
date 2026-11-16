@@ -143,12 +143,14 @@ def repeat_235(t):
     """Only if credits allow, after the 480B and 397B jobs: account B's runs again in account C, against the same
     baseline (a third big-alone run checks the box decodes the same as in qb_235b)."""
     more = [P(f"{t}_big_alone_rep2", None, "big_alone"),
-            P(f"{t}_spec_k4", "q3_30b", "spec", k=4), P(f"{t}_specplus", "q3_30b", "spec", **PLUS),
+            P(f"{t}_spec_k4", "q3_30b", "spec", k=4), P(f"{t}_spec_k4_cap16", "q3_30b", "spec", k=4, cap=16),
+            P(f"{t}_specplus", "q3_30b", "spec", **PLUS),
             P(f"{t}_small_specplus", "q3_4b", "spec", **PLUS), P(f"{t}_spec_k8", "q3_30b", "spec", k=8),
             P(f"{t}_mideagle_alone", "q3_30b+eagle", "draft_alone"),
             P(f"{t}_mideagle_specplus", "q3_30b+eagle", "spec", **PLUS),
             P(f"{t}_margins_more", None, "margins", base=f"{t}_big_alone",
-              runs=[f"{t}_big_alone_rep2", f"{t}_big_draft_q3_4b", f"{t}_spec_k4", f"{t}_specplus", f"{t}_small_specplus",
+              runs=[f"{t}_big_alone_rep2", f"{t}_big_draft_q3_4b", f"{t}_spec_k4", f"{t}_spec_k4_cap16",
+                    f"{t}_specplus", f"{t}_small_specplus",
                     f"{t}_spec_k8", f"{t}_mideagle_specplus"]),
             SW("eagle_q3_235b", t), P(f"{t}_big_eagle_q3_235b", None, "big_alone"),
             SW("ngram", t), P(f"{t}_big_ngram", None, "big_alone"), SW("plain", t),
@@ -189,17 +191,21 @@ JOBS = {
                 "tok": "q3c_480b", "subset": "code",
                 "plans": [P("c480_big_alone", None, "big_alone"), P("c480_rescore", None, "rescore", base="c480_big_alone"),
                           P("c480_coder_alone", "q3c_30b", "draft_alone"), P("c480_coder_spec_k4", "q3c_30b", "spec", k=4),
-                          P("c480_coder_specplus", "q3c_30b", "spec", **PLUS),
-                          P("c480_mid_alone", "q3_30b", "draft_alone"), P("c480_spec_k4", "q3_30b", "spec", k=4),
+                          # K cut so a round never makes the big box compute more than 16 tokens (the 6x cliff the
+                          # 235B trace showed)
+                          P("c480_coder_spec_k4_cap16", "q3c_30b", "spec", k=4, cap=16),
                           P("c480_big_alone_rep", None, "big_alone"),
                           P("c480_margins", None, "margins", base="c480_big_alone",
-                            runs=["c480_coder_spec_k4", "c480_coder_specplus", "c480_spec_k4", "c480_big_alone_rep"]),
+                            runs=["c480_coder_spec_k4", "c480_coder_spec_k4_cap16", "c480_big_alone_rep"]),
                           SW("eagle_q3c_480b", "c480"), P("c480_big_eagle_q3c_480b", None, "big_alone"),
+                          # only if credits allow
                           SW("ngram", "c480"), P("c480_big_ngram", None, "big_alone"), SW("plain", "c480"),
-                          P("c480_specplus", "q3_30b", "spec", **PLUS),
+                          P("c480_coder_specplus", "q3c_30b", "spec", **PLUS),
+                          P("c480_mid_alone", "q3_30b", "draft_alone"), P("c480_spec_k4", "q3_30b", "spec", k=4),
                           P("c480_chain_alone", "q3_30b+4b", "draft_alone"), P("c480_chain_spec_k4", "q3_30b+4b", "spec", k=4),
                           P("c480_margins_more", None, "margins", base="c480_big_alone",
-                            runs=["c480_big_eagle_q3c_480b", "c480_big_ngram", "c480_specplus", "c480_chain_spec_k4"])]},
+                            runs=["c480_big_eagle_q3c_480b", "c480_big_ngram", "c480_coder_specplus", "c480_spec_k4",
+                                  "c480_chain_spec_k4"])]},
     # Qwen3.5 (own tokenizer): 35B-A3B and 4B drafters, 397B-A17B verifier; its built-in MTP is the same-box mode
     "qa_397b": {"app": "chimera-spec-qa-397b", "big": "q35_397b", "gpu": "H200:4", "gpu_fallback": ["H100:8"],
                 "tok": "q35_397b",
