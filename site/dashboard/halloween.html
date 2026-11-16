@@ -29,6 +29,7 @@ body{margin:0;min-height:100vh;color:var(--fg);font:15px/1.55 Inter,system-ui,sa
 .scene{position:fixed;inset:0;pointer-events:none;z-index:0;opacity:var(--art);transition:opacity .4s}
 .scene svg{position:absolute}
 .moon{top:70px;right:6%;width:clamp(90px,14vw,170px)}
+@media(max-width:600px){.moon{top:12px;left:14px;right:auto;width:56px}}
 .manor{bottom:0;left:0;width:100%;height:min(34vh,300px);opacity:.55}
 .fog{left:-20%;width:140%;height:240px;background:radial-gradient(closest-side,rgba(239,230,214,.07),transparent);filter:blur(24px);animation:drift 60s linear infinite alternate}
 .fog.f1{bottom:6%}.fog.f2{bottom:18%;animation-duration:85s;animation-direction:alternate-reverse;opacity:.7}

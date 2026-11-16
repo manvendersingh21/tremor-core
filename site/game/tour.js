@@ -36,7 +36,7 @@
     const k = G.doors.findIndex((d) => d.id === s.room); if (k < 0) return;
     S.door = k; G.use();
     await until(() => S.panel, 6000);
-    if (s.chart) { await sleep(500); const c = document.querySelector('.m-cost'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    if (s.chart) { await sleep(500); const c = document.querySelector('.m-cost'), pb = document.getElementById('m-pbody'); if (c && pb) pb.scrollTo({ top: c.offsetTop - pb.offsetTop - 8, behavior: 'smooth' }); }   // scroll the panel only: scrollIntoView also moved the whole page
   }
 
   async function start() {
