@@ -23,7 +23,9 @@ sys.path.insert(0, str(ROOT))
 import conftest  # noqa: E402,F401
 from chimera_core.config import load_env  # noqa: E402
 
-OUT = ROOT / "bench/.scratch/company_cost"
+# REPEATS_OUT / REPEATS_TAG: another run's folder and Supabase tenant/namespace prefix (backend v3: backend_v3, v3)
+OUT = pathlib.Path(os.environ.get("REPEATS_OUT") or ROOT / "bench/.scratch/company_cost")
+TAG = os.environ.get("REPEATS_TAG", "cc")
 PY = sys.executable
 
 
@@ -66,7 +68,7 @@ def cache(reps: int) -> None:
         have = [r for r in jl(f) if r["rep"] == k]
         if any(r["kind"] == "purged" for r in have):
             continue
-        tenant = f"bench-cc-cache-r{k}"
+        tenant = f"bench-{TAG}-cache-r{k}"
         # product settings: no local fallback, guard on, 300 ms budget, threshold 0.97
         mk = lambda: PgVectorCache(emb, lambda: PgStore(dsn), threshold=0.97, tenant=tenant, fallback=None,  # noqa: E731
                                    store_text=True, guard=make_guard(), budget_s=0.3)
@@ -112,7 +114,7 @@ def bank(reps: int) -> None:
         for name in ("reworded.jsonl", "emb.jsonl"):  # same reworded copies, same embeddings; model answers are fresh
             if not (d / name).exists():
                 shutil.copy(src / name, d / name)
-        B.D, B.TENANT = d, f"bench-cc-bank-r{k}"
+        B.D, B.TENANT = d, f"bench-{TAG}-bank-r{k}"
         emb = B.CachedEmbedder()
         bk = B.make_bank(emb, use_graph=False)  # the graph is not part of the lookup; keep Aura out of the repeats
         if not B.jl("run1.jsonl") and bk.stats()["size"]:
@@ -135,7 +137,7 @@ def ladder(reps: int) -> None:
         d.mkdir(parents=True, exist_ok=True)
         if (d / "purged.json").exists():
             continue
-        ns = f"bench-cc-ladder-r{k}"
+        ns = f"bench-{TAG}-ladder-r{k}"
         env = dict(os.environ, BENCH_STORE=str(d), BENCH_NS=ns)
         with (d / "run.log").open("a") as log:  # one process at a time; run_backend skips done ids itself
             subprocess.run([PY, str(ROOT / "bench/run_backend.py"), "run", "BASE", "COLD", "WARM"],

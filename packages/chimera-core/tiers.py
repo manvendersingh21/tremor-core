@@ -260,14 +260,16 @@ class TierPool:
                         self._waking.discard(t.name)
             self._spawn(run)
 
-    def _record(self, t: TierCfg, ok: bool) -> None:
+    def _record(self, t: TierCfg, ok: bool, down: bool = True) -> None:
         if ok:
             self._fails[t.name] = 0
             return
         self._fails[t.name] = self._fails.get(t.name, 0) + 1
         # Down until the next probe (health_ttl_s): a hung tier whose /api/tags still answers (a dead SSH tunnel)
-        # costs one timeout, not one per call until the breaker opens.
-        self._health[t.name] = (self._clock(), False)
+        # costs one timeout, not one per call until the breaker opens. down=False (the server answered with an
+        # HTTP error such as 429): it is reachable, so only the breaker counts it; a lone top tier is not lost for 15 s.
+        if down:
+            self._health[t.name] = (self._clock(), False)
         if self._fails[t.name] >= self._threshold:
             self._open_until[t.name] = self._clock() + self._cooldown
             self._fails[t.name] = 0
@@ -314,7 +316,7 @@ class TierPool:
                 ms = (time.perf_counter() - ta) * 1000
                 u.latency_ms += ms
                 u.errors += 1
-                self._record(t, False)
+                self._record(t, False, down=not isinstance(e, urllib.error.HTTPError))
                 err = type(e).__name__
                 ev("call", {"tier": t.name, "model": t.model, "ok": False, "error": err, "ms": round(ms, 1),
                             "tokens_in": 0, "tokens_out": 0, "cached_tokens": 0})
