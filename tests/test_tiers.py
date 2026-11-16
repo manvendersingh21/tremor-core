@@ -166,6 +166,25 @@ def test_openai_tier_retries_429_then_answers(monkeypatch):
     assert len(calls) == 1  # a 400 is not retried
 
 
+def test_http_error_does_not_mark_a_lone_top_tier_down():
+    # Found live (bench/run_faults.py ratelimit): after a 429 storm the only tier was marked down, so the next
+    # call failed at once with no request sent. A server that answers with an HTTP error is reachable.
+    import io
+    import urllib.error
+
+    class Busy(Fake):
+        def complete(self, prompt, n):
+            self.log.append(self.name)
+            if self.fail:
+                self.fail = False
+                raise urllib.error.HTTPError("u", 429, "busy", {}, io.BytesIO())
+            return "top-answer", 3, 1, None
+    p, log = pool([cfg("top", 1.0, 1)], {"top": Busy("top", fail=True)}, health_ttl_s=15, clock=lambda: 0.0)
+    with pytest.raises(AllTiersFailed):
+        p.generate("x", 0.9)
+    assert p.generate("x", 0.9).tier == "top" and log == ["top", "top"]
+
+
 def test_product_tier_reads_the_tuned_30b_entry(monkeypatch, tmp_path):
     from chimera_core.config import product_tier
     monkeypatch.setenv("CHIMERA_CONFIG", str(tmp_path / "none.toml"))
