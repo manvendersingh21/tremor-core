@@ -2889,7 +2889,7 @@
   "bugs_found": 4,
   "bugs_fixed": 4,
   "xfail_left": 0,
-  "handoffs": 11,
+  "handoffs": 12,
   "posters": [
    {
     "title": "Steering",
@@ -2965,10 +2965,10 @@
    },
    {
     "title": "Kiro Crew",
-    "big": "11 handoffs",
+    "big": "12 handoffs",
     "lines": [
      "A backend chat and a frontend chat built this, each owning its folders.",
-     "Finished work items left 11 handoff notes in docs/handoff/."
+     "Finished work items left 12 handoff notes in docs/handoff/."
     ],
     "src": [
      "docs/handoff/",
