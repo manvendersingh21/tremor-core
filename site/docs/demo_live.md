@@ -8,11 +8,25 @@ This take is LIVE. The Count's chat called the real ladder on a local `make web`
 | `site/docs/demo_live.srt` | The same captions as soft subtitles. |
 | `site/docs/demo_live.json` | When each shot and caption started, and the server's own record of every live call (`/api/stats` `recent`). |
 | `site/docs/demo_live_shots/` | One still per shot. |
-| `site/docs/demo_cut_v2.mp4` | The older replay cut (`demo_cut.mp4`, 2:46) with the A6000 card added at the end, 1 s cross-fade. 2:57, one silent track. Use it if you do not re-read the narration for the live take. |
+| `site/docs/demo_cut_v2.mp4` | The older replay cut (`demo_cut.mp4`) with the A6000 card fading in at 2:40, 7.5 s into the old closing card. 2:52, one silent track. |
 | `site/docs/demo_cut_v2.srt` | `demo_cut.srt` plus one cue for the A6000 card. |
+| `site/docs/demo_voiced.mp4` | **The live video with an AI voice-over** (the user approved it). 2:47: the last frame of the A6000 card is held 5 s so the last line can finish. |
+| `site/docs/demo_cut_v2_voiced.mp4` | The v2 replay cut with the same AI voice. 2:58.9, last frame held 6.7 s. |
+| `site/docs/demo_voiced.json`, `demo_cut_v2_voiced.json` | Voice, settings, and when each line starts and how long it runs. |
 | `scripts/demo_record_live.py` | Records it again (needs a live server; see "How it was made"). `--v2-only` rebuilds only `demo_cut_v2.mp4`. |
+| `scripts/demo_voice.py` | Voices a cut: `.venv/bin/python scripts/demo_voice.py live` (or `v2`). |
 
-The voice-over is yours to record. No AI or synthetic voice is in either file, and none should be added.
+The silent cuts stay, in case you want to record your own voice instead (see "Join your voice").
+
+## The AI voice
+
+- ElevenLabs text-to-speech, preset voice **George - Warm, Captivating Storyteller** (`voice_id` `JBFqnCBsd6RMkjVDRZzb`, British, middle-aged).
+- Model `eleven_multilingual_v2`, output `mp3_44100_128`. Settings: stability 0.5, similarity boost 0.75, style 0, speaker boost on, speed 1.0.
+- One request per shot, with the exact lines under "Narration to read" below. `demo_voiced.mp4` uses this file's lines. `demo_cut_v2_voiced.mp4` uses `site/docs/demo_video.md` shots 1 to 9, then shot 10 below.
+- Before sending, only the model names are respelled for speech: `763B` -> `763-B`, `30B` -> `30-B`, `A6000` -> `A 6000`.
+- Each line starts 0.3 s after its shot starts. No line ran into the next one, except the v2 card line, which starts 0.26 s late.
+- Mix: ffmpeg `adelay` per line, `amix`, `loudnorm` to -16 LUFS, AAC 192 kb/s, 48 kHz. The video stream is unchanged, apart from the held last frame.
+- Cost: 3,408 characters of text (1,521 live, 1,887 v2). The account showed 3,435 of 10,000 free characters used after both cuts. The clips are kept in the git-ignored `bench/.scratch/demo_voice/`, and `scripts/demo_voice.py` never sends a line twice. The key is read from `.env` (`ELEVENLABS_API_KEY`) and is in no committed file.
 
 ## The live calls
 
@@ -42,15 +56,17 @@ Shot 6 is a loss: the climb took 8.9 s, and the 763B alone took 5.0 s at about t
 | 9 | 2:21-2:29 | Closing card | 62% to 87%; 607% more | `bench/results_company_cost.md` |
 | 10 | 2:29-2:42 | A6000 card | 70.7% fewer 763B calls, 0 wrong answers from the cache; 292 of 301 vs 286 for the 763B alone; loss: median 3.1 s vs 0.7 s on a first pass | `bench/results_a6000.md` |
 
-`demo_cut_v2.mp4`: shots 1 to 9 as in `site/docs/demo_video.md` (0:00-2:46), then the A6000 card from 2:45 to 2:57.
+`demo_cut_v2.mp4`: shots 1 to 9 as in `site/docs/demo_video.md`, with the closing card cut to 2:33-2:41, then the A6000 card from 2:40 to 2:52 (2:59 voiced, last frame held).
+
+`demo_voiced.mp4` has the same shots as `demo_live.mp4`. Its A6000 card runs 2:29-2:47 (last frame held from 2:42).
 
 ## Narration to read (`demo_live.mp4`)
 
-Calm pace. Start each line when its shot starts. About 330 words.
+Calm pace. Start each line when its shot starts. About 320 words.
 
-**Shot 1 (0:00).** "Companies pay a frontier model for every coding call, even FizzBuzz. CHIMERA answers each call at the cheapest place that gets it right. This take is live, on our own GPU."
+**Shot 1 (0:00).** "Companies pay a frontier model for every coding call, even FizzBuzz. CHIMERA answers each call at the cheapest place that gets it right."
 
-**Shot 2 (0:10).** "The whole app is one page. Hold W. The gates open, then the great door. Every gold door is a room of measured numbers."
+**Shot 2 (0:10).** "This take is live, on our own GPU. The whole app is one page. Hold W. The gates open, then the great door."
 
 **Shot 3 (0:22).** "I ask the Count a question. The call climbs a ladder: our shared cache first, then our own 30B, then the big 763B. The cache has not seen this one. So our 30B answers, on our A6000, in under a second. No token bill."
 
@@ -66,9 +82,9 @@ Calm pace. Start each line when its shot starts. About 330 words.
 
 **Shot 9 (2:21).** "Stop paying a frontier model for FizzBuzz. We prove it with tests."
 
-**Shot 10 (2:29).** "On our own A6000, the cache and the answer check cut 763B calls by 70.7 percent, with zero wrong answers from the cache. The ladder got 292 of 301 coding tasks right. The 763B alone got 286. The loss: on a first pass we are slower. CHIMERA, for Kiroween 2026."
+**Shot 10 (2:29).** "On our own A6000, 763B calls fell 70.7 percent, with zero wrong answers from the cache. We passed 292 of 301 coding tasks. The 763B alone passed 286. But a first pass is slower."
 
-For `demo_cut_v2.mp4`, read the shot lines in `site/docs/demo_video.md`, then the shot 10 line above at 2:45.
+For `demo_cut_v2.mp4`, read the shot lines in `site/docs/demo_video.md`, then the shot 10 line above at 2:40.
 
 ## Join your voice
 
