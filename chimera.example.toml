@@ -33,6 +33,11 @@ store_text = true            # prompt text in the shared DB: the guard and N+1 m
 top_k = 5
 budget_ms = 300              # DB time per lookup (measured ~120 ms). Over it, or DB down: no cache, straight to the tiers
 guard = true                 # reject cosine hits whose numbers, negation or entities differ (cache/guard.py); wrong hits 4 -> 2
+# Paraphrases (cache/band.py, bench/results_paraphrase_cache.md). Exact hash and cosine >= semantic stay as they are.
+normalize = false            # also compare prompts with lead-ins ("tell me", "what is", "please"), punctuation and case stripped
+band_low = 0.0               # > 0 (e.g. 0.88): cosine in [band_low, semantic) is served only if the guard passes and the check says YES
+band_check = "gpu-small"     # [[tiers]] name of the yes/no checker (the self-hosted 30B); "" = guard only
+band_check_timeout_s = 5.0   # per check; over it or an error = a miss, then no check for 60 s
 
 [telemetry]
 path = "~/.chimera/telemetry.jsonl"   # CHIMERA_TELEMETRY overrides
