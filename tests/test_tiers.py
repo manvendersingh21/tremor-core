@@ -235,6 +235,22 @@ def test_ollama_tier_sends_options_and_keep_alive(monkeypatch):
     assert sent[1]["options"] == {"num_predict": 8} and "keep_alive" not in sent[1]
 
 
+def test_ollama_tier_sends_bearer_only_when_its_key_env_is_named(monkeypatch):
+    from chimera_core.inference import cloud_verifier as cv
+    from chimera_core.tiers import build_backend
+    keys = []
+
+    def post(self, path, body):
+        keys.append(self.api_key)
+        return {"message": {"content": "hi"}, "prompt_eval_count": 1, "eval_count": 1, "logprobs": [{"logprob": 0.0}]}
+    monkeypatch.setattr(cv.OllamaBackend, "_post", post)
+    monkeypatch.setenv("CRUSOE_API_KEY", "crusoe-secret")
+    monkeypatch.setenv("CHIMERA_GPU_KEY", "gpu-secret")
+    build_backend(cfg("gpu-small", 0.6)).complete("q", 8)  # default api_key_env names Crusoe: never sent to a GPU box
+    build_backend(cfg("gpu-small", 0.6).model_copy(update={"api_key_env": "CHIMERA_GPU_KEY"})).complete("q", 8)
+    assert keys == ["", "gpu-secret"]
+
+
 def test_disabled_tier_skipped_and_none_left_raises():
     p, _ = pool([cfg("off", 1.0, enabled=False), cfg("on", 1.0, 1)])
     assert p.generate("x", 0.1).tier == "on"
