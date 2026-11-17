@@ -258,7 +258,7 @@ def test_example_config_loads():
 def test_default_order_is_h200_if_warm_then_gpu_30b_then_763b():
     from chimera_core.config import ROOT, load_config
     order = [t.name for t in TierPool(load_config(ROOT / "chimera.example.toml").tiers).tiers]
-    assert order == ["gpu-h200", "gpu-small", "cloud-deepseek"]
+    assert order == ["gpu-h200", "gpu-small", "gpu-120b", "cloud-deepseek"]  # gpu-120b: off while its URL is unset
 
 
 def test_router_uses_pool_behind_flag(tmp_path):
@@ -297,8 +297,10 @@ def test_gpu_120b_tier_is_off_until_its_url_is_set(monkeypatch):
     raw = tomllib.loads(pathlib.Path(ROOT / "chimera.example.toml").read_text())
     for var in ("CHIMERA_120B_URL", "CHIMERA_GPU_URL", "MODAL_QWEN_URL"):
         monkeypatch.delenv(var, raising=False)
-    off = TierPool(ChimeraConfig.model_validate(raw).tiers, probe=lambda t: True)
-    assert "gpu-120b" not in [t.name for t in off.tiers]
+    from chimera_core.tiers import http_probe
+    off = TierPool(ChimeraConfig.model_validate(raw).tiers)  # the real probe: an unset URL fails before any request
+    t120 = next(t for t in off.tiers if t.name == "gpu-120b")
+    assert t120.url == "$CHIMERA_120B_URL" and not http_probe(t120) and not off.healthy(t120)
     assert unset_env("$CHIMERA_120B_URL") == "CHIMERA_120B_URL" and unset_env("http://127.0.0.1:1") is None
     monkeypatch.setenv("CHIMERA_120B_URL", "http://127.0.0.1:1")
     monkeypatch.setenv("CHIMERA_GPU_URL", "http://127.0.0.1:2")
