@@ -135,15 +135,24 @@
       c.addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (b && !busy) ask(b.dataset.q); });
     }
     if (window.ChimeraMode) window.ChimeraMode.detect().then((m) => { if (m === 'demo') useDemo(); });
+    /* the saved question for a typed one: the same text, else the closest by word overlap (site/mode.js closest) */
+    function savedFor(q) {
+      if (!DEMO) return null;
+      const same = DEMO.examples.find((x) => norm(x.q) === norm(q));
+      if (same) return { ex: same, sim: 1, ok: true, same: true };
+      return window.ChimeraMode && window.ChimeraMode.closest ? window.ChimeraMode.closest(q, DEMO.examples) : null;
+    }
     async function replay(q, on) {
-      const ex = DEMO && DEMO.examples.find((x) => norm(x.q) === norm(q));
+      const m = savedFor(q), ex = m && m.ok ? m.ex : null;
       if (!ex) {
         replayed = null; setRow('t-final', '<span class="t-chip warn">not a saved question</span>');
-        on('answer', { text: 'In demo mode I can only replay the saved questions below. Run make web on your own machine for the live ladder.' }); on('done', {}); return;
+        const near = m ? ` Closest saved question: “${m.ex.q}” (similarity ${m.sim.toFixed(2)}${m.clash ? ', ' + m.clash : ', below ' + m.bar}), so I will not replay it.` : '';
+        on('answer', { text: 'In demo mode I can only replay the saved questions below.' + near + ' Run make web on your own machine for the live ladder.' }); on('done', {}); return;
       }
       const first = !asked.has(ex.id); asked.add(ex.id);
       for (const [n, d] of (first ? ex.first : ex.repeat)) { await wait(n === 'call' ? 450 : 90); on(n, d); }
-      replayed = `DEMO replay · measured in the ${first ? 'COLD pass (first ask)' : 'WARM pass (the same question again)'} of ${DEMO.source}; answer text saved in ${DEMO.answers_from}`;
+      replayed = (m.same ? '' : `closest saved question: “${ex.q}” (similarity ${m.sim.toFixed(2)}, word overlap) · `) +
+        `DEMO replay · measured in the ${first ? 'COLD pass (first ask)' : 'WARM pass (the same question again)'} of ${DEMO.source}; answer text saved in ${DEMO.answers_from}`;
       on('answer', { text: ex.answer }); on('done', {});
     }
 
@@ -158,7 +167,7 @@
       if (busy || dead) return;
       const q = input.value.trim().slice(0, MAXLEN) || (DEMO ? DEMO.examples[0].q : 'What is the capital of France?');
       input.value = '';
-      const ex = DEMO && DEMO.examples.find((x) => norm(x.q) === norm(q)); if (demoMode && ex) asked.delete(ex.id);   // replay the first ask, then the repeat
+      const m = savedFor(q), ex = m && m.ok ? m.ex : null; if (demoMode && ex) asked.delete(ex.id);   // replay the first ask, then the repeat
       const a = await ask(q), b = await ask(q);
       compare(a, b);
     });

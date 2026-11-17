@@ -45,5 +45,31 @@
     document.addEventListener('chimera-mode', (e) => paint(el, e.detail));
     const m = await detect(); paint(el, m); return m;
   }
-  window.ChimeraMode = { detect, demo, stats, badge, now: () => mode, base: here };
+  /* DEMO chat: the saved question closest to a typed one, by word overlap (Jaccard) after the same lead-in
+     stripping as the backend (packages/chimera-core/cache/band.py). No model and no embedding in the browser.
+     Numbers and "not" must agree, so "2 apples" never matches "3 apples". Returns {ex, sim, ok}: ok = sim >= bar. */
+  const LEAD = ['i would like to know', 'i want to know', 'let me know', 'do you know', 'please', 'kindly', 'can you', 'could you', 'would you',
+    'tell me', 'show me', 'give me', 'what is', 'whats', 'what are', 'hey', 'hi', 'hello'];
+  const STOP = new Set('the a an of in on at to for is are was were be does do did what which who whom how when where why that this it its by with and or from'.split(' '));
+  const NEG = new Set(['not', 'no', 'never', 'without', 'cannot', 'cant', 'dont', 'doesnt', 'isnt']);
+  function words(q) {
+    let s = String(q).toLowerCase().replace(/['\u2019]/g, '').replace(/[^a-z0-9+\-*/=<>%^.]+/g, ' ').replace(/(^|\s)\.+|\.+(\s|$)/g, ' ').trim();
+    for (let again = true; again;) { again = false; for (const p of LEAD) if (s === p || s.startsWith(p + ' ')) { s = s.slice(p.length).trim(); again = true; break; } }
+    return s.split(/\s+/).filter((w) => w && !STOP.has(w)).map((w) => (w.length > 3 && /[a-z]s$/.test(w) && !/ss$/.test(w) ? w.slice(0, -1) : w));
+  }
+  const nums = (ws) => ws.filter((w) => /\d/.test(w)).sort().join(' '), neg = (ws) => ws.some((w) => NEG.has(w));
+  function closest(q, examples, bar) {
+    bar = bar == null ? 0.6 : bar;
+    const a = words(q), A = new Set(a);
+    let best = null;
+    for (const ex of examples || []) {
+      const b = words(ex.q), B = new Set(b);
+      const inter = [...A].filter((w) => B.has(w)).length, uni = new Set([...A, ...B]).size;
+      const sim = Math.round((uni ? inter / uni : 0) * 100) / 100;
+      const clash = nums(a) !== nums(b) ? 'numbers differ' : neg(a) !== neg(b) ? 'one says not' : '';   // never served
+      if (!best || sim > best.sim) best = { ex, sim, clash };
+    }
+    return best ? Object.assign(best, { ok: best.sim >= bar && !best.clash, bar }) : null;
+  }
+  window.ChimeraMode = { detect, demo, stats, badge, closest, now: () => mode, base: here };
 })();
