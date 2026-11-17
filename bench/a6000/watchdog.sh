@@ -5,6 +5,8 @@
 #   echo run  > $A6000_ROOT/run/want     # serve on any free GPU
 #   echo stop > $A6000_ROOT/run/want     # stop our servers, keep watching
 #   echo exit > $A6000_ROOT/run/want     # stop our servers and exit
+#   echo manual > $A6000_ROOT/run/want   # start nothing; a server we started by hand writes run/gpu<i>.pid and is
+#                                        # still killed at once when someone else touches its GPU
 #
 # Poll every 5 s. Per GPU i (one Ollama per GPU, port 11500+i, started by serve.sh):
 #   START  only when GPU i has no compute process that is not ours and under 300 MiB not held by our pids,
@@ -109,7 +111,7 @@ while true; do
       [ -f "$R/run/gpu$i.aux" ] && stop_gpu "$i"   # a proxy or tunnel left from a server that died
       A6000_ROOT=$R bash "$HERE/serve.sh" "$i" "${UUIDS[i]}"
       echo "started GPU $i at $(date -Is) pid $(cat "$R/run/gpu$i.pid" 2>/dev/null)"
-    elif [ -n "$mine" ] && [ "$want" != "run" ]; then
+    elif [ -n "$mine" ] && { [ "$want" = "stop" ] || [ "$want" = "exit" ]; }; then  # "manual": a server we started by hand (pid in gpu<i>.pid); yield only
       stop_gpu "$i"
       echo "stopped GPU $i at $(date -Is) (want=$want)"
     fi
