@@ -125,12 +125,16 @@ def agg(items: dict[str, dict], rs: dict[str, dict], scores: dict, mode: str, po
     pool_like = {i: r for row, r in recs for i in [row["id"]]}
     cs = run_suite.cache_stats([items[i] for i in pool_like], pool_like)
     # wrong from the cache: a served cache answer that fails its grade, or (ungraded rows) one from another question
-    wrong_cache = 0
+    wrong_cache = repeat_wrong = 0
     for row, rec, p in grades_of(recs, scores):
         if rec["tier"] not in cache:
             continue
         if p == 0:
-            wrong_cache += 1
+            first = pool_rs.get(row["id"], {})
+            if mode == "WARM" and first.get("answer") == rec["answer"]:
+                repeat_wrong += 1  # the same wrong answer the first pass served (it passed the gate); not a cache mix-up
+            else:
+                wrong_cache += 1
         elif p is None:  # Quora pair rows: graded by where the answer came from
             if mode == "POOL":
                 d = row["data"]
@@ -156,7 +160,9 @@ def agg(items: dict[str, dict], rs: dict[str, dict], scores: dict, mode: str, po
         "elapsed_s": (max(ats) - min(ats)) if len(ats) > 1 else 0,
         "graded": len(g), "correct": sum(x[2] for x in g),
         "wrong": sum(1 for x in g if x[2] == 0),
-        "wrong_cache": wrong_cache, "artefact": len(artefact),
+        "wrong_cache": wrong_cache, "repeat_wrong": repeat_wrong, "artefact": len(artefact),
+        "graded_nd": sum(1 for row, _, p in g if row["grader"] != "llm"),
+        "correct_nd": sum(p for row, _, p in g if row["grader"] != "llm"),
         "dup_b": cs["dup_b"], "dup_hit": cs["dup_true_hit"] if mode == "POOL" else 0,
         "gpu_ms": [r["per_tier"][ra.GPU]["latency_ms"] for _, r in recs if ra.GPU in r["per_tier"]],
     }
@@ -184,12 +190,15 @@ def baseline(data: str, items: dict[str, dict]) -> dict:
             "p50": statistics.median(lat) if lat else 0, "p90": pct(lat, 0.9)}
 
 
-def yields() -> list[str]:
+def events() -> tuple[list[str], list[str]]:
+    """(yields and resumes, server starts and stops) from the watchdog's logs on the box."""
+    r = os.environ["A6000_ROOT"]
     try:
-        out = ra.ssh(f"cat {os.environ['A6000_ROOT']}/logs/yield_events.log 2>/dev/null")
+        y = ra.ssh(f"cat {r}/logs/yield_events.log 2>/dev/null")
+        w = ra.ssh(f"grep -E '^(started|stopped) GPU' {r}/logs/watchdog.log 2>/dev/null")
     except Exception:  # noqa: BLE001
-        return ["(could not read the yield log from the box)"]
-    return [x for x in out.splitlines() if x.strip()]
+        return ["(could not read the yield log from the box)"], []
+    return [x for x in y.splitlines() if x.strip()], [x for x in w.splitlines() if x.strip()]
 
 
 def main() -> None:
@@ -222,7 +231,7 @@ def main() -> None:
     def runs_of(m, d, mode):
         return [res[k] for k in sorted(res) if k[:3] == (m, d, mode)]
 
-    L = ["# Owned-hardware proof: cache + answer check on a shared RTX A6000 (GPU 1 only)", ""]
+    L = ["# Owned-hardware proof: cache + answer check on a shared RTX A6000 box (free GPUs only, yield to anyone)", ""]
     # headline from the qwen POOL repeats over both datasets
     head = []
     for m in models:
@@ -231,21 +240,23 @@ def main() -> None:
         if P:
             n = sum(a["n"] for a in P)
             cut = (1 - sum(a["top_calls"] for a in P) / n) * 100 if n else 0
-            wc = sum(a["wrong_cache"] for a in P + W)
-            head.append((m, cut, wc, len(P), n, W))
+            head.append((m, cut, sum(a["wrong_cache"] for a in P), len(P), n, W))
     L += ["## Verdict", ""]
     for m, cut, wc, k, n, W in head:
         name = ra.MODELS[m][0]
-        wn = sum(a["n"] for a in W)
-        wcache = sum(a["cache"] for a in W)
+        wn, wcache = sum(a["n"] for a in W), sum(a["cache"] for a in W)
+        wcut = (1 - sum(a["top_calls"] for a in W) / wn) * 100 if wn else 0
+        wbad = sum(a["wrong_cache"] for a in W)
         L.append(f"- **{name}: cache + answer check cut {cut:.1f}% of big-model calls with {wc} wrong answers from the cache "
-                 f"on owned hardware** ({k} first-pass runs, {n} items, against sending every item to the 763B). "
-                 + (f"On the repeat pass the cache answered {wcache} of {wn} items." if W else ""))
+                 f"on owned hardware** ({k} first-pass runs over both sets, {n} items, against sending every item to the 763B)."
+                 + (f" Asked the same items again, the cache answered {wcache} of {wn} and big-model calls fell "
+                    f"{wcut:.1f}%; the cache caused {wbad} wrong answer(s) there." if W else ""))
     L.append("")
     L.append("VERDICT_DETAIL")
     L += ["", "## Setup", "",
-          "- Box: a shared server with two RTX A6000 (48 GB each). Another user's job ran on GPU 0 the whole time; we never "
-          "touched it. Our server ran on GPU 1 only (`CUDA_VISIBLE_DEVICES` set to GPU 1's UUID).",
+          "- Box: a shared server with two RTX A6000 (48 GB each). At the start another user's job held GPU 0, so we ran on "
+          "GPU 1 only (`CUDA_VISIBLE_DEVICES` set to that GPU's UUID). When that job ended and GPU 0 had been empty for 10 "
+          "minutes, the watchdog added a second server on GPU 0 (times under GPU yields). Their job was never touched.",
           "- Yield rule (`bench/a6000/watchdog.sh`): poll `nvidia-smi` every 5 s. On a GPU we use, a compute process that is "
           "not ours, more than 300 MiB not held by our pids, one of our pids on the wrong GPU, or a box load above its 32 "
           "cores kills our server at once (literal pids: TERM, KILL after 3 s) and drops the tunnel. We restart only after "
@@ -271,7 +282,8 @@ def main() -> None:
           "way), Quora pairs by whether a hit returned the duplicate's answer.",
           "- Prices: Crusoe list $0.29/M in, $1.20/M out (763B only, about $0.16 per 1,000 cost-case calls). The A6000 is "
           "owned hardware, priced $0 here.",
-          "- Streams ran in parallel (up to 12 at once on 16 slots), so latency is measured under that load.",
+          "- Streams ran in parallel (12 model-calling streams at once, 16 slots per server; one server until GPU 0 freed, "
+          "then two), so latency is measured under that load and over the internet tunnel from the Mac.",
           "- The 763B-only column is the earlier run on the same items (`results_suite.md`, `results_cost_case.md`); "
           "no new 763B-only run was made.", ""]
     if speed:
@@ -309,12 +321,16 @@ def main() -> None:
             row("Graded correct", lambda a: a["correct"], f"{b['correct']}/{b['graded']}")
             row("Graded items", lambda a: a["graded"], str(b["graded"]))
             row("**Wrong answers served (graded)**", lambda a: a["wrong"], str(b["graded"] - b["correct"]))
-            row("**Wrong answers from the cache**", lambda a: a["wrong_cache"], "0")
+            if d == "suite":
+                row("Graded correct without Dolly (same items as the 763B column)", lambda a: a["correct_nd"], f"{b['correct']}/{b['graded']}")
+            row("**Wrong answers caused by the cache** (other question, or stored text changed)", lambda a: a["wrong_cache"], "0")
+            row("Wrong first-pass answers the cache repeated", lambda a: a["repeat_wrong"], "-")
             row("Latency p50 (ms)", lambda a: a["p50"], f"{b['p50']:,.0f}")
             row("Latency p90 (ms)", lambda a: a["p90"], f"{b['p90']:,.0f}")
             row("Wall time, first to last row (s)", lambda a: a["elapsed_s"], "-")
             if d == "suite":
-                row("Quora duplicates served from cache", lambda a: a["dup_hit"], "-")
+                row(f"Quora duplicates served from cache (of {runs_of(m, d, 'POOL')[0]['dup_b'] if runs_of(m, d, 'POOL') else '-'})",
+                    lambda a: a["dup_hit"], "-")
             L.append("")
             art = [a["artefact"] for a in runs_of(m, d, "POOL")]
             if any(art):
@@ -325,9 +341,35 @@ def main() -> None:
                 L.append(f"{x} answered by, per repeat: " + "; ".join(", ".join(f"{k} {v}" for k, v in sorted(t.items())) for t in tl) + ".")
             L.append("")
 
-    ev = yields()
+    sp = STORE / "spec_rows.jsonl"
+    if sp.exists():
+        rs = [json.loads(x) for x in sp.read_text().splitlines()]
+        p = {r["id"]: r for r in rs if r["label"] == "plain"}
+        s = {r["id"]: r for r in rs if r["label"] == "spec"}
+        ids = [i for i in p if i in s]
+        if ids:
+            same = sum(p[i]["text"] == s[i]["text"] for i in ids)
+            tp, ts = statistics.median([p[i]["tok_s"] for i in ids]), statistics.median([s[i]["tok_s"] for i in ids])
+            wp, wsp = sum(p[i]["ms"] for i in ids) / 1000, sum(s[i]["ms"] for i in ids) / 1000
+            ok, made = sum(s[i]["draft_ok"] or 0 for i in ids), sum(s[i]["draft_n"] or 0 for i in ids)
+            L += ["## Minor result: same-box speculative decoding (one run)", "",
+                  f"`bench/a6000/spec_job.sh`: llama.cpp on GPU 1 alone, the same Q4_K_M 30B file, greedy, 256 tokens, "
+                  f"one request at a time, {len(ids)} cost-case prompts (16 per difficulty). Draft: `qwen3:1.7b` (same "
+                  "tokenizer), up to 16 draft tokens per step.", "",
+                  "| | 30B alone | 30B + 1.7B draft |", "|---|---|---|",
+                  f"| Decode tok/s (median) | {tp:.0f} | {ts:.0f} |",
+                  f"| Time for all {len(ids)} prompts (s) | {wp:.1f} | {wsp:.1f} |",
+                  f"| Draft tokens accepted | - | {ok:,} of {made:,} ({ok / max(made, 1) * 100:.0f}%) |",
+                  f"| Same text as the 30B alone, word for word | - | {same} of {len(ids)} |", "",
+                  f"The draft made the 30B **{tp / ts:.2f}x slower** ({ts / tp:.2f}x speed). The 30B is a mixture of experts "
+                  "with about 3B active weights per token, so a 1.7B draft saves little per step and its rejected tokens "
+                  f"cost a full verify. {len(ids) - same} of {len(ids)} answers drifted from the plain run (greedy on both; "
+                  "batch-size numeric differences, not a draft bug). This supports keeping speculative decoding out of the "
+                  "product path; the savings come from the cache and the answer check.", ""]
+    ev, st = events()
     L += ["## GPU yields", ""]
-    L += [f"- {e}" for e in ev] if ev else ["- None. No other process touched GPU 1 during the runs (watchdog log on the box)."]
+    L += [f"- {e}" for e in ev] if ev else ["- None. No other process touched a GPU we were using (watchdog log on the box)."]
+    L += ["", "Our server starts and stops (box time, EST):", ""] + [f"- {e.split(' pid ')[0]}" for e in st]
     L.append("")
     L.append("Rows: `bench/.scratch/a6000/` (git-ignored, mirrored to the run folder on the box), csv `bench/.scratch/a6000/results_a6000.csv`.")
     jc = []

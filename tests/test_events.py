@@ -226,3 +226,15 @@ def test_shared_cache_rows_are_scrubbed():
     row = store.rows[0]
     assert "someone@example.com" not in row["text"] and "someone@example.com" not in row["answer"]
     assert r.shared.get("mail me at someone@example.com please") is not None  # lookups still match the raw prompt
+
+
+def test_answer_that_scrub_would_rewrite_is_not_cached():
+    """A6000 run: scrub turned f"Unexpected token: {tokens[pos]}" into [SECRET], and the broken code came back from cache."""
+    class Code(Fake):
+        def complete(self, prompt, n):
+            return 'raise ValueError(f"Unexpected token: {tokens[pos]}")', 10, 5, 0.99
+    store = FakeStore()
+    r = make({"small": Code("small"), "big": Fake("big")}, shared=PgVectorCache(Bag(), store, store_text=True))
+    run(r, "write a tokenizer")
+    settle(r.shared)
+    assert store.rows == [] and r.shared.get("write a tokenizer") is None

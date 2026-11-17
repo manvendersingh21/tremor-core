@@ -303,7 +303,10 @@ class SpeculativeCascadeRouter:
         if self.shared is not None:
             from .memory.safety import scrub  # emails, keys, JWTs, DB URLs, card numbers never reach the shared DB
             # the hash/embedding use the raw prompt so lookups still match; only the stored text is scrubbed
-            self.shared.put(prompt, scrub(text), self.cfg.namespace, verified=True, stored_prompt=scrub(prompt),
+            safe = scrub(text)
+            if safe != text:  # scrub rewrote the checked answer (a key, or code such as f"token: {x}"): the rewritten
+                return        # text was never checked and served later it can be wrong (bench/results_a6000.md). Not cached.
+            self.shared.put(prompt, safe, self.cfg.namespace, verified=True, stored_prompt=scrub(prompt),
                             **(meta or {}))
 
     def _done(

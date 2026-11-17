@@ -176,7 +176,8 @@ class Stream:
         self.pool_out = STORE / f"{self.model}_POOL_{self.data}_r{self.rep}.jsonl"
         if self.mode in ("POOL", "WARM"):  # WARM: the same items again, on the cache POOL left behind
             dsn = os.environ["CHIMERA_DB_URL"]
-            self.shared = PgVectorCache(emb, lambda: PgStore(dsn), threshold=0.97, tenant=self.tenant, store_text=True,
+            # one connection per stream: Supabase's session pooler allows 15 clients, and 18 streams x 4 filled it
+            self.shared = PgVectorCache(emb, lambda: PgStore(dsn, max_size=1), threshold=0.97, tenant=self.tenant, store_text=True,
                                         guard=make_guard(), budget_s=3.0, cooldown_s=0.0, max_strikes=10**9)
         self.emb = emb if self.shared is not None else None
         self.routers: dict[str, tuple] = {}
@@ -310,7 +311,7 @@ def speed(model: str) -> None:
     """Cold load and decode speed on the GPU we hold. Rows: bench/.scratch/a6000/speed_<model>.json."""
     load_env()
     name = MODELS[model][0]
-    url = next(u for u in endpoints() if up(u))
+    url = [u for u in endpoints() if up(u)][-1]  # the last GPU we hold (the runs pick theirs by repeat number)
     prompt = "Write a Python function that returns the n-th Fibonacci number, with a docstring and three tests."
     first = raw_generate(url, name, prompt, 256)  # cold if the model was not loaded yet
     one = [raw_generate(url, name, prompt, 256) for _ in range(3)]
@@ -339,10 +340,29 @@ if __name__ == "__main__":
         emb = LockedEmbedder()
         for m in MODELS:
             for d in DATA:
-                for rep in (1, 2, 3):
+                for rep in (1, 2, 3, 4, 5):
                     print(m, d, rep, Stream(f"{m}:WARM:{d}:{rep}", emb).shared.purge())
     elif cmd == "speed":
         speed(sys.argv[2])
+    elif cmd in ("up", "down"):  # live demo: serve the 30B on a free GPU (still yields to anyone), or stop and restore
+        load_env()
+        ssh(f"echo {'run' if cmd == 'up' else 'stop'} > {os.environ['A6000_ROOT']}/run/want")
+        if cmd == "up":
+            for _ in range(40):  # the watchdog starts it after 60 s clear; the tunnel URL shows a few seconds later
+                if endpoints():
+                    print("A6000 30B up: CHIMERA_GPU_URL in .env points at it (restart the web server to pick it up)")
+                    break
+                time.sleep(10)
+            else:
+                print("no GPU free yet; the watchdog keeps trying")
+        else:
+            p = ROOT / ".env"
+            t = p.read_text()
+            m = re.search(r"^CHIMERA_GPU_URL_AKASH=(.*)$", t, re.M)
+            if m:
+                p.write_text(re.sub(r"^CHIMERA_GPU_URL=.*$", lambda _: "CHIMERA_GPU_URL=" + m.group(1), t, flags=re.M))
+                p.chmod(0o600)
+            print("A6000 servers and tunnels stopped; CHIMERA_GPU_URL restored")
     elif cmd == "report":
         import a6000_report
         a6000_report.main()
