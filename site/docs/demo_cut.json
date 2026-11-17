@@ -1,0 +1,197 @@
+{
+ "url": "http://127.0.0.1:8765/",
+ "closing_extra": "",
+ "screencast_frames": 9879,
+ "screencast_fps": 59.9,
+ "seconds": 165.25,
+ "video": {
+  "programs": [],
+  "stream_groups": [],
+  "streams": [
+   {
+    "width": 1920,
+    "height": 1080,
+    "r_frame_rate": "30/1",
+    "nb_frames": "4981"
+   }
+  ],
+  "format": {
+   "duration": "166.033333"
+  }
+ },
+ "shots": [
+  {
+   "shot": "landing",
+   "planned_start": 0.0,
+   "start": 0.0,
+   "captions": [
+    {
+     "at": 0.01,
+     "text": "CHIMERA sends each AI call to the cheapest helper that gets it right",
+     "src": ""
+    },
+    {
+     "at": 6.13,
+     "text": "The gates are shut. Hold W to walk in.",
+     "src": ""
+    }
+   ],
+   "end": 9.95
+  },
+  {
+   "shot": "walk",
+   "planned_start": 10.0,
+   "start": 9.95,
+   "captions": [
+    {
+     "at": 10.01,
+     "text": "Hold W: the gates open as you reach them, then the great door",
+     "src": ""
+    },
+    {
+     "at": 16.01,
+     "text": "The Great Hall. Each gold door is a room of measured numbers",
+     "src": "site/game/"
+    }
+   ],
+   "walk_in_s": 3.91,
+   "end": 21.95
+  },
+  {
+   "shot": "ask",
+   "planned_start": 22.0,
+   "start": 21.95,
+   "captions": [
+    {
+     "at": 22.0,
+     "text": "Ask the Count. The call climbs a ladder: cache, then our 30B, then the 763B",
+     "src": ""
+    },
+    {
+     "at": 31.01,
+     "text": "Cache miss. Our own 30B answered: 1.0 s, 27 tokens, $0 in tokens",
+     "src": "bench/results_backend_v3.md"
+    }
+   ],
+   "end": 43.95
+  },
+  {
+   "shot": "twice",
+   "planned_start": 44.0,
+   "start": 43.95,
+   "captions": [
+    {
+     "at": 44.01,
+     "text": "Ask the same question again",
+     "src": ""
+    },
+    {
+     "at": 50.0,
+     "text": "Cache hit: 0.1 s, 0 tokens, $0. No model was called",
+     "src": "bench/results_backend_v3.md"
+    }
+   ],
+   "end": 59.95
+  },
+  {
+   "shot": "fizz",
+   "planned_start": 60.0,
+   "start": 59.95,
+   "captions": [
+    {
+     "at": 60.01,
+     "text": "FizzBuzz does not need a frontier model",
+     "src": ""
+    },
+    {
+     "at": 66.51,
+     "text": "Our 30B wrote it: 4.4 s, 911 tokens, $0 in tokens",
+     "src": "bench/results_backend_v3.md"
+    },
+    {
+     "at": 74.0,
+     "text": "The 763B alone: 1.5 s, $0.00013. Our GPU box: $0.18-0.52 per 1,000 calls",
+     "src": "bench/results_backend_v3.md \u00b7 bench/results_akash_tuning.md"
+    }
+   ],
+   "end": 79.95
+  },
+  {
+   "shot": "climb",
+   "planned_start": 80.0,
+   "start": 79.95,
+   "captions": [
+    {
+     "at": 80.0,
+     "text": "A hard design task",
+     "src": ""
+    },
+    {
+     "at": 86.51,
+     "text": "The 30B was unsure (0.82, below 0.95), so the call climbed to the 763B",
+     "src": "bench/results_backend_v3.md"
+    },
+    {
+     "at": 95.01,
+     "text": "A loss: 14.3 s against 5.0 s for the 763B alone, at the same cost",
+     "src": "bench/results_backend_v3.md"
+    }
+   ],
+   "end": 104.95
+  },
+  {
+   "shot": "ledger",
+   "planned_start": 105.0,
+   "start": 104.95,
+   "captions": [
+    {
+     "at": 105.01,
+     "text": "The bill: a month of coding calls",
+     "src": "bench/results_company_cost.md"
+    },
+    {
+     "at": 113.0,
+     "text": "With 30% repeats: 62% to 87% less than GPT-5.5 alone",
+     "src": "bench/results_company_cost.md"
+    },
+    {
+     "at": 123.0,
+     "text": "A loss: at 100,000 calls a day the cheap 763B alone costs less. We cost 607% more",
+     "src": "bench/results_company_cost.md"
+    }
+   ],
+   "end": 132.95
+  },
+  {
+   "shot": "workshop",
+   "planned_start": 133.0,
+   "start": 132.95,
+   "captions": [
+    {
+     "at": 133.0,
+     "text": "Built with Kiro: 7 steering files, 7 specs, 6 hooks, 4 agents, MCP tools and a Power",
+     "src": ".kiro/"
+    },
+    {
+     "at": 143.0,
+     "text": "Property tests from the specs found 4 real bugs. 4 are fixed",
+     "src": "docs/handoff/property-tests.md"
+    }
+   ],
+   "end": 152.95
+  },
+  {
+   "shot": "closing",
+   "planned_start": 153.0,
+   "start": 152.95,
+   "captions": [
+    {
+     "at": 153.5,
+     "text": "Stop paying a frontier model for FizzBuzz. We prove it with tests.",
+     "src": ""
+    }
+   ],
+   "end": 164.95
+  }
+ ]
+}

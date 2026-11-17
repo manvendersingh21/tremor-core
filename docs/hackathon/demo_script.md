@@ -2,6 +2,8 @@
 
 For the Kiroween 2026 YouTube upload (must be under 3 minutes, public). Every number on screen comes from the file named in its row. Say the numbers exactly as written.
 
+The recorded cut (`site/docs/demo_cut.mp4`) uses a newer shot list with the same pitch: cache hit, FizzBuzz on the 30B, a climb to the 763B, the bill, the Workshop. Its narration and timings are in `site/docs/demo_video.md`. Read that one over the recorded cut.
+
 ## Before you record
 
 1. `make web`, then open `http://127.0.0.1:8765` in Chrome at 1280x720.
