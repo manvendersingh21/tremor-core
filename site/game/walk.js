@@ -423,6 +423,7 @@
     function prompt() {
       const pr = $('m-prompt'), t = S.target; let h = '';
       if (S.panel || S.map) h = '';
+      else if (!S.walking && S.s < 0.05) h = touch ? 'Push the stick up to walk to the castle · drag to look around' : 'Hold <kbd>W</kbd> to walk to the castle · drag or click to look around';
       else if (t && t.kind === 'room') h = touch ? `Tap the gold sign of ${esc(doors[t.k] ? doors[t.k].title : '')} to open it` : `<kbd>E</kbd> open ${esc(doors[t.k] ? doors[t.k].title : '')}`;
       else if (t && (t.kind === 'gates' || t.kind === 'door')) {
         const z = zNow(), pz = t.kind === 'gates' ? PLAN.gateZ : PLAN.doorZ, behind = z < pz;
