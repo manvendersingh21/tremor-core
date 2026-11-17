@@ -1,0 +1,83 @@
+1
+00:00:00,010 --> 00:00:06,080
+CHIMERA sends each AI call to the cheapest helper that gets it right
+
+2
+00:00:06,130 --> 00:00:09,960
+The gates are shut. Hold W to walk in.
+
+3
+00:00:10,010 --> 00:00:15,960
+Hold W: the gates open as you reach them, then the great door
+
+4
+00:00:16,010 --> 00:00:21,950
+The Great Hall. Each gold door is a room of measured numbers (site/game/)
+
+5
+00:00:22,000 --> 00:00:30,960
+Ask the Count. The call climbs a ladder: cache, then our 30B, then the 763B
+
+6
+00:00:31,010 --> 00:00:43,960
+Cache miss. Our own 30B answered: 1.0 s, 27 tokens, $0 in tokens (bench/results_backend_v3.md)
+
+7
+00:00:44,010 --> 00:00:49,950
+Ask the same question again
+
+8
+00:00:50,000 --> 00:00:59,960
+Cache hit: 0.1 s, 0 tokens, $0. No model was called (bench/results_backend_v3.md)
+
+9
+00:01:00,010 --> 00:01:06,460
+FizzBuzz does not need a frontier model
+
+10
+00:01:06,510 --> 00:01:13,950
+Our 30B wrote it: 4.4 s, 911 tokens, $0 in tokens (bench/results_backend_v3.md)
+
+11
+00:01:14,000 --> 00:01:19,950
+The 763B alone: 1.5 s, $0.00013. Our GPU box: $0.18-0.52 per 1,000 calls (bench/results_backend_v3.md · bench/results_akash_tuning.md)
+
+12
+00:01:20,000 --> 00:01:26,460
+A hard design task
+
+13
+00:01:26,510 --> 00:01:34,960
+The 30B was unsure (0.82, below 0.95), so the call climbed to the 763B (bench/results_backend_v3.md)
+
+14
+00:01:35,010 --> 00:01:44,960
+A loss: 14.3 s against 5.0 s for the 763B alone, at the same cost (bench/results_backend_v3.md)
+
+15
+00:01:45,010 --> 00:01:52,950
+The bill: a month of coding calls (bench/results_company_cost.md)
+
+16
+00:01:53,000 --> 00:02:02,950
+With 30% repeats: 62% to 87% less than GPT-5.5 alone (bench/results_company_cost.md)
+
+17
+00:02:03,000 --> 00:02:12,950
+A loss: at 100,000 calls a day the cheap 763B alone costs less. We cost 607% more (bench/results_company_cost.md)
+
+18
+00:02:13,000 --> 00:02:22,950
+Built with Kiro: 7 steering files, 7 specs, 6 hooks, 4 agents, MCP tools and a Power (.kiro/)
+
+19
+00:02:23,000 --> 00:02:33,450
+Property tests from the specs found 4 real bugs. 4 are fixed (docs/handoff/property-tests.md)
+
+20
+00:02:33,500 --> 00:02:45,253
+Stop paying a frontier model for FizzBuzz. We prove it with tests.
+
+21
+00:02:45,033 --> 00:02:56,733
+On our own A6000: 70.7% fewer 763B calls, 0 wrong answers from the cache; 292 of 301 coding tasks right vs 286 for the 763B alone. A loss: slower on a first pass (bench/results_a6000.md)

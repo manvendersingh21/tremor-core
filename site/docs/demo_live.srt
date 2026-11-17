@@ -1,0 +1,83 @@
+1
+00:00:00,000 --> 00:00:05,900
+CHIMERA sends each AI call to the cheapest helper that gets it right
+
+2
+00:00:05,950 --> 00:00:09,900
+This time it is LIVE: our 30B runs on our own A6000 GPU
+
+3
+00:00:09,950 --> 00:00:15,950
+Hold W: the gates open as you reach them, then the great door
+
+4
+00:00:16,000 --> 00:00:21,900
+The Great Hall. Each gold door is a room of measured numbers (site/game/)
+
+5
+00:00:21,950 --> 00:00:28,030
+Ask the Count. The call climbs a ladder: cache, then our 30B, then the 763B
+
+6
+00:00:28,080 --> 00:00:41,900
+LIVE · cache miss (best cosine 0.35). Our 30B on the A6000 answered: 0.95 s, 27 tokens, $0 in tokens (live call · site/docs/demo_live.json)
+
+7
+00:00:41,950 --> 00:00:44,370
+Ask the same question again
+
+8
+00:00:44,420 --> 00:00:53,900
+LIVE · cache hit (shared): 0.11 s, 0 tokens, $0. No model was called (live call · site/docs/demo_live.json)
+
+9
+00:00:53,950 --> 00:01:00,310
+FizzBuzz does not need a frontier model
+
+10
+00:01:00,360 --> 00:01:05,810
+LIVE · our 30B wrote it: 1.4 s, 163 tokens, $0 in tokens (confidence 1.00) (live call · site/docs/demo_live.json)
+
+11
+00:01:05,860 --> 00:01:11,900
+163 tokens kept off the 763B. The A6000 is ours, so it is priced $0 (live call · site/docs/demo_live.json · bench/results_a6000.md)
+
+12
+00:01:11,950 --> 00:01:24,610
+A hard design task
+
+13
+00:01:24,660 --> 00:01:31,110
+LIVE · the 30B was unsure (0.87, below 0.95), so the call climbed to the 763B (live call · site/docs/demo_live.json)
+
+14
+00:01:31,160 --> 00:01:38,800
+A loss: 8.9 s and $0.00083 with the climb. The 763B alone took 5.0 s in the saved run (live call · site/docs/demo_live.json · bench/results_backend_v3.md)
+
+15
+00:01:38,850 --> 00:01:45,170
+The bill: a month of coding calls (bench/results_company_cost.md)
+
+16
+00:01:45,220 --> 00:01:55,170
+With 30% repeats: 62% to 87% less than GPT-5.5 alone (bench/results_company_cost.md)
+
+17
+00:01:55,220 --> 00:02:05,720
+A loss: at 100,000 calls a day the cheap 763B alone costs less. We cost 607% more (bench/results_company_cost.md)
+
+18
+00:02:05,770 --> 00:02:13,170
+Built with Kiro: 7 steering files, 7 specs, 6 hooks, 4 agents, MCP tools and a Power (.kiro/)
+
+19
+00:02:13,220 --> 00:02:21,830
+Property tests from the specs found 4 real bugs. 4 are fixed (docs/handoff/property-tests.md)
+
+20
+00:02:21,880 --> 00:02:30,120
+Stop paying a frontier model for FizzBuzz. We prove it with tests. (bench/results_company_cost.md)
+
+21
+00:02:30,170 --> 00:02:41,475
+On our own A6000: 70.7% fewer 763B calls, 0 wrong answers from the cache; 292 of 301 coding tasks right vs 286 for the 763B alone. A loss: slower on a first pass (bench/results_a6000.md)
