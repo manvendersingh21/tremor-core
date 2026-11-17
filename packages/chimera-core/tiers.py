@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import shutil
 import subprocess
 import threading
@@ -186,6 +187,13 @@ def wake(t: TierCfg) -> None:
         pass
 
 
+def unset_env(url: str) -> str | None:
+    """Name of the env var a tier URL still waits for ("$CHIMERA_120B_URL" with nothing set), else None.
+    A tier with an unset URL is off: the pool skips it and `chimera doctor` shows it as off, not down."""
+    m = re.search(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)", url)
+    return m.group(1) if m else None
+
+
 def _spawn(fn: Callable[[], None]) -> None:
     threading.Thread(target=fn, daemon=True).start()
 
@@ -202,7 +210,7 @@ class TierPool:
     ) -> None:
         # Warm-only tiers first (already paid for while up), then cheapest; owned hardware (cost 0) is ordered by
         # capability, small before large. Ties keep config order.
-        self.tiers = sorted((t for t in tiers if t.enabled),
+        self.tiers = sorted((t for t in tiers if t.enabled and not unset_env(t.url)),
                             key=lambda t: (not t.warm_only, t.cost_per_1k_in + t.cost_per_1k_out, t.max_complexity))
         self.min_confidence, self.max_tokens = min_confidence, max_tokens
         self._probe, self._factory, self._clock = probe, backend_factory, clock

@@ -251,7 +251,7 @@ def test_same_family_rule():
 def test_example_config_loads():
     from chimera_core.config import ROOT, load_config
     names = [t.name for t in load_config(ROOT / "chimera.example.toml").tiers]
-    assert names == ["phone-3b", "mac-3b", "gpu-h200", "gpu-small", "gpu-large", "cloud-mid", "cloud-top", "cloud-deepseek",
+    assert names == ["phone-3b", "mac-3b", "gpu-h200", "gpu-small", "gpu-large", "gpu-120b", "cloud-mid", "cloud-top", "cloud-deepseek",
                      "cloud-coder", "cloud-largest"]
 
 
@@ -285,3 +285,35 @@ def test_url_env_expansion(monkeypatch):
     monkeypatch.setenv("MODAL_VLLM_URL", "https://x.modal.run")
     t = TierCfg(name="g", device="gpu", backend="openai", url="$MODAL_VLLM_URL")
     assert t.url == "https://x.modal.run"
+
+
+def test_gpu_120b_tier_is_off_until_its_url_is_set(monkeypatch):
+    """chimera.example.toml gpu-120b: unset CHIMERA_120B_URL = skipped; set = between gpu-small and the 763B."""
+    import pathlib
+    from chimera_core.config import ChimeraConfig, ROOT
+    from chimera_core.tiers import unset_env
+    import tomllib
+
+    raw = tomllib.loads(pathlib.Path(ROOT / "chimera.example.toml").read_text())
+    for var in ("CHIMERA_120B_URL", "CHIMERA_GPU_URL", "MODAL_QWEN_URL"):
+        monkeypatch.delenv(var, raising=False)
+    off = TierPool(ChimeraConfig.model_validate(raw).tiers, probe=lambda t: True)
+    assert "gpu-120b" not in [t.name for t in off.tiers]
+    assert unset_env("$CHIMERA_120B_URL") == "CHIMERA_120B_URL" and unset_env("http://127.0.0.1:1") is None
+    monkeypatch.setenv("CHIMERA_120B_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("CHIMERA_GPU_URL", "http://127.0.0.1:2")
+    on = [t.name for t in TierPool(ChimeraConfig.model_validate(raw).tiers, probe=lambda t: True).tiers]
+    assert on.index("gpu-small") < on.index("gpu-120b") < on.index("cloud-deepseek")
+
+
+def test_doctor_shows_an_unset_tier_as_off(monkeypatch, capsys):
+    import sys
+    from chimera_core.config import ChimeraConfig, ROOT
+    sys.path.insert(0, str(ROOT / "apps/kiro-trimmer"))
+    import cli
+
+    monkeypatch.delenv("CHIMERA_120B_URL", raising=False)
+    cfg = ChimeraConfig(use_pool=True, tiers=[{"name": "gpu-120b", "device": "gpu", "backend": "openai",
+                                               "url": "$CHIMERA_120B_URL", "api_key_env": "CHIMERA_120B_TOKEN"}])
+    assert cli.doctor(cfg) == 0
+    assert "gpu-120b off (CHIMERA_120B_URL not set" in capsys.readouterr().out
