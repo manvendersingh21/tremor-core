@@ -19,8 +19,8 @@ Status: prepared, never run. No GPU was rented and $0 was spent. The tier is in 
   - This tier has no confidence gate (vLLM logprobs are off, like `gpu-large`), so its answers are served unless a
     caller's check fails, which climbs to the 763B. `logprobs = true` exists but is untested with gpt-oss.
   - `teacher = true`: its checked answers are stored as N+1 memory for the 30B.
-- Off switch: an unset `$CHIMERA_120B_URL` keeps the tier out of the pool (`tiers.unset_env`). Remove the line from
-  `.env` when the box is returned.
+- Off switch: with `CHIMERA_120B_URL` unset the tier's probe fails at once (no request is sent), so the pool skips it,
+  and `chimera doctor` reports it as off (`tiers.unset_env`). Remove the line from `.env` when the box is returned.
 
 ## Which GPU fits
 
@@ -89,6 +89,6 @@ A rented 120B box only pays off when it is kept busy. Measure it with `bench/run
 
 - `deploy/gpu120b/serve_vllm.sh`: the box side (checked with `bash -n` only).
 - `chimera.example.toml`: the `gpu-120b` `[[tiers]]` block. `.env.example`: `CHIMERA_120B_URL`, `CHIMERA_120B_TOKEN`, `CHIMERA_120B_SSH`.
-- `packages/chimera-core/tiers.py`: `unset_env()`; the pool skips a tier whose URL is still an unset `$VAR`.
+- `packages/chimera-core/tiers.py`: `unset_env()` names the unset `$VAR` of a tier URL (such a tier fails its probe and is skipped).
 - `apps/kiro-trimmer/cli.py`: `chimera doctor` prints such a tier as off, not as a failure.
 - Tests: `tests/test_tiers.py` (`test_gpu_120b_tier_is_off_until_its_url_is_set`, `test_doctor_shows_an_unset_tier_as_off`).
