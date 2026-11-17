@@ -19,7 +19,7 @@ from .inference.cloud_verifier import CrusoeBackend, OllamaBackend
 from .inference.local_draft import LlamaCppBackend
 from .inference.telemetry import TelemetryTracker
 from .router import RouterConfig, SpeculativeCascadeRouter
-from .tiers import PROBES, TierCfg, TierPool
+from .tiers import PROBES, TierCfg, TierPool, _ollama_key
 from .ladder import LadderConfig, LadderRouter, TopBackend
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
@@ -124,7 +124,7 @@ def tier_checks(cfg: ChimeraConfig) -> list[tuple[str, str, str, dict]]:
         out = []
         for t in cfg.tiers:
             if t.enabled:
-                k = os.environ.get(t.api_key_env, "") if t.backend == "openai" else ""
+                k = os.environ.get(t.api_key_env, "") if t.backend == "openai" else _ollama_key(t) if t.backend == "ollama" else ""
                 url = os.path.expandvars(t.url)
                 out.append((t.name, url, url.rstrip("/") + PROBES[t.backend], {"Authorization": f"Bearer {k}"} if k else {}))
         return out
