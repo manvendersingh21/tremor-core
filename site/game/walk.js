@@ -427,7 +427,7 @@
       else if (t && t.kind === 'room') h = touch ? `Tap the gold sign of ${esc(doors[t.k] ? doors[t.k].title : '')} to open it` : `<kbd>E</kbd> open ${esc(doors[t.k] ? doors[t.k].title : '')}`;
       else if (t && (t.kind === 'gates' || t.kind === 'door')) {
         const z = zNow(), pz = t.kind === 'gates' ? PLAN.gateZ : PLAN.doorZ, behind = z < pz;
-        if (S.open[t.kind] && (behind || Math.abs(z - pz) > 1.2)) h = `<kbd>E</kbd> close ${NAME[t.kind]}${behind ? ' behind you' : ''}`;
+        if (S.open[t.kind] && !S.walking && (behind || Math.abs(z - pz) > 1.2)) h = `<kbd>E</kbd> close ${NAME[t.kind]}${behind ? ' behind you' : ''}`;
         else if (!S.open[t.kind] && !S.walking) h = behind ? `<kbd>E</kbd> open ${NAME[t.kind]}, or walk back to ${t.kind === 'gates' ? 'them' : 'it'}` : `Walk up and ${NAME[t.kind]} open${t.kind === 'gates' ? '' : 's'} · <kbd>E</kbd> opens now`;
       }
       if (!h && !S.panel && !S.map && !S.walking && S.s < 0.05) h = touch ? 'Push the stick up to walk to the castle · drag to look around' : 'Hold <kbd>W</kbd> to walk to the castle · drag or click to look around';

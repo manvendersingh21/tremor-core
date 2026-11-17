@@ -1,0 +1,87 @@
+{
+ "browser": "webkit",
+ "url": "https://manvendersingh21.github.io/tremor-core/",
+ "log": [
+  {
+   "t": 2.44,
+   "what": "landing, gates shut",
+   "s": 0,
+   "z": 10,
+   "gates": false,
+   "door": false,
+   "yaw": 0
+  },
+  {
+   "t": 3.88,
+   "what": "looked left",
+   "s": 0,
+   "z": 10,
+   "gates": false,
+   "door": false,
+   "yaw": 0.9
+  },
+  {
+   "t": 6.29,
+   "what": "looked right",
+   "s": 0,
+   "z": 10,
+   "gates": false,
+   "door": false,
+   "yaw": -0.9
+  },
+  {
+   "t": 7.53,
+   "what": "ahead again",
+   "s": 0,
+   "z": 10,
+   "gates": false,
+   "door": false,
+   "yaw": -0.0
+  },
+  {
+   "t": 11.21,
+   "what": "in the Great Hall after 3.66 s of W",
+   "s": 3.6429999999999834,
+   "z": -31.84,
+   "gates": true,
+   "door": true,
+   "yaw": -0.0
+  },
+  {
+   "t": 12.42,
+   "what": "stopped in the hall",
+   "s": 4.851999999999976,
+   "z": -40.58,
+   "gates": true,
+   "door": true,
+   "yaw": -0.0
+  },
+  {
+   "t": 14.34,
+   "what": "turned round: the great door is open",
+   "s": 4.851999999999976,
+   "z": -40.58,
+   "gates": true,
+   "door": true,
+   "yaw": -3.14
+  },
+  {
+   "t": 15.95,
+   "what": "E: the great door shut",
+   "s": 4.851999999999976,
+   "z": -40.58,
+   "gates": true,
+   "door": false,
+   "yaw": -3.14
+  },
+  {
+   "t": 18.78,
+   "what": "looking at the hall again",
+   "s": 4.851999999999976,
+   "z": -40.58,
+   "gates": true,
+   "door": false,
+   "yaw": 0.5
+  }
+ ]
+}
