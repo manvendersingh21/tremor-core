@@ -316,6 +316,6 @@ def test_doctor_shows_an_unset_tier_as_off(monkeypatch, capsys):
 
     monkeypatch.delenv("CHIMERA_120B_URL", raising=False)
     cfg = ChimeraConfig(use_pool=True, tiers=[{"name": "gpu-120b", "device": "gpu", "backend": "openai",
-                                               "url": "$CHIMERA_120B_URL", "api_key_env": "CHIMERA_120B_TOKEN"}])
+                                               "url": "$CHIMERA_120B_URL", "api_key_env": "CHIMERA_120B_KEY"}])
     assert cli.doctor(cfg) == 0
     assert "gpu-120b off (CHIMERA_120B_URL not set" in capsys.readouterr().out

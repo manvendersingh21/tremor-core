@@ -132,7 +132,7 @@ model = "openai/gpt-oss-120b"
 family = "gpt-oss"
 max_complexity = 0.85
 timeout_s = 120
-api_key_env = "CHIMERA_120B_TOKEN"   # NAME of the env var with the vLLM bearer token (on the box and in .env)
+api_key_env = "CHIMERA_120B_KEY"   # NAME of the env var with the vLLM bearer token (on the box and in .env)
 template_kwargs = { reasoning_effort = "low" }
 teacher = true               # its checked answers are stored as N+1 memory
 

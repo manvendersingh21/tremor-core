@@ -41,11 +41,11 @@ smallest ~120B model (65 GB) and the only one this repo has served.
 
 ## Setup, when the GPU arrives
 
-1. Make a token on the Mac and put it in `.env` as `CHIMERA_120B_TOKEN=` (for example `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`).
+1. Make a token on the Mac and put it in `.env` as `CHIMERA_120B_KEY=` (for example `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`).
    Put the box's ssh alias (a Host entry in your ssh config) in `.env` as `CHIMERA_120B_SSH=`.
 2. On the box (NVIDIA driver and Docker with the NVIDIA runtime installed), copy `deploy/gpu120b/serve_vllm.sh` and run:
 
-       export CHIMERA_120B_TOKEN=<the same value>
+       export CHIMERA_120B_KEY=<the same value>
        bash serve_vllm.sh
 
    The first start downloads about 65 GB; the script waits up to 30 min for `/health`. `docker logs -f chimera-120b`
@@ -74,7 +74,7 @@ llama.cpp runs the GGUF of gpt-oss-120b on these cards and splits layers over se
 OpenAI-compatible, so the same `gpu-120b` tier works unchanged (`/v1/models`, `/v1/chat/completions`). On the box,
 with llama.cpp built for CUDA:
 
-    LLAMA_ARG_API_KEY="$CHIMERA_120B_TOKEN" llama-server -hf ggml-org/gpt-oss-120b-GGUF \
+    LLAMA_ARG_API_KEY="$CHIMERA_120B_KEY" llama-server -hf ggml-org/gpt-oss-120b-GGUF \
         --host 127.0.0.1 --port 8000 -ngl 99 --split-mode layer -c 16384 --jinja
 
 Then follow steps 3 to 6 above. Not run here: the speed on 2x 48 GB or 4x 24 GB is unknown.
@@ -88,7 +88,7 @@ A rented 120B box only pays off when it is kept busy. Measure it with `bench/run
 ## Files
 
 - `deploy/gpu120b/serve_vllm.sh`: the box side (checked with `bash -n` only).
-- `chimera.example.toml`: the `gpu-120b` `[[tiers]]` block. `.env.example`: `CHIMERA_120B_URL`, `CHIMERA_120B_TOKEN`, `CHIMERA_120B_SSH`.
+- `chimera.example.toml`: the `gpu-120b` `[[tiers]]` block. `.env.example`: `CHIMERA_120B_URL`, `CHIMERA_120B_KEY`, `CHIMERA_120B_SSH`.
 - `packages/chimera-core/tiers.py`: `unset_env()` names the unset `$VAR` of a tier URL (such a tier fails its probe and is skipped).
 - `apps/kiro-trimmer/cli.py`: `chimera doctor` prints such a tier as off, not as a failure.
 - Tests: `tests/test_tiers.py` (`test_gpu_120b_tier_is_off_until_its_url_is_set`, `test_doctor_shows_an_unset_tier_as_off`).
