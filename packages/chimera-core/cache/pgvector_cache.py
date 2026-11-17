@@ -132,11 +132,15 @@ class PgVectorCache:
         self, embedder: Embedder, store: Store | Callable[[], Store], *, threshold: float = 0.97,
         tenant: str = "default", fallback: SemanticCache | None = None, store_text: bool = False, guard=None,
         ttl_s: int | None = None, top_k: int = 5, budget_s: float = 0.3, cooldown_s: float = 30.0,
-        max_strikes: int = 3,
+        max_strikes: int = 3, normalize: bool = False, band_low: float = 0.0, checker=None,
     ) -> None:
         self._embedder, self.threshold, self.tenant = embedder, threshold, tenant
         self.guard = guard  # (query, cached_prompt, sim) -> accept; only judges rows stored with prompt text
         self.guarded_out = 0
+        # Paraphrases (cache/band.py, bench/results_paraphrase_cache.md). normalize: also compare the normalized
+        # prompts ("tell me ..." vs "what is ..."). band_low > 0: a score in [band_low, threshold) is served only if
+        # the guard passes and checker(new, old, answer) -> (ok, info) says yes. Needs rows stored with prompt text.
+        self.normalize, self.band_low, self.checker = normalize, band_low, checker
         self._store_arg = store  # a callable is built lazily on first use, so a dead DB cannot block startup
         self._store: Store | None = None if callable(store) else store
         self.fallback, self.store_text, self.ttl_s, self.top_k = fallback, store_text, ttl_s, top_k
@@ -200,26 +204,18 @@ class PgVectorCache:
         t0 = time.perf_counter()
         h = prompt_hash(prompt, namespace)
         emb = _norm(self._embedder.embed(prompt))
-        info = {"best": None, "guard": "off" if self.guard is None else None}
+        info = {"best": None, "guard": "off" if self.guard is None else None, "check": None, "via": None}
 
-        def lookup(s: Store) -> Hit | None:
+        def lookup(s: Store) -> Hit | list:
             ex, near = s.lookup(self.tenant, namespace, h, emb, self.top_k)
             if ex:
                 return Hit(ex[0], ex[1], 1.0, "exact")
             info["best"] = near[0][2] if near else None
-            for pid, answer, sim, verified, *rest in near:
-                if sim >= self.threshold and verified:  # rows are sorted best first
-                    if self.guard is not None and rest and rest[0] is not None:
-                        if not self.guard(prompt, rest[0], sim):
-                            self.guarded_out += 1
-                            info["guard"] = "rejected"
-                            continue
-                        info["guard"] = "pass"
-                    return Hit(pid, answer, sim, "vector")
-            return None
+            return near
 
         try:
-            hit = self._call(lookup)
+            got = self._call(lookup)  # only the DB round trip runs under the budget; the choice below does not
+            hit = got if isinstance(got, Hit) or got is None else self._choose(prompt, got, info)
         except Exception as e:  # noqa: BLE001
             self.stats["fallbacks"] += 1
             fb = self.fallback.get(prompt, namespace) if self.fallback else None
@@ -236,7 +232,71 @@ class PgVectorCache:
             self.stats["misses"] += 1
             self._bg(lambda s: s.event(self.tenant, "miss", None, None, ms))
         best = 1.0 if hit and hit.source == "exact" else info["best"]
-        return hit, Lookup((hit.response, hit.similarity) if hit else None, best, info["guard"], ms)
+        kind = None if hit is None else "exact" if hit.source == "exact" else "semantic"
+        return hit, Lookup((hit.response, hit.similarity) if hit else None, best, info["guard"], ms,
+                           kind=kind, check=info["check"], via=info["via"] if hit else None)
+
+    def _choose(self, prompt: str, near: list, info: dict) -> Hit | None:
+        """Pick a verified neighbour: >= threshold as before; in the band only with guard + check. Never raises."""
+        from .band import normalize_prompt
+        from .guard import consistent
+
+        qn = normalize_prompt(prompt) if self.normalize else ""
+        qv: list[float] | None = None
+        floor = (self.band_low or self.threshold) - 0.1  # shortcut: rows further off are not re-embedded (cost)
+        scored = []
+        for pid, answer, sim, verified, *rest in near:
+            if not verified:
+                continue
+            text = rest[0] if rest else None
+            score, via = sim, "raw"
+            if qn and text and sim >= floor:
+                tn = normalize_prompt(text)
+                if tn == qn:
+                    ns = 1.0
+                elif tn:
+                    qv = qv or _norm(self._embedder.embed(qn))
+                    ns = sum(a * b for a, b in zip(qv, _norm(self._embedder.embed(tn))))
+                else:
+                    ns = 0.0
+                if ns > score:
+                    score, via = ns, "normalized"
+            scored.append((score, via, pid, answer, text))
+        scored.sort(key=lambda x: -x[0])
+        if scored and (info["best"] is None or scored[0][0] > info["best"]):
+            info["best"] = scored[0][0]
+        checked = False
+        for score, via, pid, answer, text in scored:
+            if score >= self.threshold:
+                if self.guard is not None and text is not None:
+                    if not self.guard(prompt, text, score):
+                        self.guarded_out += 1
+                        info["guard"] = "rejected"
+                        continue
+                    info["guard"] = "pass"
+                info["via"] = via
+                return Hit(pid, answer, min(score, 1.0), "vector")
+            if not self.band_low or score < self.band_low:
+                break  # sorted: nothing further can reach the band
+            if text is None or checked:  # no prompt text: cannot judge; at most one 30B check per lookup
+                continue
+            if not (self.guard or (lambda q, c, s: consistent(q, c)))(prompt, text, score):
+                self.guarded_out += 1
+                info["guard"] = "rejected"
+                continue
+            info["guard"] = "pass"
+            if self.checker is not None:
+                checked = True
+                try:
+                    ok, cinfo = self.checker(prompt, text, answer)
+                except Exception as e:  # noqa: BLE001  a broken checker never serves
+                    ok, cinfo = False, {"verdict": "error", "error": type(e).__name__}
+                info["check"] = cinfo
+                if not ok:
+                    continue
+            info["via"] = "band+" + via
+            return Hit(pid, answer, score, "band")
+        return None
 
     def ping(self, timeout_s: float = 3.0) -> float:
         """ms for one real lookup round trip (health checks). Own timeout, no breaker strikes. Raises when unreachable."""

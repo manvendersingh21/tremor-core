@@ -101,6 +101,9 @@ class Lookup:
     guard: str | None  # "pass" | "rejected" | "off" | None (no candidate reached the threshold)
     ms: float
     status: str = "ok"  # shared cache only: "ok" | "timeout" | "down"
+    kind: str | None = None   # shared cache only: "exact" | "semantic" | None (miss)
+    check: dict | None = None  # shared cache only: the 30B yes/no check on a band candidate (cache/band.py)
+    via: str | None = None    # shared cache only: "raw" | "normalized" | "band+raw" | "band+normalized"
 
 
 class CachedEmbedder:

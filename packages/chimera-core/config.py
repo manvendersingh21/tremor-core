@@ -65,6 +65,11 @@ class CacheCfg(BaseModel):
     top_k: int = 5
     budget_ms: int = 300           # DB time per lookup (measured ~120 ms); over it the call skips the cache
     guard: bool = True  # MeanCache-style false-hit guard on semantic hits (cache/guard.py); wrong hits 4 -> 2 of 34
+    # Paraphrases (cache/band.py, bench/results_paraphrase_cache.md). Need store_text = true.
+    normalize: bool = False        # also compare prompts with polite lead-ins, punctuation and case stripped
+    band_low: float = 0.0          # > 0: cosine in [band_low, semantic threshold) is served after guard + check; 0 = off
+    band_check: str = ""           # [[tiers]] name of the yes/no checker (the self-hosted 30B: "gpu-small"); "" = guard only
+    band_check_timeout_s: float = 5.0  # per check; over it, or an error: a miss (then no check for 60 s)
 
 
 class GatewayCfg(BaseModel):
@@ -199,13 +204,37 @@ def make_caches(cfg: ChimeraConfig, embedder: Embedder | None, threshold: float)
     from .cache.pgvector_cache import PgStore, PgVectorCache
 
     emb = CachedEmbedder(embedder or _LazyEmbedder())  # one embedding per prompt for the router and the cache
+    band_low, checker = band_settings(cfg)
     shared = PgVectorCache(emb, lambda: PgStore(dsn), threshold=threshold, tenant=cc.tenant,
                            fallback=None, store_text=cc.store_text, ttl_s=cc.ttl_s, top_k=cc.top_k,
-                           budget_s=cc.budget_ms / 1000, guard=_guard(cfg))
+                           budget_s=cc.budget_ms / 1000, guard=_guard(cfg), normalize=cc.normalize,
+                           band_low=band_low, checker=checker)
     # Open the DB link now, in the background (a dead DB must not block startup): a cold first lookup took about
     # 310 ms, ran past its 300 ms budget and skipped the cache for the first call of every process.
     threading.Thread(target=_ping, args=(shared,), daemon=True).start()
     return None, None, shared, emb
+
+
+def band_settings(cfg: ChimeraConfig, factory=None):
+    """(band_low, checker) for the shared cache. A band with a named checker that cannot be built is turned off
+    (never silently weaker), and so is a band without stored prompt text (the guard and the check need it)."""
+    cc, log = cfg.cache, logging.getLogger("chimera")
+    if cc.band_low <= 0:
+        return 0.0, None
+    if not cc.store_text:
+        log.warning("cache.band_low needs cache.store_text = true; band off")
+        return 0.0, None
+    if not cc.band_check:
+        return cc.band_low, None
+    t = next((x for x in cfg.tiers if x.name == cc.band_check), None)
+    if t is None or t.backend == "llamacpp":
+        log.warning("cache.band_check %r is not an ollama/openai [[tiers]] entry; band off", cc.band_check)
+        return 0.0, None
+    from .cache.band import make_checker
+    from .tiers import build_backend
+
+    raw = (factory or build_backend)(t.model_copy(update={"timeout_s": cc.band_check_timeout_s})).raw
+    return cc.band_low, make_checker(raw.complete, usage=lambda: getattr(raw, "last_usage", {}) or {})
 
 
 def _ping(shared) -> None:

@@ -146,8 +146,11 @@ class SpeculativeCascadeRouter:
         hit = self._lookup(prompt, ev)
         if hit is not None:
             text, tier, source = hit
+            # a band hit asked the self-hosted 30B yes/no first: its tokens are counted (owned GPU, $0)
+            chk = next((e.get("check") for e in reversed(ev.log) if e["step"] == "cache_shared"), None) or {}
             return self._done(text, tier, t0, tokens_saved=max(len(prompt) // 4, 1) + len(text) // 4, ev=ev,
-                              cache_source=source)  # dollars_saved: priced at the big tier from tokens_saved
+                              cache_source=source, tokens_in=int(chk.get("tokens_in", 0)),
+                              tokens_out=int(chk.get("tokens_out", 0)))  # dollars_saved: priced at the big tier
 
         if self.pool is not None:
             return self._pooled(prompt, t0, ev, check)
@@ -199,13 +202,18 @@ class SpeculativeCascadeRouter:
             ev("cache_shared", {"hit": False, "status": "unavailable", "threshold": self.shared.threshold,
                                 "error": type(e).__name__})
             return None
-        ev("cache_shared", {"hit": lk.hit is not None, "status": lk.status, "threshold": self.shared.threshold,
-                            "kind": None if lk.hit is None else ("exact" if lk.hit[1] >= 1.0 else "semantic"),
-                            "score": None if lk.best_sim is None else round(lk.best_sim, 4),
-                            "guard": lk.guard, "ms": round(lk.ms, 2)})
+        kind = None if lk.hit is None else getattr(lk, "kind", None) or ("exact" if lk.hit[1] >= 1.0 else "semantic")
+        data = {"hit": lk.hit is not None, "status": lk.status, "threshold": self.shared.threshold, "kind": kind,
+                "score": None if lk.best_sim is None else round(lk.best_sim, 4), "guard": lk.guard, "ms": round(lk.ms, 2)}
+        if getattr(self.shared, "band_low", 0):
+            data["band_low"] = self.shared.band_low
+        for k in ("via", "check"):  # paraphrase fields (cache/band.py); absent when unused
+            if getattr(lk, k, None):
+                data[k] = getattr(lk, k)
+        ev("cache_shared", data)
         if lk.hit is None:
             return None
-        return lk.hit[0], ("exact_cache" if lk.hit[1] >= 1.0 else "semantic_cache"), "shared"
+        return lk.hit[0], ("exact_cache" if kind == "exact" else "semantic_cache"), "shared"
 
     # ---- paths --------------------------------------------------------------
     def _price_saved(self, tin: int, tout: int) -> float:
