@@ -81,3 +81,22 @@ def test_parsers_fail_loudly():
 def test_pages_deploys_on_push_to_dev():
     wf = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
     assert re.search(r"push:\s*\n\s*branches:\s*\[\s*dev\s*\]", wf) and "site/build.py --check" in wf
+
+
+@pytest.mark.skipif(__import__("shutil").which("node") is None, reason="node not installed")
+def test_demo_chat_matches_paraphrases_to_saved_questions(d):
+    """site/mode.js closest(): a typed paraphrase finds its saved question; a different question is never replayed."""
+    import subprocess
+    qs = ["Tell me the capital of France", "capital of france", "What is the capital of Germany?",
+          "How many days does a leap year have?", "Convert 200 degrees Celsius to Fahrenheit.", "Write me a poem"]
+    js = ("global.window={};global.location={href:'http://x/',search:''};"
+          "global.document={currentScript:null,addEventListener(){},dispatchEvent(){}};global.CustomEvent=function(){};"
+          f"require({json.dumps(str(SITE / 'mode.js'))});const ex={json.dumps(d['chat']['examples'])};"
+          f"console.log(JSON.stringify({json.dumps(qs)}.map(q=>{{const m=window.ChimeraMode.closest(q,ex);return [m.ex.id,m.sim,m.ok]}})))")
+    out = json.loads(subprocess.run(["node", "-e", js], capture_output=True, text=True, check=True).stdout)
+    france, france2, germany, leap, c200, poem = out
+    assert france[:1] == france2[:1] == ["e1"] and france[2] and france2[2]
+    assert germany[0] == "e1" and not germany[2]          # closest is France, but it is not replayed
+    assert leap[0] == "e3" and leap[2]
+    assert c200[0] == "e6" and not c200[2]                # numbers differ: never replayed
+    assert not poem[2]
