@@ -36,3 +36,13 @@ def test_semantic_cache_guard_turns_false_hit_into_miss():
 def test_apostrophe_entity_is_reflexive_but_still_compared():
     assert consistent("What is Python's GIL", "What is Python's GIL") is True
     assert consistent("What is Python's GIL", "What is Ruby's GIL") is False
+
+
+def test_entity_order_and_non_prefix():
+    """Wrong hits found by bench/run_paraphrase_cache.py (t10 and a QQP pair)."""
+    assert not consistent("Convert 100 degrees Celsius to Fahrenheit.", "Convert 100 degrees Fahrenheit to Celsius.")
+    assert not consistent("best relationship (romantic) you've had", "best relationship (non-romantic) you've had")
+    assert consistent("What is the capital of France?", "Tell me the capital of France")
+    assert consistent("What is the capital of Japan?", "Tell me Japan's capital city.")  # possessive
+    assert consistent("How do I check my Python version?", "how to check python version")  # "I" is no entity
+    assert not consistent("What is the capital of Japan?", "Tell me China's capital city.")

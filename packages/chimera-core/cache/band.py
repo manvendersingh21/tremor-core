@@ -50,8 +50,11 @@ def normalize_prompt(text: str) -> str:
     return s
 
 
+# The stricter of two wordings measured (bench/results_paraphrase_cache.md): the first, "Does the answer to A fully
+# and correctly answer question B?", said YES to "raw chicken" vs "cooked chicken".
 CHECK_PROMPT = ("Question A: {old}\nAnswer to A: {answer}\nQuestion B: {new}\n"
-                "Does the answer to A fully and correctly answer question B? Reply with one word: YES or NO.")
+                "Is question B asking for exactly the same information as question A, so that the answer to A is a "
+                "complete and correct answer to B? Reply with one word: YES or NO.")
 
 
 def make_checker(complete: Callable[[str, int], str], *, max_answer_chars: int = 800, cooldown_s: float = 60.0,

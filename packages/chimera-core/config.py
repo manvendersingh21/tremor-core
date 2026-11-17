@@ -66,7 +66,7 @@ class CacheCfg(BaseModel):
     budget_ms: int = 300           # DB time per lookup (measured ~120 ms); over it the call skips the cache
     guard: bool = True  # MeanCache-style false-hit guard on semantic hits (cache/guard.py); wrong hits 4 -> 2 of 34
     # Paraphrases (cache/band.py, bench/results_paraphrase_cache.md). Need store_text = true.
-    normalize: bool = False        # also compare prompts with polite lead-ins, punctuation and case stripped
+    normalize: bool = True         # also compare prompts with polite lead-ins, punctuation and case stripped (0 added wrong hits)
     band_low: float = 0.0          # > 0: cosine in [band_low, semantic threshold) is served after guard + check; 0 = off
     band_check: str = ""           # [[tiers]] name of the yes/no checker (the self-hosted 30B: "gpu-small"); "" = guard only
     band_check_timeout_s: float = 5.0  # per check; over it, or an error: a miss (then no check for 60 s)
@@ -233,8 +233,14 @@ def band_settings(cfg: ChimeraConfig, factory=None):
     from .cache.band import make_checker
     from .tiers import build_backend
 
-    raw = (factory or build_backend)(t.model_copy(update={"timeout_s": cc.band_check_timeout_s})).raw
+    raw = (factory or build_backend)(checker_tier(t, cc.band_check_timeout_s)).raw
     return cc.band_low, make_checker(raw.complete, usage=lambda: getattr(raw, "last_usage", {}) or {})
+
+
+def checker_tier(t: TierCfg, timeout_s: float) -> TierCfg:
+    """The tier as the yes/no checker runs it: short timeout, temperature 0 (the same pair gets the same verdict).
+    temperature is a sampling option, so Ollama keeps the loaded 30B (num_thread is unchanged)."""
+    return t.model_copy(update={"timeout_s": timeout_s, "options": {**t.options, "temperature": 0}})
 
 
 def _ping(shared) -> None:
