@@ -214,7 +214,7 @@
     function jump(i, end) {
       fade(); if (S.panel) closePanel(); if (S.room) S.room = null;
       const s = SEGS[i] || SEGS[0];
-      for (let k = 0; k < SEGS.length; k++) if (SEGS[k].lock) { const past = k < i || (k === i && end); if (past) { S.open[SEGS[k].lock] = true; S.anim[SEGS[k].lock] = 1; } }
+      for (let k = 0; k < SEGS.length; k++) if (SEGS[k].lock) { const past = k < i || (k === i && end), l = SEGS[k].lock; S.open[l] = past; S.anim[l] = past ? 1 : 0; }   // ahead of you: shut again
       S.s = end ? s.s1 - 0.005 : s.s0; S.yaw = 0; S.pitch = -0.02;
       if (end && i === SEGS.length - 1) { S.s = S_HALL + 0.01; enterHall(); } else if (S.hall) leaveHall();
       syncSeg();
@@ -323,7 +323,7 @@
       if (r.width) { mini.width = Math.round(r.width * k); mini.height = Math.round(r.height * k); }
     }
     function plan(c, w, h, bigMap) {
-      const xs = bigMap ? 36 : 24, sc = Math.min(w / (2 * xs), h / (VIEW.z0 - VIEW.z1)) * 0.96, ox = w / 2, oy = (h - (VIEW.z0 - VIEW.z1) * sc) / 2;
+      const xs = bigMap ? 42 : 24, sc = Math.min(w / (2 * xs), h / (VIEW.z0 - VIEW.z1)) * 0.96, ox = w / 2, oy = (h - (VIEW.z0 - VIEW.z1) * sc) / 2;
       const P = (x, z) => [ox + x * sc, oy + (z - VIEW.z1) * sc], u = w / 200;   // the castle at the top: you walk up the map
       c.clearRect(0, 0, w, h);
       if (parch.complete && parch.naturalWidth) { c.drawImage(parch, 0, 0, w, h); c.fillStyle = 'rgba(70,40,20,.10)'; c.fillRect(0, 0, w, h); }
@@ -370,7 +370,7 @@
       });
       // labels
       const label = (t, x, z, al = 'left', size = 9) => { const [px, py] = P(x, z); c.font = `700 ${Math.round(size * u)}px Cinzel, Georgia, serif`; c.textAlign = al; c.textBaseline = 'middle'; c.lineWidth = 3 * u; c.strokeStyle = 'rgba(240,226,196,.9)'; c.strokeText(t, px, py); c.fillStyle = ink; c.fillText(t, px, py); };
-      label('Gates', 3.6, 1.6); label('Drive', 3.6, -8); label('Great door', 3.6, PLAN.doorZ + 2.2); label('Great Hall', 0, (PLAN.hallZ0 + PLAN.hallZ1) / 2 + 3, 'center', bigMap ? 10 : 9.5);
+      label('Gates', 3.6, 1.6); label('Drive', 3.6, -8); label('Great door', 3.6, PLAN.doorZ + 2.2); label('Great Hall', 0, bigMap ? PLAN.hallZ0 - 3.5 : (PLAN.hallZ0 + PLAN.hallZ1) / 2 + 3, 'center', bigMap ? 9 : 9.5);
       if (bigMap) label('Start', 3.6, PLAN.start, 'left', 8);
       // you: a glowing dot and a cone where you look
       const [yx, yy] = P(0, zNow()), dir = Math.atan2(-Math.cos(S.yaw), -Math.sin(S.yaw)), cone = 0.55, L = (bigMap ? 30 : 22) * u;

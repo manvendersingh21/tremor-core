@@ -168,8 +168,8 @@ export function create(canvas, opts = {}) {
     iron: new THREE.MeshStandardMaterial({ color: 0x1a1420, roughness: 0.42, metalness: 0.85, side: THREE.DoubleSide }),
     gold: new THREE.MeshStandardMaterial({ color: 0xd9a640, roughness: 0.28, metalness: 1, emissive: 0x5a3a08, emissiveIntensity: 0.8 }),
     rim: new THREE.MeshStandardMaterial({ color: 0xe9b45a, roughness: 0.3, metalness: 1, emissive: 0xc8862a, emissiveIntensity: 0.75 }),
-    wall: new THREE.MeshLambertMaterial({ map: tex.wall, color: 0x9a8aa8 }),
-    tower: new THREE.MeshLambertMaterial({ map: tex.wall, color: 0x8f7fa0, emissiveMap: winTex, emissive: 0xffa050, emissiveIntensity: 1.5 }),
+    wall: new THREE.MeshLambertMaterial({ map: tex.wall, color: 0xc8b8d8 }),
+    tower: new THREE.MeshLambertMaterial({ map: tex.wall, color: 0xbcaed0, emissiveMap: winTex, emissive: 0xffa050, emissiveIntensity: 1.5 }),
     roof: new THREE.MeshLambertMaterial({ color: 0x2a2440, emissive: 0x0c0814 }),
     ground: new THREE.MeshLambertMaterial({ map: grassTex, color: 0x9a8aa8 }),
     path: new THREE.MeshStandardMaterial({ map: tex.path, color: 0xa898b8, roughness: 0.62, metalness: 0.1 }),
@@ -193,7 +193,7 @@ export function create(canvas, opts = {}) {
   scene.add(new THREE.HemisphereLight(0x9484c8, 0x22142e, 1.25));
   const moonDir = V(0.22, 0.42, -1).normalize();
   const moon = new THREE.DirectionalLight(0xffb880, 1.3); moon.position.copy(moonDir.clone().multiplyScalar(100)); scene.add(moon);
-  const fill = new THREE.DirectionalLight(0xa898e0, 1.5); fill.position.set(-30, 25, 60); scene.add(fill);
+  const fill = new THREE.DirectionalLight(0xa898e0, 2.3); fill.position.set(-30, 25, 60); scene.add(fill);
   const lamp = (x, y, z, c, i, d) => { const l = new THREE.PointLight(c, i, d, 1.6); l.position.set(x, y, z); scene.add(l); return l; };
   const gateLamps = [lamp(-3.3, 3.4, 0.9, 0xffa050, 9, 12), lamp(3.3, 3.4, 0.9, 0xffa050, 9, 12)];
   const doorLamps = [lamp(-4.2, 4.6, PLAN.doorZ + 1.4, 0xffa050, 16, 16), lamp(4.2, 4.6, PLAN.doorZ + 1.4, 0xffa050, 16, 16)];
@@ -428,7 +428,7 @@ export function create(canvas, opts = {}) {
     return { slot: s, g, leaves, rim: rimM, back: back.material, open: 0, want: 0, sel: 0, sign: lp, at: V(x, 1.6, s.z) };
   });
   // the savings board's place on the right wall, and the Count, who waits for you by the far door
-  const countMat = new THREE.MeshStandardMaterial({ map: tex.count, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9, color: 0xd8cce4 });
+  const countMat = new THREE.MeshStandardMaterial({ map: tex.count, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.9, color: 0xd8cce4, emissiveMap: tex.count, emissive: 0x8a7a9a, emissiveIntensity: 0.55 });   // lit softly, like a lantern beside him
   const counts = [V(-1.9, 0, 5.2), V(2.6, 0, PLAN.end - 0.5)].map((p) => {
     const g = new THREE.Group(), h = 1.95, m = new THREE.Mesh(new THREE.PlaneGeometry(h * 449 / 959, h), countMat); m.position.y = h / 2; g.add(m);
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.7), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })); sh.rotation.x = -Math.PI / 2; sh.position.y = 0.03; g.add(sh);
