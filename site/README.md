@@ -40,7 +40,7 @@ Add it to `game/clips.json` (`first` keyframe or `from` another clip, optional `
 ## Files
 
 - `index.html`: the page, the dashboard blocks, the generated plain fallback.
-- `game/`: `walk.js` (the walk, controls, bats, map), `panels.js` (rooms, Count chat), `walk.css`, `clips.json`, `clips/`, and `game.js` + `layers/` (the earlier layered scene).
+- `game/`: `world3d.js` (the castle in real 3D with three.js: gates, drive, great door, Great Hall, painted textures), `walk.js` (the walk on one rail, mouse look, E to open and close, bats, the painted minimap and map), `panels.js` (rooms, Count chat), `walk.css`, `clips/` (room clips, played behind a room's numbers), and `game.js` + `layers/` (the earlier layered scene; `layers/` still holds the door and Count cut-outs).
 - `dashboard/halloween.html`: the Halloween dashboard (from commit 91205b4, live data, Evals and Chat tabs).
 - `world/chat.js`: the chat and trace, shared. `world/` and `castle/`: earlier 2D and 3D castles, off the main path.
 - `rooms.js`, `build.py`, `styles.css`, `art/`.

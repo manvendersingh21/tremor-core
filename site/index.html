@@ -277,13 +277,18 @@
 <script src="mode.js"></script>
 <script src="world/chat.js"></script>
 <script src="game/panels.js"></script>
-<script src="game/scene.js"></script>
 <script src="game/walk.js"></script>
 <script src="game/tour.js"></script>
-<script>
-// The walk-in movie is the page. If it cannot start, the plain HTML version below shows instead (every room as a section).
+<script type="module">
+// The walk-in castle is the page: a real 3D world (game/world3d.js, three.js in vendor/). Without WebGL, or if it
+// cannot start, the plain HTML version below shows instead (every room as a section).
 const root = document.getElementById('world');
 root.classList.add('m-root');
+window.World3DReady = import('./game/world3d.js').then((m) => {
+  const c = document.createElement('canvas');
+  if (!(c.getContext('webgl2') || c.getContext('webgl'))) throw new Error('no WebGL');
+  return m;
+});
 MovieGameStart(root, { site: '' }).catch((e) => { console.error(e); root.remove(); document.documentElement.classList.remove('js'); });
 </script>
 </body>

@@ -62,7 +62,7 @@ def test_kiro_counts_are_read_from_the_tree(d):
 
 
 def test_tour_has_one_stop_per_hall_door_and_lasts_about_3_minutes(d):
-    scene = (SITE / "game/scene.js").read_text(encoding="utf-8")
+    scene = (SITE / "game/world3d.js").read_text(encoding="utf-8")  # SLOTS: the hall's doors
     rooms = [s["room"] for s in d["tour"] if "room" in s]
     assert rooms == demo.HALL
     assert set(rooms) == set(re.findall(r"\{ room: '(\w+)'", scene))

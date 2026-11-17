@@ -89,8 +89,8 @@
 
   function chat(pb) {
     pb.classList.add('m-chat');
-    pb.innerHTML = '<div class="m-chatbox"></div>';
-    return window.CastleChat.mount(pb.firstChild, {
+    pb.innerHTML = '<div class="m-chathead"><i class="m-portrait" aria-hidden="true"></i><div><b>Count Cuspid</b><span>Ask me anything. Watch the ladder light up: the cache first, then our own 30B, then the 763B, with the time and tokens of each step.</span></div></div><div class="m-chatbox"></div>';
+    return window.CastleChat.mount(pb.lastChild, {
       endpoint: '/api/chat', health: '/api/health', placeholder: 'Ask the Count',
       greeting: 'Good evening. Ask me anything. Your question goes through the real ladder: the Supabase cache, then our own 30B, then the Crusoe 763B. You will see each step it takes. Press "Ask twice" to watch the cache answer the second time.',
     });

@@ -25,7 +25,7 @@
         <form class="c-form" id="c-form"><input id="c-in" maxlength="${MAXLEN}" autocomplete="off" aria-label="Ask the bat" placeholder="${cfg.placeholder || 'Ask anything'} (max ${MAXLEN} characters)"><button class="w-btn" id="c-send" type="submit">Send</button>
           <button class="w-btn c-twice" id="c-twice" type="button" title="Ask the same question twice: the second answer should come from the cache">Ask twice (cache test)</button></form>
       </div>
-      <div class="c-trace" id="c-trace" aria-label="Routing trace"><h4>ROUTING TRACE</h4><div id="c-tr"><p style="color:#cdb8d8">Ask something. Each step the router takes will appear here, live.</p></div><div class="t-sum" id="c-sum"></div></div></div>`;
+      <div class="c-trace" id="c-trace" aria-label="Routing trace"><h4>ROUTING TRACE</h4><div id="c-tr"><div class="t-ladder" aria-hidden="true"><div class="t-node"><i>❖</i><b>Cache</b><small>Supabase, first</small></div><span class="t-arrow"></span><div class="t-node"><i>☾</i><b>GPU 30B</b><small>our own box</small></div><span class="t-arrow"></span><div class="t-node"><i>♜</i><b>763B</b><small>called last</small></div></div><p style="color:#cdb8d8">Ask something. Each rung lights up as your question reaches it, with its time and tokens.</p></div><div class="t-sum" id="c-sum"></div></div></div>`;
     const $ = (s) => host.querySelector(s), log = $('#c-log'), input = $('#c-in');
     addMsg('bat', cfg.greeting || 'Squeak. I am the castle’s one agent. Ask me anything and watch the road your question takes: shared cache, the self-hosted GPU 30B, then the big cloud model.');
     input.focus();
@@ -36,7 +36,11 @@
     let T = null;
     function newTrace(q) {
       const tr = $('#c-tr');
-      tr.innerHTML = `<div class="t-row"><span class="t-k">Question</span><span class="t-v">${esc(q.length > 80 ? q.slice(0, 80) + '…' : q)}</span></div>
+      tr.innerHTML = `<div class="t-ladder" role="img" aria-label="The ladder: cache, GPU 30B, 763B">
+          <div class="t-node run" id="n-cache"><i>❖</i><b>Cache</b><small>Supabase · looking…</small></div><span class="t-arrow" id="a-1"></span>
+          <div class="t-node" id="n-self"><i>☾</i><b>GPU 30B</b><small>waiting</small></div><span class="t-arrow" id="a-2"></span>
+          <div class="t-node" id="n-top"><i>♜</i><b>763B</b><small>called last</small></div></div>
+        <div class="t-row"><span class="t-k">Question</span><span class="t-v">${esc(q.length > 80 ? q.slice(0, 80) + '…' : q)}</span></div>
         <div class="t-row" id="t-embed"><span class="t-k">1 Embedding</span><span class="t-v">…</span></div>
         <div class="t-lanes">
           <div class="t-lane run" id="t-shared"><h5>Supabase cache</h5><div class="b">exact, then cosine…</div></div>
@@ -60,10 +64,38 @@
         `best <b>${T.sim.toFixed(3)}</b> vs threshold <b>${th}</b> ${T.sim >= th ? '<span class="t-chip good">hit</span>' : '<span class="t-chip warn">below</span>'}` +
         (T.matched ? `<br>matched: “${esc(String(T.matched).slice(0, 80))}”` : '') + `<br>guard: ${esc(T.guard || 'no candidate')}`);
     }
+    /* the ladder strip: each rung lights up as the call reaches it, with that step's time and tokens (event values only) */
+    const rung = (id, cls, small) => { const n = T.el(id); if (!n) return; n.className = 't-node ' + cls; if (small != null) n.querySelector('small').innerHTML = small; };
+    const arrow = (id) => { const a = T.el(id); if (a) a.classList.add('on'); };
+    const rungOf = (tier) => (CLOUD.test(tier || '') ? 'n-top' : 'n-self');
+    function ladder(name, d) {
+      if (name === 'cache_shared') {
+        const hit = !!pick(d, 'hit'), st = pick(d, 'status'), sc = pick(d, 'score');
+        if (st && st !== 'ok' && !hit) rung('n-cache', 'err', `${esc(st)} · ${ms(pick(d, 'ms'))}`);
+        else rung('n-cache', hit ? 'won' : 'miss', `${hit ? 'hit' : 'miss'}${pick(d, 'kind') ? ' · ' + esc(d.kind) : ''}${sc != null ? ' · cos ' + (+sc).toFixed(2) : ''}<br>${ms(pick(d, 'ms'))}`);
+        if (!hit) { arrow('a-1'); rung('n-self', 'run', 'thinking…'); }
+      } else if (name === 'decide') {
+        const id = rungOf(pick(d, 'tier'));
+        if (id === 'n-top') { if (T.el('n-self').classList.contains('run')) rung('n-self', 'miss', 'climbed'); arrow('a-1'); arrow('a-2'); }
+        rung(id, 'run', 'called…');
+      } else if (name === 'call') {
+        const id = rungOf(pick(d, 'tier'));
+        rung(id, d.ok === false ? 'err' : 'run', d.ok === false ? `failed · ${esc(d.error || '')}` : `${ms(pick(d, 'ms'))}<br>${d.tokens_in ?? '?'}→${d.tokens_out ?? '?'} tok`);
+      } else if (name === 'draft') {
+        const c = pick(d, 'confidence'), gate = pick(d, 'gate') ?? GATE;
+        if (c != null && c < gate && rungOf(pick(d, 'tier')) === 'n-self') { rung('n-self', 'miss', `unsure · ${(+c).toFixed(2)} &lt; ${gate}`); arrow('a-2'); rung('n-top', 'run', 'climbing…'); }
+      } else if (name === 'final') {
+        const tier = pick(d, 'tier') || '', hit = !!pick(d, 'cache') || /cache/.test(tier), id = hit ? 'n-cache' : rungOf(tier);
+        const sm = `${ms(pick(d, 'ms'))} total<br>${(d.tokens_in ?? 0)}→${(d.tokens_out ?? 0)} tok`;
+        rung(id, 'won', hit ? null : sm);
+        for (const k of ['n-cache', 'n-self', 'n-top']) if (k !== id) { const n = T.el(k); if (n && !/won|miss|err/.test(n.className)) rung(k, '', 'not needed'); }
+      }
+    }
     function onEvent(name, d) {
       if (!T) return;
       d = d || {};
       T.steps.push(stepLine(name, d));
+      ladder(name, d);
       if (name === 'embed') setRow('t-embed', `done <b>${ms(pick(d, 'ms', 'latency_ms'))}</b>${pick(d, 'dim') ? ' · ' + d.dim + '-dim vector' : ''}`);
       else if (name === 'cache_shared') {  // the only answer cache (Supabase); the Mac keeps none
         T.shared = true;
