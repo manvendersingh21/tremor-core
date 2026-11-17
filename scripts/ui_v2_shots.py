@@ -51,7 +51,7 @@ def main():
         R['gl'] = js("""(() => { try { const c = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
           const d = c.getExtension('WEBGL_debug_renderer_info'); return d ? c.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'webgl'; } catch (e) { return 'none'; } })()""")
         shot('01_landing')
-        mini = js("(() => { const e = document.getElementById('m-mini') || document.querySelector('.m-minimap'); if (!e) return null; const r = e.getBoundingClientRect(); return {x: r.left - 6, y: r.top - 6, width: r.width + 12, height: r.height + 12}; })()")
+        mini = js("(() => { const e = document.getElementById('m-minimap') || document.getElementById('m-mini'); if (!e) return null; const r = e.getBoundingClientRect(); return {x: r.left - 6, y: r.top - 6, width: r.width + 12, height: r.height + 12}; })()")
         if mini:
             shot('02_minimap', clip=mini)
         vw = js('innerWidth'); vh = js('innerHeight')
@@ -117,7 +117,7 @@ def main():
                 shot(f'24_hall_look_{"right" if a < 0 else "left"}_up')
             js('MovieGame.state.yaw = 0; MovieGame.state.pitch = 0')
         if mini:
-            mini = js("(() => { const e = document.getElementById('m-mini') || document.querySelector('.m-minimap'); const r = e.getBoundingClientRect(); return {x: r.left - 6, y: r.top - 6, width: r.width + 12, height: r.height + 12}; })()")
+            mini = js("(() => { const e = document.getElementById('m-minimap') || document.getElementById('m-mini'); const r = e.getBoundingClientRect(); return {x: r.left - 6, y: r.top - 6, width: r.width + 12, height: r.height + 12}; })()")
             shot('21_minimap_hall', clip=mini)
         js('void MovieGame.talk()')
         time.sleep(2)

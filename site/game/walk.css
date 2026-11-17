@@ -425,3 +425,4 @@
   .m-doors.m-arcade .m-door { flex: none; width: 46vw; scroll-snap-align: start; }
   .m-board { top: 6.4rem; }
 }
+@media (max-width: 600px) { .m-minimap p { white-space: normal; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } }
