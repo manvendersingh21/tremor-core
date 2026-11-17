@@ -57,11 +57,15 @@ held() { local j; for ((j = 0; j < N; j++)); do [ -n "$(ours_of $j)" ] && return
 scan_all() {
   local i j u p m used omb all_ours="" mine
   for ((j = 0; j < N; j++)); do all_ours="$all_ours $(ours_of $j)"; done
-  local apps
+  local apps; local -a USED
+  # GPU totals first, then the per-process list: while our model loads, its memory grows between the two reads, so the
+  # later list holds at least what the earlier total did. The other order counted our own load as "not ours" (a false
+  # yield, 2026-11-17 15:57). A stranger's memory still shows: as their pid, or as total minus listed.
+  for ((i = 0; i < N; i++)); do USED[i]=$(nvidia-smi -i "$i" --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' '); done
   apps=$(nvidia-smi --query-compute-apps=gpu_uuid,pid,used_memory --format=csv,noheader,nounits)
   for ((i = 0; i < N; i++)); do
     mine=" $(ours_of "$i") "
-    used=$(nvidia-smi -i "$i" --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' ')
+    used=${USED[i]}
     omb=0; FP[i]=""
     while IFS=, read -r u p m; do
       u=${u// /}; p=${p// /}; m=${m// /}

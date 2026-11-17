@@ -76,16 +76,9 @@ Numbers to check before you read them:
 | 1 in 10 wrong | `bench/results_company_cost.md` | failed 31 of 301 |
 | 4 bugs, 4 fixed | `docs/handoff/property-tests.md` | 4 found, 4 fixed, 0 xfail left |
 
-## The A6000 result (not in yet)
+## The A6000 result
 
-`bench/results_a6000.md` does not exist yet. When it lands:
-
-1. Take one line from it, with its number, for example the "0 wrong answers" result.
-2. Record again with that line on the closing card:
-   `.venv/bin/python scripts/demo_record.py --closing-extra "<the line> (bench/results_a6000.md)"`
-3. Add one sentence to the shot 9 narration, before "Stop paying…": the same line, said aloud.
-
-The card prints the line in green under the win and the loss. Everything else stays the same.
+`bench/results_a6000.md` is in. `site/docs/demo_cut_v2.mp4` is this cut with an A6000 card at the end. A live take with the same card is `site/docs/demo_live.mp4`. Both are described in `site/docs/demo_live.md`, with the narration line for the card.
 
 ## YouTube
 

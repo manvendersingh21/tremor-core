@@ -1,0 +1,524 @@
+{
+ "url": "http://127.0.0.1:8765/",
+ "mode": "live",
+ "screencast_frames": 9556,
+ "screencast_fps": 59.3,
+ "seconds": 161.47,
+ "video": {
+  "programs": [],
+  "stream_groups": [],
+  "streams": [
+   {
+    "codec_type": "video",
+    "width": 1920,
+    "height": 1080,
+    "r_frame_rate": "30/1"
+   },
+   {
+    "codec_type": "audio",
+    "r_frame_rate": "0/0"
+   }
+  ],
+  "format": {
+   "duration": "162.066667"
+  }
+ },
+ "a6000": {
+  "cut": "70.7",
+  "n": "301",
+  "base_ok": "286",
+  "ladder_ok": "292",
+  "p50": "3.1",
+  "p50_base": "0.7"
+ },
+ "calls": {
+  "first": {
+   "ts": 1794949410.1338,
+   "prompt": "What is the chemical symbol for gold?",
+   "tier": "gpu-small",
+   "model": "qwen3:30b-instruct",
+   "cache": null,
+   "score": 0.3503,
+   "tokens_in": 16,
+   "tokens_out": 11,
+   "ms": 946.0,
+   "dollars": 0.0,
+   "dollars_saved": 1.784e-05,
+   "steps": [
+    {
+     "step": "embed",
+     "ms": 198.51,
+     "dim": 384
+    },
+    {
+     "step": "cache_shared",
+     "hit": false,
+     "status": "ok",
+     "threshold": 0.97,
+     "kind": null,
+     "score": 0.3503,
+     "guard": null,
+     "ms": 105.48
+    },
+    {
+     "step": "memory",
+     "op": "retrieve",
+     "chars": 0,
+     "ms": 103.24
+    },
+    {
+     "step": "decide",
+     "tier": "gpu-small",
+     "reason": "cheapest healthy tier that covers complexity 0.01; skipped: gpu-h200"
+    },
+    {
+     "step": "call",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "ok": true,
+     "ms": 319.0,
+     "tokens_in": 16,
+     "tokens_out": 11,
+     "cached_tokens": 3
+    },
+    {
+     "step": "draft",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "confidence": 1.0,
+     "gate": 0.95
+    },
+    {
+     "step": "memory",
+     "op": "store",
+     "stored": false,
+     "tier": "gpu-small",
+     "tests_passed": null
+    },
+    {
+     "step": "final",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "tokens_in": 16,
+     "tokens_out": 11,
+     "cached_tokens": 3,
+     "dollars": 0.0,
+     "dollars_saved": 1.8e-05,
+     "ms": 946.0,
+     "tokens_kept_off_big": 27,
+     "cache": null
+    }
+   ],
+   "asked_at": 26.97,
+   "answered_at": 28.07
+  },
+  "repeat": {
+   "ts": 1794949426.494636,
+   "prompt": "What is the chemical symbol for gold?",
+   "tier": "exact_cache",
+   "model": "cache",
+   "cache": "shared",
+   "score": 1.0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "ms": 111.6,
+   "dollars": 0.0,
+   "dollars_saved": 1.3409999999999999e-05,
+   "steps": [
+    {
+     "step": "embed",
+     "ms": 0.0,
+     "dim": 384
+    },
+    {
+     "step": "cache_shared",
+     "hit": true,
+     "status": "ok",
+     "threshold": 0.97,
+     "kind": "exact",
+     "score": 1.0,
+     "guard": null,
+     "ms": 111.39
+    },
+    {
+     "step": "final",
+     "tier": "exact_cache",
+     "model": "cache",
+     "tokens_in": 0,
+     "tokens_out": 0,
+     "cached_tokens": 0,
+     "dollars": 0.0,
+     "dollars_saved": 1.3e-05,
+     "ms": 111.6,
+     "tokens_kept_off_big": 18,
+     "cache": "shared"
+    }
+   ],
+   "asked_at": 44.17,
+   "answered_at": 44.41
+  },
+  "fizz": {
+   "ts": 1794949441.317879,
+   "prompt": "Write a Python function `fizzbuzz(n)` that returns a list of strings for 1..n: '",
+   "tier": "gpu-small",
+   "model": "qwen3:30b-instruct",
+   "cache": null,
+   "score": 0.1559,
+   "tokens_in": 73,
+   "tokens_out": 90,
+   "ms": 1437.2,
+   "dollars": 0.0,
+   "dollars_saved": 0.00012916999999999998,
+   "steps": [
+    {
+     "step": "embed",
+     "ms": 110.11,
+     "dim": 384
+    },
+    {
+     "step": "cache_shared",
+     "hit": false,
+     "status": "ok",
+     "threshold": 0.97,
+     "kind": null,
+     "score": 0.1559,
+     "guard": null,
+     "ms": 109.89
+    },
+    {
+     "step": "memory",
+     "op": "retrieve",
+     "chars": 0,
+     "ms": 127.54
+    },
+    {
+     "step": "decide",
+     "tier": "gpu-small",
+     "reason": "cheapest healthy tier that covers complexity 0.06; skipped: gpu-h200"
+    },
+    {
+     "step": "call",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "ok": true,
+     "ms": 865.1,
+     "tokens_in": 73,
+     "tokens_out": 90,
+     "cached_tokens": 0
+    },
+    {
+     "step": "draft",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "confidence": 0.9954,
+     "gate": 0.95
+    },
+    {
+     "step": "memory",
+     "op": "store",
+     "stored": false,
+     "tier": "gpu-small",
+     "tests_passed": null
+    },
+    {
+     "step": "final",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "tokens_in": 73,
+     "tokens_out": 90,
+     "cached_tokens": 0,
+     "dollars": 0.0,
+     "dollars_saved": 0.000129,
+     "ms": 1437.2,
+     "tokens_kept_off_big": 163,
+     "cache": null
+    }
+   ],
+   "asked_at": 57.67,
+   "answered_at": 60.35
+  },
+  "climb": {
+   "ts": 1794949466.7376719,
+   "prompt": "Design the architecture for a rate limiter shared by 20 API servers (per-user li",
+   "tier": "cloud-deepseek",
+   "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+   "cache": null,
+   "score": 0.2159,
+   "tokens_in": 136,
+   "tokens_out": 1397,
+   "ms": 8880.3,
+   "dollars": 0.00082856,
+   "dollars_saved": 0.0,
+   "steps": [
+    {
+     "step": "embed",
+     "ms": 41.65,
+     "dim": 384
+    },
+    {
+     "step": "cache_shared",
+     "hit": false,
+     "status": "ok",
+     "threshold": 0.97,
+     "kind": null,
+     "score": 0.2159,
+     "guard": null,
+     "ms": 103.39
+    },
+    {
+     "step": "memory",
+     "op": "retrieve",
+     "chars": 0,
+     "ms": 76.04
+    },
+    {
+     "step": "decide",
+     "tier": "gpu-small",
+     "reason": "cheapest healthy tier that covers complexity 0.52; skipped: gpu-h200"
+    },
+    {
+     "step": "call",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "ok": true,
+     "ms": 5039.4,
+     "tokens_in": 72,
+     "tokens_out": 722,
+     "cached_tokens": 0
+    },
+    {
+     "step": "draft",
+     "tier": "gpu-small",
+     "model": "qwen3:30b-instruct",
+     "confidence": 0.8701,
+     "gate": 0.95
+    },
+    {
+     "step": "decide",
+     "tier": "cloud-deepseek",
+     "reason": "climb: gpu-small confidence 0.870 < gate 0.95; skipped: gpu-120b"
+    },
+    {
+     "step": "call",
+     "tier": "cloud-deepseek",
+     "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+     "ok": true,
+     "ms": 3275.7,
+     "tokens_in": 64,
+     "tokens_out": 675,
+     "cached_tokens": 0
+    },
+    {
+     "step": "memory",
+     "op": "store",
+     "stored": false,
+     "tier": "cloud-deepseek",
+     "tests_passed": null
+    },
+    {
+     "step": "final",
+     "tier": "cloud-deepseek",
+     "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+     "tokens_in": 136,
+     "tokens_out": 1397,
+     "cached_tokens": 0,
+     "dollars": 0.000829,
+     "dollars_saved": 0.0,
+     "ms": 8880.3,
+     "tokens_kept_off_big": 0,
+     "cache": null
+    }
+   ],
+   "asked_at": 75.65,
+   "answered_at": 84.65
+  }
+ },
+ "shots": [
+  {
+   "shot": "landing",
+   "planned_start": 0.0,
+   "start": 0.0,
+   "captions": [
+    {
+     "at": 0.0,
+     "text": "CHIMERA sends each AI call to the cheapest helper that gets it right",
+     "src": ""
+    },
+    {
+     "at": 5.95,
+     "text": "This time it is LIVE: our 30B runs on our own A6000 GPU",
+     "src": ""
+    }
+   ],
+   "end": 9.95
+  },
+  {
+   "shot": "walk",
+   "planned_start": 10.0,
+   "start": 9.95,
+   "captions": [
+    {
+     "at": 9.95,
+     "text": "Hold W: the gates open as you reach them, then the great door",
+     "src": ""
+    },
+    {
+     "at": 16.0,
+     "text": "The Great Hall. Each gold door is a room of measured numbers",
+     "src": "site/game/"
+    }
+   ],
+   "walk_in_s": 3.76,
+   "end": 21.95
+  },
+  {
+   "shot": "ask",
+   "planned_start": 22.0,
+   "start": 21.95,
+   "captions": [
+    {
+     "at": 21.95,
+     "text": "Ask the Count. The call climbs a ladder: cache, then our 30B, then the 763B",
+     "src": ""
+    },
+    {
+     "at": 28.08,
+     "text": "LIVE \u00b7 cache miss (best cosine 0.35). Our 30B on the A6000 answered: 0.95 s, 27 tokens, $0 in tokens",
+     "src": "live call \u00b7 site/docs/demo_live.json"
+    }
+   ],
+   "end": 41.95
+  },
+  {
+   "shot": "twice",
+   "planned_start": 42.0,
+   "start": 41.95,
+   "captions": [
+    {
+     "at": 41.95,
+     "text": "Ask the same question again",
+     "src": ""
+    },
+    {
+     "at": 44.42,
+     "text": "LIVE \u00b7 cache hit (shared): 0.11 s, 0 tokens, $0. No model was called",
+     "src": "live call \u00b7 site/docs/demo_live.json"
+    }
+   ],
+   "end": 53.95
+  },
+  {
+   "shot": "fizz",
+   "planned_start": 54.0,
+   "start": 53.95,
+   "captions": [
+    {
+     "at": 53.95,
+     "text": "FizzBuzz does not need a frontier model",
+     "src": ""
+    },
+    {
+     "at": 60.36,
+     "text": "LIVE \u00b7 our 30B wrote it: 1.4 s, 163 tokens, $0 in tokens (confidence 1.00)",
+     "src": "live call \u00b7 site/docs/demo_live.json"
+    },
+    {
+     "at": 65.86,
+     "text": "163 tokens kept off the 763B. The A6000 is ours, so it is priced $0",
+     "src": "live call \u00b7 site/docs/demo_live.json \u00b7 bench/results_a6000.md"
+    }
+   ],
+   "end": 71.95
+  },
+  {
+   "shot": "climb",
+   "planned_start": 72.0,
+   "start": 71.95,
+   "captions": [
+    {
+     "at": 71.95,
+     "text": "A hard design task",
+     "src": ""
+    },
+    {
+     "at": 84.66,
+     "text": "LIVE \u00b7 the 30B was unsure (0.87, below 0.95), so the call climbed to the 763B",
+     "src": "live call \u00b7 site/docs/demo_live.json"
+    },
+    {
+     "at": 91.16,
+     "text": "A loss: 8.9 s and $0.00083 with the climb. The 763B alone took 5.0 s in the saved run",
+     "src": "live call \u00b7 site/docs/demo_live.json \u00b7 bench/results_backend_v3.md"
+    }
+   ],
+   "end": 97.22
+  },
+  {
+   "shot": "ledger",
+   "planned_start": 97.22,
+   "start": 97.22,
+   "captions": [
+    {
+     "at": 98.85,
+     "text": "The bill: a month of coding calls",
+     "src": "bench/results_company_cost.md"
+    },
+    {
+     "at": 105.22,
+     "text": "With 30% repeats: 62% to 87% less than GPT-5.5 alone",
+     "src": "bench/results_company_cost.md"
+    },
+    {
+     "at": 115.22,
+     "text": "A loss: at 100,000 calls a day the cheap 763B alone costs less. We cost 607% more",
+     "src": "bench/results_company_cost.md"
+    }
+   ],
+   "end": 124.17
+  },
+  {
+   "shot": "workshop",
+   "planned_start": 124.22,
+   "start": 124.17,
+   "captions": [
+    {
+     "at": 125.77,
+     "text": "Built with Kiro: 7 steering files, 7 specs, 6 hooks, 4 agents, MCP tools and a Power",
+     "src": ".kiro/"
+    },
+    {
+     "at": 133.22,
+     "text": "Property tests from the specs found 4 real bugs. 4 are fixed",
+     "src": "docs/handoff/property-tests.md"
+    }
+   ],
+   "end": 141.17
+  },
+  {
+   "shot": "closing",
+   "planned_start": 141.22,
+   "start": 141.17,
+   "captions": [
+    {
+     "at": 141.88,
+     "text": "Stop paying a frontier model for FizzBuzz. We prove it with tests.",
+     "src": "bench/results_company_cost.md"
+    }
+   ],
+   "end": 149.17
+  },
+  {
+   "shot": "a6000",
+   "planned_start": 149.22,
+   "start": 149.17,
+   "captions": [
+    {
+     "at": 150.17,
+     "text": "On our own A6000: 70.7% fewer 763B calls, 0 wrong answers from the cache; 292 of 301 coding tasks right vs 286 for the 763B alone. A loss: slower on a first pass",
+     "src": "bench/results_a6000.md"
+    }
+   ],
+   "end": 161.17
+  }
+ ]
+}
