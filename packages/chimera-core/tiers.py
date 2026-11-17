@@ -112,6 +112,7 @@ def build_backend(t: TierCfg):
             return d.text, len(prompt) // 4, d.n_tokens, d.mean_confidence
     elif t.backend == "ollama":
         ob = OllamaBackend(t.model, t.url, timeout=t.timeout_s, options=t.options, keep_alive=t.keep_alive)
+        ob.api_key = _ollama_key(t)  # an Ollama behind a token proxy (e.g. a public tunnel); "" sends no header
 
         def run(prompt: str, n: int):
             text = ob.complete(prompt, n)
@@ -147,12 +148,19 @@ def build_backend(t: TierCfg):
     return _B()
 
 
+def _ollama_key(t: TierCfg) -> str:
+    """Bearer key for an Ollama tier, only when its config names api_key_env itself: the default names the
+    Crusoe key, which must never be sent to a GPU box."""
+    return os.environ.get(t.api_key_env, "") if "api_key_env" in t.model_fields_set else ""
+
+
 def http_probe(t: TierCfg) -> bool:
     try:
         req = urllib.request.Request(os.path.expandvars(t.url).rstrip("/") + PROBES[t.backend],
                                      headers={"User-Agent": "chimera/0.1"})
-        if t.backend == "openai" and os.environ.get(t.api_key_env):
-            req.add_header("Authorization", "Bearer " + os.environ[t.api_key_env])
+        key = os.environ.get(t.api_key_env, "") if t.backend == "openai" else _ollama_key(t) if t.backend == "ollama" else ""
+        if key:
+            req.add_header("Authorization", "Bearer " + key)
         with urllib.request.urlopen(req, timeout=3) as r:  # noqa: S310 (configured URL)
             return r.status == 200
     except Exception:
