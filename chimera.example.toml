@@ -124,6 +124,19 @@ template_kwargs = { reasoning_effort = "low" }
 teacher = true               # its checked answers are stored as N+1 memory
 
 [[tiers]]
+name = "gpu-120b"            # your own GPU box: vLLM openai/gpt-oss-120b (deploy/gpu120b/serve_vllm.sh, docs/handoff/tier_120b.md)
+device = "gpu"               # owned hardware: cost 0, so it sorts after gpu-small (0.6) and before the 763B
+backend = "openai"
+url = "$CHIMERA_120B_URL"    # from .env: the local end of an SSH tunnel to the box. Unset = this tier is off (doctor says so)
+model = "openai/gpt-oss-120b"
+family = "gpt-oss"
+max_complexity = 0.85
+timeout_s = 120
+api_key_env = "CHIMERA_120B_TOKEN"   # NAME of the env var with the vLLM bearer token (on the box and in .env)
+template_kwargs = { reasoning_effort = "low" }
+teacher = true               # its checked answers are stored as N+1 memory
+
+[[tiers]]
 name = "cloud-mid"
 device = "cloud"
 backend = "openai"

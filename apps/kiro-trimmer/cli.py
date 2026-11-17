@@ -8,6 +8,7 @@ import urllib.request
 
 from common import build_router, load_config, read_stats, telemetry_line
 from chimera_core.config import tier_checks
+from chimera_core.tiers import unset_env
 
 
 def _get(url: str, headers: dict | None = None) -> None:
@@ -20,6 +21,9 @@ def doctor(cfg) -> int:
     key = os.environ.get("CRUSOE_API_KEY", "")
     bad = 0
     for name, base, url, headers in checks:
+        if var := unset_env(base):  # e.g. the 120B tier before its box exists: off, not a failure
+            print(f"⏸️  {name:7} off ({var} not set in .env)")
+            continue
         try:
             if name == "crusoe" and not key:
                 raise RuntimeError("CRUSOE_API_KEY not set")
