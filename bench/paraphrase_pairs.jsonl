@@ -1,0 +1,46 @@
+{"id": "h01", "set": "match", "old": "What is the capital of France?", "answer": "The capital of France is Paris.", "new": "Tell me the capital of France", "same": true}
+{"id": "h02", "set": "match", "old": "What is the capital of France?", "answer": "The capital of France is Paris.", "new": "capital of france", "same": true}
+{"id": "h03", "set": "match", "old": "What is the capital of France?", "answer": "The capital of France is Paris.", "new": "Which city is the capital of France?", "same": true}
+{"id": "h04", "set": "match", "old": "What is the capital of France?", "answer": "The capital of France is Paris.", "new": "Can you tell me what the capital of France is?", "same": true}
+{"id": "h05", "set": "match", "old": "How many days are in a leap year?", "answer": "A leap year has 366 days.", "new": "How many days does a leap year have?", "same": true}
+{"id": "h06", "set": "match", "old": "Who wrote the novel Pride and Prejudice?", "answer": "Jane Austen wrote Pride and Prejudice.", "new": "Who is the author of Pride and Prejudice?", "same": true}
+{"id": "h07", "set": "match", "old": "What is the chemical symbol for gold?", "answer": "The chemical symbol for gold is Au.", "new": "Please tell me the chemical symbol of gold.", "same": true}
+{"id": "h08", "set": "match", "old": "What does HTTP status code 404 mean?", "answer": "404 means Not Found: the server cannot find the requested resource.", "new": "What does a 404 status code in HTTP signify?", "same": true}
+{"id": "h09", "set": "match", "old": "Convert 100 degrees Celsius to Fahrenheit.", "answer": "100 degrees Celsius is 212 degrees Fahrenheit.", "new": "What is 100 degrees Celsius in Fahrenheit?", "same": true}
+{"id": "h10", "set": "match", "old": "How do I reverse a list in Python?", "answer": "Use my_list.reverse() to reverse in place, or my_list[::-1] for a reversed copy.", "new": "How can I reverse a list in python?", "same": true}
+{"id": "h11", "set": "match", "old": "What is the boiling point of water at sea level?", "answer": "Water boils at 100 degrees Celsius (212 degrees Fahrenheit) at sea level.", "new": "At sea level, what temperature does water boil at?", "same": true}
+{"id": "h12", "set": "match", "old": "Write a Python function that returns the sum of a list.", "answer": "def total(xs):\n    return sum(xs)", "new": "Write a python function to sum a list of numbers", "same": true}
+{"id": "h13", "set": "match", "old": "What is the largest planet in the solar system?", "answer": "Jupiter is the largest planet in the solar system.", "new": "Which planet is the biggest one in our solar system?", "same": true}
+{"id": "h14", "set": "match", "old": "How many continents are there?", "answer": "There are seven continents.", "new": "How many continents does Earth have?", "same": true}
+{"id": "h15", "set": "match", "old": "What is the square root of 144?", "answer": "The square root of 144 is 12.", "new": "whats the square root of 144", "same": true}
+{"id": "h16", "set": "match", "old": "Who painted the Mona Lisa?", "answer": "Leonardo da Vinci painted the Mona Lisa.", "new": "Can you tell me who painted the Mona Lisa?", "same": true}
+{"id": "h17", "set": "match", "old": "What year did World War II end?", "answer": "World War II ended in 1945.", "new": "When did World War II end?", "same": true}
+{"id": "h18", "set": "match", "old": "What is the speed of light?", "answer": "The speed of light in a vacuum is about 299,792 kilometres per second.", "new": "How fast does light travel?", "same": true}
+{"id": "h19", "set": "match", "old": "How do I check my Python version?", "answer": "Run python --version (or python3 --version) in a terminal.", "new": "how to check python version", "same": true}
+{"id": "h20", "set": "match", "old": "What is the capital of Japan?", "answer": "The capital of Japan is Tokyo.", "new": "Tell me Japan's capital city.", "same": true}
+{"id": "t01", "set": "tricky", "old": "What is the capital of France?", "answer": "The capital of France is Paris.", "new": "What is the capital of Germany?", "same": false}
+{"id": "t02", "set": "tricky", "old": "capital of france", "answer": "The capital of France is Paris.", "new": "capital of germany", "same": false}
+{"id": "t03", "set": "tricky", "old": "What is the capital of France?", "answer": "The capital of France is Paris.", "new": "Tell me the capital of Spain", "same": false}
+{"id": "t04", "set": "tricky", "old": "I have 2 apples and eat one. How many are left?", "answer": "You have 1 apple left.", "new": "I have 3 apples and eat one. How many are left?", "same": false}
+{"id": "t05", "set": "tricky", "old": "What is 2+3?", "answer": "2+3 = 5", "new": "What is 2*3?", "same": false}
+{"id": "t06", "set": "tricky", "old": "Is 7 a prime number?", "answer": "Yes, 7 is a prime number.", "new": "Is 9 a prime number?", "same": false}
+{"id": "t07", "set": "tricky", "old": "How do I sort a list in ascending order in Python?", "answer": "Use sorted(xs) or xs.sort().", "new": "How do I sort a list in descending order in Python?", "same": false}
+{"id": "t08", "set": "tricky", "old": "Which foods are safe for dogs to eat?", "answer": "Carrots, apples without seeds, plain rice and cooked chicken are safe for dogs.", "new": "Which foods are not safe for dogs to eat?", "same": false}
+{"id": "t09", "set": "tricky", "old": "What is the largest planet in the solar system?", "answer": "Jupiter is the largest planet in the solar system.", "new": "What is the smallest planet in the solar system?", "same": false}
+{"id": "t10", "set": "tricky", "old": "Convert 100 degrees Celsius to Fahrenheit.", "answer": "100 degrees Celsius is 212 degrees Fahrenheit.", "new": "Convert 100 degrees Fahrenheit to Celsius.", "same": false}
+{"id": "t11", "set": "tricky", "old": "Who wrote the novel Pride and Prejudice?", "answer": "Jane Austen wrote Pride and Prejudice.", "new": "Who wrote the novel War and Peace?", "same": false}
+{"id": "t12", "set": "tricky", "old": "How do I reverse a list in Python?", "answer": "Use my_list.reverse() to reverse in place, or my_list[::-1] for a reversed copy.", "new": "How do I reverse a string in Python?", "same": false}
+{"id": "t13", "set": "tricky", "old": "How do I get the first element of a Python list?", "answer": "Use xs[0].", "new": "How do I get the last element of a Python list?", "same": false}
+{"id": "t14", "set": "tricky", "old": "How many days are in a leap year?", "answer": "A leap year has 366 days.", "new": "How many days are in a normal year?", "same": false}
+{"id": "t15", "set": "tricky", "old": "What year did World War II end?", "answer": "World War II ended in 1945.", "new": "What year did World War I end?", "same": false}
+{"id": "t16", "set": "tricky", "old": "What is the boiling point of water in Celsius?", "answer": "Water boils at 100 degrees Celsius at sea level.", "new": "What is the freezing point of water in Celsius?", "same": false}
+{"id": "t17", "set": "tricky", "old": "How do I install numpy with pip?", "answer": "Run pip install numpy.", "new": "How do I uninstall numpy with pip?", "same": false}
+{"id": "t18", "set": "tricky", "old": "Write a Python function that returns the sum of a list.", "answer": "def total(xs):\n    return sum(xs)", "new": "Write a Python function that returns the product of a list.", "same": false}
+{"id": "t19", "set": "tricky", "old": "What is the capital of Australia?", "answer": "The capital of Australia is Canberra.", "new": "What is the largest city in Australia?", "same": false}
+{"id": "t20", "set": "tricky", "old": "Can dogs eat grapes?", "answer": "No. Grapes are toxic to dogs.", "new": "Can dogs eat carrots?", "same": false}
+{"id": "t21", "set": "tricky", "old": "How do I encode a string to base64 in Python?", "answer": "import base64; base64.b64encode(s.encode())", "new": "How do I decode a base64 string in Python?", "same": false}
+{"id": "t22", "set": "tricky", "old": "What is the time complexity of binary search?", "answer": "Binary search runs in O(log n) time.", "new": "What is the time complexity of linear search?", "same": false}
+{"id": "t23", "set": "tricky", "old": "Who was the first president of the United States?", "answer": "George Washington was the first president of the United States.", "new": "Who was the second president of the United States?", "same": false}
+{"id": "t24", "set": "tricky", "old": "Is it safe to eat raw chicken?", "answer": "No. Raw chicken can carry salmonella; cook it to 74 degrees Celsius.", "new": "Is it safe to eat cooked chicken?", "same": false}
+{"id": "w01", "set": "bad_answer", "old": "What does HTTP status code 404 mean?", "answer": "404 means the server had an internal error.", "new": "What does a 404 status code in HTTP signify?", "same": false}
+{"id": "w02", "set": "bad_answer", "old": "What is the capital of France?", "answer": "The capital of France is Lyon.", "new": "Tell me the capital of France", "same": false}
