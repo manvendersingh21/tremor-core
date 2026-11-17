@@ -1,0 +1,115 @@
+{
+ "video": "demo_cut_v2_voiced.mp4",
+ "from": "demo_cut_v2.mp4",
+ "seconds": 178.9,
+ "characters": 1887,
+ "voice": {
+  "name": "George - Warm, Captivating Storyteller",
+  "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+  "model_id": "eleven_multilingual_v2",
+  "output_format": "mp3_44100_128",
+  "voice_settings": {
+   "stability": 0.5,
+   "similarity_boost": 0.75,
+   "style": 0.0,
+   "use_speaker_boost": true,
+   "speed": 1.0
+  }
+ },
+ "said_as": [
+  [
+   "763B",
+   "763-B"
+  ],
+  [
+   "30B",
+   "30-B"
+  ],
+  [
+   "A6000",
+   "A 6000"
+  ]
+ ],
+ "lines": [
+  {
+   "shot": 1,
+   "start": 0.0,
+   "at": 0.35,
+   "drift": 0.05,
+   "dur": 8.68,
+   "text": "Companies pay a frontier model for every coding call, even FizzBuzz. CHIMERA answers each call at the cheapest place that gets it right."
+  },
+  {
+   "shot": 2,
+   "start": 9.95,
+   "at": 10.25,
+   "drift": 0.0,
+   "dur": 10.08,
+   "text": "The whole app is one page. You walk in like a movie. Hold W. The gates open, then the great door. Every gold door is a room of measured numbers."
+  },
+  {
+   "shot": 3,
+   "start": 21.95,
+   "at": 22.25,
+   "drift": 0.0,
+   "dur": 15.28,
+   "text": "I ask the Count a question. The call climbs a ladder: our shared cache first, then our own 30B, then the big 763B. The cache has not seen this one. So our 30B answers, in about one second. No token bill."
+  },
+  {
+   "shot": 4,
+   "start": 43.95,
+   "at": 44.25,
+   "drift": -0.0,
+   "dur": 14.72,
+   "text": "Now the same question again. The cache answers in a tenth of a second. Zero tokens. No model was called. In three repeats, 58 or 59 of 60 repeat questions came from the cache, with zero wrong answers."
+  },
+  {
+   "shot": 5,
+   "start": 59.95,
+   "at": 60.25,
+   "drift": -0.0,
+   "dur": 17.46,
+   "text": "FizzBuzz. Our own 30B writes it in 4.4 seconds, with no token bill. The 763B alone is faster, 1.5 seconds, but it bills every call. Our tuned GPU box costs 18 to 52 cents per thousand calls when it is kept busy."
+  },
+  {
+   "shot": 6,
+   "start": 79.95,
+   "at": 80.25,
+   "drift": -0.0,
+   "dur": 19.27,
+   "text": "Now a hard design task. The 30B tries first, but it is not sure: 0.82, under our 0.95 bar. So the call climbs to the 763B. Here is a loss. That took 14 seconds, against 5 for the 763B alone, at the same cost."
+  },
+  {
+   "shot": 7,
+   "start": 104.95,
+   "at": 105.25,
+   "drift": -0.0,
+   "dur": 26.52,
+   "text": "Here is the bill for a month of coding calls. With a 30B on rented H200s, and 3 in 10 calls being repeats, we spend 62 to 87 percent less than GPT-5.5 alone. Now the loss. Against the cheap 763B, at 100 thousand calls a day, we cost more: 607 percent more. And our 30B fails about 1 in 10 coding tasks, so tests must catch those."
+  },
+  {
+   "shot": 8,
+   "start": 132.95,
+   "at": 133.25,
+   "drift": 0.0,
+   "dur": 13.75,
+   "text": "We built this with Kiro. Seven steering files, seven specs, six hooks, four custom agents, MCP tools and a Power. Property tests from the specs found four real bugs. All four are fixed."
+  },
+  {
+   "shot": 9,
+   "start": 152.95,
+   "at": 153.25,
+   "drift": 0.0,
+   "dur": 7.11,
+   "text": "Stop paying a frontier model for FizzBuzz. We prove it with tests. CHIMERA, for Kiroween 2026."
+  },
+  {
+   "shot": 10,
+   "start": 160.15,
+   "at": 160.71,
+   "drift": 0.26,
+   "dur": 17.51,
+   "text": "On our own A6000, 763B calls fell 70.7 percent, with zero wrong answers from the cache. We passed 292 of 301 coding tasks. The 763B alone passed 286. But a first pass is slower."
+  }
+ ]
+}

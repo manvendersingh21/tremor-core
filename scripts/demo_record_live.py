@@ -100,7 +100,9 @@ def make_v2(info):
     """demo_cut.mp4 + the A6000 card cut from demo_live.mp4, 1 s cross-fade, silent track. Also demo_cut_v2.srt."""
     card = next(m for m in info['shots'] if m['shot'] == 'a6000')
     cut, live, v2 = OUT / 'demo_cut.mp4', OUT / 'demo_live.mp4', OUT / 'demo_cut_v2.mp4'
-    d0 = float(probe(cut)['format']['duration'])
+    # the A6000 card fades in 7.5 s into the old closing card, so the voiced v2 (scripts/demo_voice.py) fits 2:59
+    closing = next(m for m in json.loads((OUT / 'demo_cut.json').read_text())['shots'] if m['shot'] == 'closing')
+    d0 = min(float(probe(cut)['format']['duration']), closing['start'] + 7.5 + 1)
     start, length = card['start'] + 0.3, card['end'] - card['start'] - 0.3
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(cut), '-ss', f'{start:.2f}', '-t', f'{length:.2f}', '-i', str(live),
                     '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-filter_complex',
@@ -110,6 +112,8 @@ def make_v2(info):
                     '-c:a', 'aac', '-b:a', '128k', '-shortest', '-movflags', '+faststart', str(v2)], check=True)
     old = (OUT / 'demo_cut.srt').read_text().strip()
     n = old.count(' --> ')
+    head, _, tail = old.rpartition(' --> ')   # the old last cue ends where the card starts
+    old = f"{head} --> {srt_time(d0 - 1.05)}{tail[12:]}"
     a = info['a6000']
     text = (f"On our own A6000: {a['cut']}% fewer 763B calls, 0 wrong answers from the cache; {a['ladder_ok']} of {a['n']} "
             f"coding tasks right vs {a['base_ok']} for the 763B alone. A loss: slower on a first pass ({A6})")

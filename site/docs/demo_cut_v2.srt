@@ -75,9 +75,9 @@ Built with Kiro: 7 steering files, 7 specs, 6 hooks, 4 agents, MCP tools and a P
 Property tests from the specs found 4 real bugs. 4 are fixed (docs/handoff/property-tests.md)
 
 20
-00:02:33,500 --> 00:02:45,253
+00:02:33,500 --> 00:02:40,400
 Stop paying a frontier model for FizzBuzz. We prove it with tests.
 
 21
-00:02:45,033 --> 00:02:56,733
+00:02:40,450 --> 00:02:52,167
 On our own A6000: 70.7% fewer 763B calls, 0 wrong answers from the cache; 292 of 301 coding tasks right vs 286 for the 763B alone. A loss: slower on a first pass (bench/results_a6000.md)

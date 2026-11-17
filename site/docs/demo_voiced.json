@@ -1,0 +1,115 @@
+{
+ "video": "demo_voiced.mp4",
+ "from": "demo_live.mp4",
+ "seconds": 167.4,
+ "characters": 1521,
+ "voice": {
+  "name": "George - Warm, Captivating Storyteller",
+  "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+  "model_id": "eleven_multilingual_v2",
+  "output_format": "mp3_44100_128",
+  "voice_settings": {
+   "stability": 0.5,
+   "similarity_boost": 0.75,
+   "style": 0.0,
+   "use_speaker_boost": true,
+   "speed": 1.0
+  }
+ },
+ "said_as": [
+  [
+   "763B",
+   "763-B"
+  ],
+  [
+   "30B",
+   "30-B"
+  ],
+  [
+   "A6000",
+   "A 6000"
+  ]
+ ],
+ "lines": [
+  {
+   "shot": 1,
+   "start": 0.0,
+   "at": 0.35,
+   "drift": 0.05,
+   "dur": 8.41,
+   "text": "Companies pay a frontier model for every coding call, even FizzBuzz. CHIMERA answers each call at the cheapest place that gets it right."
+  },
+  {
+   "shot": 2,
+   "start": 9.95,
+   "at": 10.25,
+   "drift": 0.0,
+   "dur": 8.03,
+   "text": "This take is live, on our own GPU. The whole app is one page. Hold W. The gates open, then the great door."
+  },
+  {
+   "shot": 3,
+   "start": 21.95,
+   "at": 22.25,
+   "drift": 0.0,
+   "dur": 16.21,
+   "text": "I ask the Count a question. The call climbs a ladder: our shared cache first, then our own 30B, then the big 763B. The cache has not seen this one. So our 30B answers, on our A6000, in under a second. No token bill."
+  },
+  {
+   "shot": 4,
+   "start": 41.95,
+   "at": 42.25,
+   "drift": -0.0,
+   "dur": 6.78,
+   "text": "The same question again. The cache answers in a tenth of a second. Zero tokens. No model was called."
+  },
+  {
+   "shot": 5,
+   "start": 53.95,
+   "at": 54.25,
+   "drift": -0.0,
+   "dur": 8.31,
+   "text": "FizzBuzz. Our 30B writes it in about one and a half seconds. All 163 tokens stay off the 763B."
+  },
+  {
+   "shot": 6,
+   "start": 71.95,
+   "at": 72.25,
+   "drift": -0.0,
+   "dur": 19.64,
+   "text": "Now a hard design task. The 30B tries first, but it is not sure: 0.87, under our 0.95 bar. So the call climbs to the 763B. Here is a loss. With the climb it took 9 seconds. The 763B alone took 5, at about the same cost."
+  },
+  {
+   "shot": 7,
+   "start": 97.22,
+   "at": 97.52,
+   "drift": -0.0,
+   "dur": 18.2,
+   "text": "Here is the bill for a month of coding calls. With 3 in 10 calls being repeats, we spend 62 to 87 percent less than GPT-5.5 alone. Now the loss. Against the cheap 763B, at 100 thousand calls a day, we cost 607 percent more."
+  },
+  {
+   "shot": 8,
+   "start": 124.17,
+   "at": 124.47,
+   "drift": -0.0,
+   "dur": 13.89,
+   "text": "We built this with Kiro. Seven steering files, seven specs, six hooks, four custom agents, MCP tools and a Power. Property tests from the specs found four real bugs. All four are fixed."
+  },
+  {
+   "shot": 9,
+   "start": 141.17,
+   "at": 141.47,
+   "drift": 0.0,
+   "dur": 4.32,
+   "text": "Stop paying a frontier model for FizzBuzz. We prove it with tests."
+  },
+  {
+   "shot": 10,
+   "start": 149.17,
+   "at": 149.47,
+   "drift": 0.0,
+   "dur": 16.9,
+   "text": "On our own A6000, 763B calls fell 70.7 percent, with zero wrong answers from the cache. We passed 292 of 301 coding tasks. The 763B alone passed 286. But a first pass is slower."
+  }
+ ]
+}
