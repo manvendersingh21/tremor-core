@@ -92,6 +92,7 @@ Mean ± sd over repeats (repeats per mode: PLAIN 3, POOL 4, WARM 1).
 | Graded correct | 170/180 | 206 ± 5 | 228 ± 2 | 227 |
 | Graded items | 180 | 240 ± 0 | 240 ± 0 | 240 |
 | **Wrong answers served (graded)** | 10 | 34.0 ± 5.3 | 12.5 ± 1.9 | 13 |
+| Wrong-answer rate % (of graded) | 5.6 | 14.2 ± 2.2 | 5.2 ± 0.8 | 5.42 |
 | Graded correct without Dolly (same items as the 763B column) | 170/180 | 159 ± 2 | 173 ± 1 | 173 |
 | **Wrong answers caused by the cache** (other question, or stored text changed) | 0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0 |
 | Wrong first-pass answers the cache repeated | - | 0.0 ± 0.0 | 0.0 ± 0.0 | 8 |
@@ -123,6 +124,7 @@ Mean ± sd over repeats (repeats per mode: PLAIN 3, POOL 4, WARM 1).
 | Graded correct | 286/301 | 267 ± 1 | 292 ± 2 | 291 |
 | Graded items | 301 | 301 ± 0 | 301 ± 0 | 301 |
 | **Wrong answers served (graded)** | 15 | 34.0 ± 1.0 | 9.5 ± 1.7 | 10 |
+| Wrong-answer rate % (of graded) | 5.0 | 11.3 ± 0.3 | 3.2 ± 0.6 | 3.32 |
 | **Wrong answers caused by the cache** (other question, or stored text changed) | 0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 1 |
 | Wrong first-pass answers the cache repeated | - | 0.0 ± 0.0 | 0.0 ± 0.0 | 0 |
 | Latency p50 (ms) | 710 | 3,414 ± 54 | 3,122 ± 1,241 | 147 |
@@ -152,6 +154,7 @@ Mean ± sd over repeats (repeats per mode: PLAIN 3, POOL 3, WARM 1).
 | Graded correct | 46/48 | 45.3 ± 0.6 | 57.0 ± 1.0 | 58 |
 | Graded items | 48 | 60.0 ± 0.0 | 60.0 ± 0.0 | 60 |
 | **Wrong answers served (graded)** | 2 | 14.7 ± 0.6 | 3.0 ± 1.0 | 2 |
+| Wrong-answer rate % (of graded) | 4.2 | 24.4 ± 1.0 | 5.0 ± 1.7 | 3.33 |
 | Graded correct without Dolly (same items as the 763B column) | 46/48 | 36.3 ± 0.6 | 45.0 ± 1.0 | 46 |
 | **Wrong answers caused by the cache** (other question, or stored text changed) | 0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0 |
 | Wrong first-pass answers the cache repeated | - | 0.0 ± 0.0 | 0.0 ± 0.0 | 1 |
@@ -183,6 +186,7 @@ Mean ± sd over repeats (repeats per mode: PLAIN 3, POOL 3, WARM 1).
 | Graded correct | 73/75 | 51.3 ± 1.5 | 72.0 ± 1.0 | 73 |
 | Graded items | 75 | 75.0 ± 0.0 | 75.0 ± 0.0 | 75 |
 | **Wrong answers served (graded)** | 2 | 23.7 ± 1.5 | 3.0 ± 1.0 | 2 |
+| Wrong-answer rate % (of graded) | 2.7 | 31.6 ± 2.0 | 4.0 ± 1.3 | 2.67 |
 | **Wrong answers caused by the cache** (other question, or stored text changed) | 0 | 0.0 ± 0.0 | 0.0 ± 0.0 | 0 |
 | Wrong first-pass answers the cache repeated | - | 0.0 ± 0.0 | 0.0 ± 0.0 | 0 |
 | Latency p50 (ms) | 774 | 8,642 ± 171 | 8,978 ± 341 | 146 |
@@ -218,5 +222,13 @@ Our server starts and stops (box time, EST):
 - stopped GPU 1 at 2026-11-17T06:04:53-05:00 (want=stop)
 
 Rows: `bench/.scratch/a6000/` (git-ignored, mirrored to the run folder on the box), csv `bench/.scratch/a6000/results_a6000.csv`.
-Judge (763B) calls: qwen: 87 calls, 179,893 tokens; gemma: 12 calls, 28,492 tokens.
+
+## Crusoe 763B spend for this report
+
+| Use | Calls | Tokens | $ (list) |
+|---|---|---|---|
+| Climbs from the self-hosted model (all runs, all repeats) | 1,006 | 451,687 | 0.4687 |
+| Judge for Dolly answers (no runnable test) | 99 | 208,385 | 0.0630 |
+| **Total** | 1,105 | 660,072 | **0.5317** |
+
 

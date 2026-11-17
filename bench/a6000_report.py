@@ -321,6 +321,8 @@ def main() -> None:
             row("Graded correct", lambda a: a["correct"], f"{b['correct']}/{b['graded']}")
             row("Graded items", lambda a: a["graded"], str(b["graded"]))
             row("**Wrong answers served (graded)**", lambda a: a["wrong"], str(b["graded"] - b["correct"]))
+            row("Wrong-answer rate % (of graded)", lambda a: a["wrong"] / a["graded"] * 100 if a["graded"] else 0,
+                f"{(b['graded'] - b['correct']) / max(b['graded'], 1) * 100:.1f}")
             if d == "suite":
                 row("Graded correct without Dolly (same items as the 763B column)", lambda a: a["correct_nd"], f"{b['correct']}/{b['graded']}")
             row("**Wrong answers caused by the cache** (other question, or stored text changed)", lambda a: a["wrong_cache"], "0")
@@ -377,9 +379,16 @@ def main() -> None:
         p = STORE / f"judge_{m}.json"
         if p.exists():
             c = json.loads(p.read_text())["calls"]
-            jc.append(f"{m}: {len(c)} calls, {sum(x['in'] + x['out'] for x in c):,} tokens")
-    if jc:
-        L.append("Judge (763B) calls: " + "; ".join(jc) + ".")
+            jc.append((m, len(c), sum(x["in"] for x in c), sum(x["out"] for x in c)))
+    esc_tok, esc_usd = sum(a["top_tok"] for a in res.values()), sum(a["usd"] for a in res.values())
+    esc_calls = sum(a["top_calls"] for a in res.values())
+    j_calls, j_in, j_out = sum(x[1] for x in jc), sum(x[2] for x in jc), sum(x[3] for x in jc)
+    j_usd = j_in * P_IN + j_out * P_OUT
+    L += ["", "## Crusoe 763B spend for this report", "",
+          "| Use | Calls | Tokens | $ (list) |", "|---|---|---|---|",
+          f"| Climbs from the self-hosted model (all runs, all repeats) | {esc_calls:,} | {esc_tok:,} | {esc_usd:.4f} |",
+          f"| Judge for Dolly answers (no runnable test) | {j_calls:,} | {j_in + j_out:,} | {j_usd:.4f} |",
+          f"| **Total** | {esc_calls + j_calls:,} | {esc_tok + j_in + j_out:,} | **{esc_usd + j_usd:.4f}** |", ""]
     L.append("")
     text = "\n".join(L) + "\n"
     detail = (STORE / "verdict_detail.md").read_text().strip() if (STORE / "verdict_detail.md").exists() else "(details below)"
