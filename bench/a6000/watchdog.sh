@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# Polite GPU supervisor for the shared two-GPU A6000 box (bench/results_a6000.md).
+# Polite GPU supervisor for the shared two-GPU A6000 box (bench/results_a6000.md). Our only GPU host.
 #
 #   A6000_ROOT=<run folder on the box> setsid nohup bash watchdog.sh > $A6000_ROOT/logs/watchdog.log 2>&1 &
-#   echo run  > $A6000_ROOT/run/want     # serve on any free GPU
+#   echo run  > $A6000_ROOT/run/want     # serve on every free GPU (one Ollama per GPU, port 11500+i, serve.sh)
 #   echo stop > $A6000_ROOT/run/want     # stop our servers, keep watching
 #   echo exit > $A6000_ROOT/run/want     # stop our servers and exit
 #   echo manual > $A6000_ROOT/run/want   # start nothing; a server we started by hand writes run/gpu<i>.pid and is
-#                                        # still killed at once when someone else touches its GPU
+#                                        # still killed at once on contention
 #
-# Poll every 5 s. Per GPU i (one Ollama per GPU, port 11500+i, started by serve.sh):
-#   START  only when GPU i has no compute process that is not ours and under 300 MiB not held by our pids,
-#          for CLEAR_FIRST s before its first use (GPU 0: CLEAR_GPU0 s, its owner's job may have stages)
-#          and RESUME_CLEAR s after a yield.
-#   YIELD  at once, when on a GPU we use: a compute process appears that is not ours, or memory not held by
-#          our pids rises above 300 MiB (re-read after 1 s to skip a race), or one of our pids shows on a GPU we
-#          did not start it on, or the box 1-minute load passes its core count. Kill = the literal pids we
-#          recorded: TERM, then KILL after 3 s. VRAM is free within about 10 s of the other job appearing.
+# Poll every 5 s.
+#   START  GPU i only when it has no compute process that is not ours and under 300 MiB not held by our pids, for
+#          CLEAR_FIRST s (GPU 0: CLEAR_GPU0 s, its owner's job may run in stages). After a yield, also only when the
+#          whole box has been quiet for RESUME_CLEAR s. Both GPUs free: both run (two servers; the runner spreads
+#          its streams over them).
+#   YIELD  ALL our GPUs at once when anyone else touches EITHER GPU while we hold any:
+#          - on a GPU we use: any compute process that is not ours, or over 300 MiB not held by our pids;
+#          - on a GPU we do not use: a compute process that was not there when we started, or memory not ours
+#            rising over 300 MiB above what it was when we started (their job growing);
+#          - one of our pids on a GPU we did not start it on, or the box 1-minute load above its core count.
+#          Memory readings are re-read after 1 s to skip a race. Kill = the literal pids we recorded (server tree,
+#          token proxy, tunnel): TERM, KILL after 3 s, so all our VRAM is free within about 10 s.
 # Every yield and resume is a line in $A6000_ROOT/logs/yield_events.log.
-# shortcut: a job another user has queued but not started (no process on the GPU yet) cannot be seen from here;
-# it is seen, and yielded to, the moment it touches the GPU.
+# shortcut: a job another user has queued but not started (no process on a GPU yet) cannot be seen from here;
+# it is seen, and yielded to, the moment it touches either GPU.
 set -u
 R=${A6000_ROOT:?set A6000_ROOT}
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -32,9 +36,11 @@ EV=$R/logs/yield_events.log
 CORES=$(nproc)
 mapfile -t UUIDS < <(nvidia-smi --query-gpu=uuid --format=csv,noheader | tr -d ' ')
 N=${#UUIDS[@]}
-declare -a CLEAR YIELDED
-for ((i = 0; i < N; i++)); do CLEAR[i]=0; YIELDED[i]=0; done
-echo "watchdog start $(date -Is) gpus=$N cores=$CORES poll=${POLL}s limit=${LIMIT_MIB}MiB"
+declare -a CLEAR BASE_P BASE_M FP FM
+for ((i = 0; i < N; i++)); do CLEAR[i]=0; BASE_P[i]=""; BASE_M[i]=0; done
+YIELDED=0
+QUIET=$RESUME_CLEAR
+echo "watchdog start $(date -Is) gpus=$N cores=$CORES poll=${POLL}s limit=${LIMIT_MIB}MiB yield=all-gpus"
 
 tree() {  # a pid and all its descendants (Ollama runs the model in child "runner" processes)
   local p=$1 k
@@ -45,26 +51,33 @@ tree() {  # a pid and all its descendants (Ollama runs the model in child "runne
 
 ours_of() { local s; s=$(cat "$R/run/gpu$1.pid" 2>/dev/null) && [ -n "$s" ] && tree "$s" | tr '\n' ' '; }
 
-# prints "<foreign pid or -> <MiB not held by our pids>" for GPU $1; also sets MISPLACED to our pids seen elsewhere
-scan() {
-  local i=$1 used omb=0 fpid="-" u p m all_ours="" j
+held() { local j; for ((j = 0; j < N; j++)); do [ -n "$(ours_of $j)" ] && return 0; done; return 1; }
+
+# fills FP[i] (sorted foreign pids, space separated) and FM[i] (MiB not held by our pids); MISPLACED = our pid off its GPU
+scan_all() {
+  local i j u p m used omb all_ours="" mine
   for ((j = 0; j < N; j++)); do all_ours="$all_ours $(ours_of $j)"; done
-  local mine=" $(ours_of "$i") "
-  used=$(nvidia-smi -i "$i" --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' ')
-  while IFS=, read -r u p m; do
-    u=${u// /}; p=${p// /}; m=${m// /}
-    [ -z "$p" ] || [ "$u" != "${UUIDS[i]}" ] && continue
-    case "$mine" in
-      *" $p "*) omb=$((omb + ${m:-0})) ;;
-      *) case " $all_ours " in *" $p "*) MISPLACED=$p ;; *) fpid=$p ;; esac ;;
-    esac
-  done < <(nvidia-smi --query-compute-apps=gpu_uuid,pid,used_memory --format=csv,noheader,nounits)
-  local f=$((used - omb - 20))   # ~12-20 MiB is the idle driver baseline on this card
-  [ $f -lt 0 ] && f=0
-  echo "$fpid $f"
+  local apps
+  apps=$(nvidia-smi --query-compute-apps=gpu_uuid,pid,used_memory --format=csv,noheader,nounits)
+  for ((i = 0; i < N; i++)); do
+    mine=" $(ours_of "$i") "
+    used=$(nvidia-smi -i "$i" --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' ')
+    omb=0; FP[i]=""
+    while IFS=, read -r u p m; do
+      u=${u// /}; p=${p// /}; m=${m// /}
+      { [ -z "$p" ] || [ "$u" != "${UUIDS[i]}" ]; } && continue
+      case "$mine" in
+        *" $p "*) omb=$((omb + ${m:-0})) ;;
+        *) case " $all_ours " in *" $p "*) MISPLACED=$p ;; *) FP[i]="${FP[i]} $p" ;; esac ;;
+      esac
+    done <<< "$apps"
+    FP[i]=$(echo ${FP[i]} | tr ' ' '\n' | sort -n | tr '\n' ' ' | sed 's/ *$//')
+    FM[i]=$((used - omb - 20))   # ~12-20 MiB is the idle driver baseline on this card
+    [ "${FM[i]}" -lt 0 ] && FM[i]=0
+  done
 }
 
-stop_gpu() {  # literal pids (server tree, proxy, tunnel), TERM, then KILL after 3 s; the public URL dies with the tunnel
+stop_gpu() {  # literal pids (server tree, proxy, tunnel), TERM, then KILL after 3 s; the tunnel URL dies with it
   local i=$1 pids p t
   pids="$(ours_of "$i") $(cat "$R/run/gpu$i.aux" 2>/dev/null)"
   rm -f "$R/run/gpu$i.url"
@@ -78,44 +91,66 @@ stop_gpu() {  # literal pids (server tree, proxy, tunnel), TERM, then KILL after
   rm -f "$R/run/gpu$i.pid" "$R/run/gpu$i.aux"
 }
 
+new_pid() {  # a pid in $1 that is not in $2
+  local p; for p in $1; do case " $2 " in *" $p "*) ;; *) echo "$p"; return ;; esac; done
+}
+
+contention() {  # prints the reason, empty if none; only called while we hold a GPU
+  local i np
+  [ -n "$MISPLACED" ] && { echo "our pid $MISPLACED seen on the wrong GPU"; return; }
+  for ((i = 0; i < N; i++)); do
+    if [ -n "$(ours_of "$i")" ]; then
+      [ -n "${FP[i]}" ] && { echo "pid ${FP[i]%% *} on GPU $i (ours)"; return; }
+      [ "${FM[i]}" -gt "$LIMIT_MIB" ] && { echo "${FM[i]} MiB not ours on GPU $i (ours)"; return; }
+    else
+      np=$(new_pid "${FP[i]}" "${BASE_P[i]}")
+      [ -n "$np" ] && { echo "new pid $np on GPU $i"; return; }
+      [ "${FM[i]}" -gt $((BASE_M[i] + LIMIT_MIB)) ] && { echo "others' memory on GPU $i rose ${BASE_M[i]} -> ${FM[i]} MiB"; return; }
+    fi
+  done
+  [ "$(awk '{print int($1)}' /proc/loadavg)" -gt "$CORES" ] && echo "box load above $CORES cores"
+}
+
 while true; do
   want=$(cat "$R/run/want" 2>/dev/null || echo stop)
-  load=$(awk '{print int($1)}' /proc/loadavg)
-  for ((i = 0; i < N; i++)); do
-    MISPLACED=""
-    read -r fpid fmb <<< "$(scan "$i")"
-    why=""
-    if [ "$fpid" != "-" ]; then why="pid $fpid"
-    elif [ -n "$MISPLACED" ]; then why="our pid $MISPLACED seen on the wrong GPU"
-    elif [ "$fmb" -gt "$LIMIT_MIB" ]; then
-      sleep 1; read -r fpid fmb <<< "$(scan "$i")"
-      [ "$fmb" -gt "$LIMIT_MIB" ] && why="unlisted process (${fmb} MiB not ours)"
-      [ "$fpid" != "-" ] && why="pid $fpid"
-    elif [ "$load" -gt "$CORES" ]; then why="box load $load above $CORES cores"
+  MISPLACED=""
+  scan_all
+  if held; then
+    why=$(contention)
+    if [ -n "$why" ]; then  # re-read once (1 s) so a reading taken mid-change does not kill a run
+      sleep 1; MISPLACED=""; scan_all; why=$(contention)
     fi
-    mine=$(ours_of "$i")
     if [ -n "$why" ]; then
-      CLEAR[i]=0
-      if [ -n "$mine" ]; then
-        stop_gpu "$i"
-        YIELDED[i]=1
-        echo "yielded GPU $i at $(date -Is) to $why (${fmb} MiB not ours)" | tee -a "$EV"
-      fi
-      continue
+      gone=""
+      for ((i = 0; i < N; i++)); do [ -n "$(ours_of "$i")" ] && { stop_gpu "$i"; gone="$gone $i"; }; CLEAR[i]=0; done
+      YIELDED=1; QUIET=0
+      echo "yielded GPU(s)${gone} at $(date -Is) to $why; others now: $(for ((i = 0; i < N; i++)); do printf 'GPU %s [%s] %s MiB; ' "$i" "${FP[i]}" "${FM[i]}"; done)" | tee -a "$EV"
+      sleep "$POLL"; continue
     fi
-    CLEAR[i]=$((CLEAR[i] + POLL))
-    need=$CLEAR_FIRST; [ "$i" = 0 ] && need=$CLEAR_GPU0; [ "${YIELDED[i]}" = 1 ] && need=$RESUME_CLEAR
-    if [ -z "$mine" ] && [ "$want" = "run" ] && [ "${CLEAR[i]}" -ge "$need" ]; then
-      [ "${YIELDED[i]}" = 1 ] && echo "resumed GPU $i at $(date -Is) after ${CLEAR[i]} s clear" | tee -a "$EV"
-      YIELDED[i]=0
+  else  # nothing of ours runs: the box's current state is the baseline; any change in it means someone is active
+    for ((i = 0; i < N; i++)); do
+      d=$((FM[i] - BASE_M[i])); d=${d#-}
+      { [ "${FP[i]}" != "${BASE_P[i]}" ] || [ "$d" -gt "$LIMIT_MIB" ]; } && QUIET=0
+      BASE_P[i]=${FP[i]}; BASE_M[i]=${FM[i]}
+    done
+  fi
+  QUIET=$((QUIET + POLL))
+  for ((i = 0; i < N; i++)); do
+    mine=$(ours_of "$i")
+    if [ -n "${FP[i]}" ] || [ "${FM[i]}" -gt "$LIMIT_MIB" ]; then CLEAR[i]=0; else CLEAR[i]=$((CLEAR[i] + POLL)); fi
+    need=$CLEAR_FIRST; [ "$i" = 0 ] && need=$CLEAR_GPU0
+    if [ -z "$mine" ] && [ "$want" = "run" ] && [ "${CLEAR[i]}" -ge "$need" ] \
+       && { [ "$YIELDED" = 0 ] || [ "$QUIET" -ge "$RESUME_CLEAR" ]; }; then
+      [ "$YIELDED" = 1 ] && echo "resumed GPU $i at $(date -Is) after ${QUIET} s quiet" | tee -a "$EV"
       [ -f "$R/run/gpu$i.aux" ] && stop_gpu "$i"   # a proxy or tunnel left from a server that died
       A6000_ROOT=$R bash "$HERE/serve.sh" "$i" "${UUIDS[i]}"
       echo "started GPU $i at $(date -Is) pid $(cat "$R/run/gpu$i.pid" 2>/dev/null)"
-    elif [ -n "$mine" ] && { [ "$want" = "stop" ] || [ "$want" = "exit" ]; }; then  # "manual": a server we started by hand (pid in gpu<i>.pid); yield only
+    elif [ -n "$mine" ] && { [ "$want" = "stop" ] || [ "$want" = "exit" ]; }; then
       stop_gpu "$i"
       echo "stopped GPU $i at $(date -Is) (want=$want)"
     fi
   done
+  held && YIELDED=0   # back up after a yield; the next yield needs a fresh quiet period again
   [ "$want" = "exit" ] && { echo "watchdog exit $(date -Is)"; exit 0; }
   sleep "$POLL"
 done
