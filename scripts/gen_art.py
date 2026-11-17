@@ -18,7 +18,7 @@ MAX_BYTES = 400_000
 GMI_QUEUE = "https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests"
 GMI_CHAT = "https://api.gmi-serving.com/v1/chat/completions"
 MINIMAX = "https://api.minimax.io/v1/image_generation"
-SEEDREAM = {"16:9": "2688x1512", "3:4": "1800x2400", "4:3": "2400x1800", "1:1": "2048x2048"}  # >= 3.6M px
+SEEDREAM = {"16:9": "2688x1512", "3:4": "1800x2400", "4:3": "2400x1800", "1:1": "2048x2048", "2:1": "2720x1360"}  # >= 3.6M px; 2:1 = equirectangular panorama
 calls = {"m3": 0, "image": 0}
 
 
@@ -108,7 +108,7 @@ def save(raw, path, width):
     path.write_bytes(buf.getvalue())
     print(path.name, buf.tell() // 1024, "KB", im.size)
     if width >= 2048:  # 1024 srcset variant
-        im.resize((1024, round(im.height / 2)), Image.LANCZOS).save(path.with_name(path.stem + "-1024.webp"), quality=80)
+        im.resize((1024, round(im.height * 1024 / im.width)), Image.LANCZOS).save(path.with_name(path.stem + "-1024.webp"), quality=80)
 
 
 def main():

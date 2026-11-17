@@ -63,3 +63,19 @@ console.log(JSON.stringify(out));"""
     assert o["top"][1] == L["levels"]["upper"] and o["top"][2] == "upper"  # the stairs take you up
     assert o["under"][1] == 0 and o["under"][0] < -17.9  # from under the gallery you cannot step onto the top stair
     assert o["rail"] < -17.7  # the gallery railing stops you
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_3d_walk_rail_only_goes_forward_and_reaches_the_hall_in_4_s():
+    """The walk-in is one rail (site/game/world3d.js): z falls with every step, so W can never take you back."""
+    js = f"""
+const m = await import({json.dumps((SITE / 'game' / 'world3d.js').as_uri())});
+const zs = []; for (let s = 0; s <= m.S_END; s += 0.01) zs.push(m.railZ(s));
+console.log(JSON.stringify({{mono: zs.every((z, i) => i === 0 || z < zs[i - 1]), hall: m.S_HALL, gate: m.railS(m.PLAN.gateZ), door: m.railS(m.PLAN.doorZ),
+  inside: m.railZ(m.S_HALL) < m.PLAN.hallZ0, start: m.railZ(0), rooms: m.SLOTS.map((s) => s.room)}}));"""
+    o = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True).stdout)
+    assert o["mono"]  # never a step back
+    assert o["start"] > 0 and 1.2 < o["gate"] < 2.0 < o["door"] < o["hall"] <= 4.0  # gates about 1.5 s, the hall by 4 s
+    assert o["inside"] and len(set(o["rooms"])) == 10
+    walk = (SITE / "game" / "walk.js").read_text()
+    assert "open: { gates: false, door: false }" in walk  # the gates and the door are shut when the page opens

@@ -202,5 +202,19 @@
   "height": 1152,
   "n": 1,
   "prompt": "Front view, eye level, standing right in front of an enormous closed pair of gothic castle doors at night, the doors fill most of the frame from top to bottom, perfectly centred and symmetrical, two tall dark carved oak door leaves meeting in the exact middle under a pointed stone arch, thick ornate shining gold rim around the arch and gold iron straps and studs on the doors, warm golden light glowing through the thin seam between the two leaves and under them, carved stone wall and two burning iron torches on each side, a few stone steps at the bottom, faint fog. Painterly gothic, rich glossy detail. No people, no text, no letters, no logos."
+ },
+ "pano-night": {
+  "aspect": "2:1",
+  "width": 3072,
+  "height": 1536,
+  "n": 1,
+  "prompt": "Seamless 360 degree equirectangular panorama, 2:1, for a VR skybox, viewed from a dark country road at night. The horizon is a perfectly level line exactly across the vertical middle of the image. Upper half: a deep purple and wine-red night sky with layered glowing clouds, stars, a huge glowing full orange moon with a soft halo, small bats far away. Around the whole horizon: distant blue-violet mountain ridges, far misty forests, a few faint distant gothic towers and ruins on far hills, low fog banks in the valleys. Lower half: dark misty grassland and pine forest floor fading to near black at the bottom, no buildings, no gate, no road, no people in the foreground. Left and right edges must join seamlessly. Painterly, cinematic, rich glossy detail. No text, no letters, no logos, no watermark."
+ },
+ "study-chat": {
+  "aspect": "16:9",
+  "width": 2048,
+  "height": 1152,
+  "n": 1,
+  "prompt": "Interior of a gothic vampire's candle-lit study at night, wide view. A tall pointed-arch window on the right with moonlight streaming in as soft blue-violet beams through drifting mist, a big orange moon visible outside. A heavy carved oak desk with an open book, a quill, a brass candelabra with many burning candles, tall dark bookshelves, a velvet wine-red armchair, an iron chandelier, warm candle-gold light against deep purple shadows. The centre and left of the image are calm and dark enough to place text over. Painterly gothic romance, cinematic volumetric light. No people, no text, no letters, no logos."
  }
 }
