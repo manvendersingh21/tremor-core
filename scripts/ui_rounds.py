@@ -40,7 +40,7 @@ def main():
         print('PASS' if ok else 'FAIL', name, str(detail)[:200], flush=True)
 
     with sync_playwright() as pw:
-        b = getattr(pw, browser).launch(args=['--no-sandbox'] if browser == 'chromium' else [])
+        b = getattr(pw, browser).launch(args=['--no-sandbox', '--enable-gpu', '--use-angle=metal', '--ignore-gpu-blocklist'] if browser == 'chromium' else [])   # the castle is WebGL: test it on the GPU, not software GL
         kw = dict(pw.devices['iPhone 13']) if view == 'phone' else {'viewport': {'width': 1280, 'height': 760}}
         if '--video' in sys.argv:
             kw['record_video_dir'] = str(out)
