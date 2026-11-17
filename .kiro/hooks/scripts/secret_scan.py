@@ -23,6 +23,7 @@ RULES = {
     "aura host": r"(?i)\b[a-z0-9]{6,}\.databases\.neo4j\.io\b",
     "ssh target host": r"\bssh\b[^\n]*\s[\w.-]+@(?![<$])[\w.-]+\.[a-z]{2,}",
     "non-loopback host in url": r"(?i)\bhttps?://(?!127\.0\.0\.1|0\.0\.0\.0)(?:\d{1,3}\.){3}\d{1,3}\b",
+    "live gpu tunnel url": r"(?i)\b[a-z0-9-]+\.trycloudflare\.com\b",  # our A6000 quick tunnel: for us only, never public
     "key path": r"(?:~|/Users/[^/\s]+|/home/[^/\s]+)/\.ssh/\S+|\bssh\b[^\n]*\s-i\s+(?![<$])\S+|[\w.~-]+/id_(?:rsa|ed25519|ecdsa)\b|[\w~/.-]+/[\w.-]+\.pem\b",
     "secret assignment": r"(?im)^\s*(?:export\s+)?[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD|DSN)[A-Z0-9_]*\s*=\s*['\"]?(?![A-Z0-9_]+['\"]?(?:\s|$))(?!\$|\{|<|your|xxx|changeme|\s)[A-Za-z0-9/+_\-]{12,}",
 }
