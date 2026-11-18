@@ -49,6 +49,7 @@ def test_summary_check():
     assert summary_ok("Bees near street lights kept returning for 38 minutes after sunset.", src)
     assert not summary_ok("Bees kept returning for 45 minutes.", src)  # a number the paper does not have
     assert not summary_ok(src, src) and not summary_ok("", src)
+    assert summary_ok("1. Lights keep bees out late.\n2. Late bees carry less pollen.\n3. Hives did not grow faster.", src)
 
 
 def test_class_mix_is_reproducible_and_heavy_on_repeats():

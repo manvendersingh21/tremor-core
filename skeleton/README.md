@@ -12,6 +12,12 @@ Two apps are built on it, in separate folders:
 | Terminal coding agent | `skeleton/apps/coder/` | the files you name | the tests pass on a temp copy |
 | Food-store helper (web) | `skeleton/apps/store/` | `foods.json` as a store guide | prices and aisles exist; no "I don't know" |
 
+## Why it pays: many people ask the same thing
+
+Students show this best. A class gets the same assignment ("Assignment 3: write is_palindrome(s) in palindrome.py") and the same reading ("Summarize this paper"). The first student pays for a model call. Every student after gets the checked, cached answer in about 0.16 s, for $0. Live, 150 student questions needed 14 model calls: 92.7% came from the cache, with 0 wrong cache answers (`skeleton/RESULTS.md`). Shoppers in a store are the same: 86.0% of 200 came from the cache.
+
+Only checked answers are served from the cache. A patch is cached after its tests pass. A summary is cached only when it is short and uses only numbers from the text. Reworded questions reach a cached answer only through the cache's own rules: the same words once "please", case and punctuation are dropped, or cosine >= 0.97 that the guard passes. A question with "without", or with a new number, is a new question.
+
 ## What is in the skeleton
 
 | Part | Job |
@@ -66,6 +72,7 @@ print(bot.stats())                 # questions, hit_rate, model_calls, climbs, t
 ```bash
 make setup                                          # once
 .venv/bin/python -m skeleton.apps.coder demo        # coder, offline: a climb, then cache hits
+.venv/bin/python -m skeleton.apps.coder class       # a class, offline: student 1 pays, students 2..5 hit the cache
 .venv/bin/python -m skeleton.apps.coder ask "Fix add() so add(2, 3) == 5" \
     --repo path/to/repo --file calc.py --test "python -m pytest -q" --live
 .venv/bin/python -m skeleton.apps.store             # store web app, demo: http://127.0.0.1:8766
@@ -78,15 +85,18 @@ Live mode reads `CHIMERA_GPU_URL`, `CHIMERA_GPU_KEY`, `CRUSOE_API_KEY` and `CHIM
 
 More: `skeleton/apps/coder/README.md`, `skeleton/apps/store/README.md`.
 
-## Results (demo, see `skeleton/RESULTS.md`)
+## Results (one live run, see `skeleton/RESULTS.md`)
 
-| | Store, 200 shopper questions | Coder, 3 tasks x 2 |
-|---|---|---|
-| Cache hits | 181 of 200 (90.5%) | 3 of 6 (every second ask) |
-| Wrong cache answers | 0 | 0 (tests re-run on each cached patch) |
-| Climbs to the 763B | 7 (questions the guide cannot answer) | 1 (the 30B's patch failed its tests) |
-| $ spent vs all-763B estimate | $0.0016 vs $0.0463 | $0.000052 |
+Live: the 30B on our A6000 GPU, the Crusoe 763B, the Supabase cache.
 
-These are demo numbers with stub models. No live run of these two apps yet: the A6000 was busy with another measured run. The same core, live on the A6000, cut 70.7% of 763B calls with 0 wrong cache answers (`bench/results_a6000.md`).
+| | Class, 150 student questions | Store, 200 shopper questions | Coder, 3 tasks x 2 |
+|---|---|---|---|
+| From the cache | **139 (92.7%)** | **172 (86.0%)** | 3 of 6 (every second ask) |
+| Wrong cache answers | 0 | 0 | 0 (tests re-run on each cached patch) |
+| Model calls (climbs to the 763B) | 14 (3) | 38 (10) | 3 (0) |
+| Cache hit, median | 162 ms | 122 ms | 165-283 ms |
+| $ spent vs all-763B estimate | $0.0007 vs $0.0263 | $0.0031 vs $0.0488 | $0 (the 30B fixed all 3) |
+
+What failed: paraphrases rarely reached a cached answer at cosine 0.97 (4 of 39 store rewordings). Questions the store guide cannot answer pay the 30B and the 763B every time. One summary check wrongly rejected a numbered list; that is fixed after the run. It was a single run with no repeats. The demo numbers (stub models, CI) are in `skeleton/RESULTS.md` too.
 
 Limits: the store puts its whole guide in every model prompt (fine to about 200 items). A cached answer that later fails its check is skipped, but it stays in the cache. The store app runs on port 8766 because it is its own app; the Chimera site stays alone on 8765.
