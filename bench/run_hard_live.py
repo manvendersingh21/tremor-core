@@ -98,18 +98,27 @@ def passes(row: dict, answer: str) -> bool:
 
 
 # ---------------------------------------------------------------- live runs ----
+def tenant_of(rep: int) -> str:
+    return TENANT if rep == 1 else f"{TENANT}-r{rep}"
+
+
 class Run:
-    def __init__(self, mode: str, emb) -> None:
-        self.mode, self.emb = mode, emb
-        self.out = STORE / f"{mode}.jsonl"
+    def __init__(self, spec: str, emb) -> None:
+        """spec: MODE or MODE:rep (repeat 1 is MODE.jsonl in the bench-hard-live tenant; repeat k is MODE_rk.jsonl)."""
+        mode, _, rep = spec.partition(":")
+        self.mode, self.emb, self.rep = mode, emb, int(rep or 1)
+        self.sfx = "" if self.rep == 1 else f"_r{self.rep}"
+        self.tenant = tenant_of(self.rep)
+        self.out = STORE / f"{mode}{self.sfx}.jsonl"
         self.cache = self.bank = None
         if mode in ("POOL", "WARM"):
             cc = load_config(ROOT / "chimera.toml").cache  # the deployed cache settings; tenant is ours
             dsn = os.environ["CHIMERA_DB_URL"]
-            self.cache = PgVectorCache(emb, lambda: PgStore(dsn, max_size=1), threshold=0.97, tenant=TENANT,
+            self.cache = PgVectorCache(emb, lambda: PgStore(dsn, max_size=1), threshold=0.97, tenant=self.tenant,
                                        store_text=True, guard=make_guard(), budget_s=cc.budget_ms / 1000,
                                        normalize=cc.normalize, top_k=cc.top_k)
-            self.bank = Bank(PgBankStore(dsn, max_size=1), emb, TENANT, verify=lambda a, t: bool(grade.unit_test(t, a)))
+            self.bank = Bank(PgBankStore(dsn, max_size=1), emb, self.tenant,
+                             verify=lambda a, t: bool(grade.unit_test(t, a)))
         self.routers: dict[str, tuple] = {}
         self.top = self._router(TierPool([TOP], min_confidence=0.95, max_tokens=1024), shared=self.cache)
 
@@ -211,14 +220,14 @@ class Run:
     def run(self) -> str:
         qs = questions()
         if self.mode == "WARM":  # starts once POOL has every row, on the bank and cache POOL filled
-            pool = STORE / "POOL.jsonl"
+            pool = STORE / f"POOL{self.sfx}.jsonl"
             while not (pool.exists() and {q["id"] for q in qs} <= {json.loads(x)["id"] for x in pool.read_text().splitlines()}):
                 time.sleep(20)
         done = {json.loads(x)["id"] for x in self.out.read_text().splitlines()} if self.out.exists() else set()
         if self.mode == "POOL" and not done:  # a fresh tenant: the first pass starts from an empty bank and cache
-            counts("before POOL purge")
+            counts(f"before POOL{self.sfx} purge", self.tenant)
             print("purged cache", self.cache.purge(), "bank", self.bank.purge(), flush=True)
-            counts("POOL start")
+            counts(f"POOL{self.sfx} start", self.tenant)
         t0 = time.time()
         with self.out.open("a") as fh:
             for row in qs:
@@ -231,11 +240,11 @@ class Run:
                     print(self.mode, row["id"], "dropped (GPU went away), redo", flush=True)
                 fh.write(json.dumps(rec) + "\n")
                 fh.flush()
-                print(self.mode, row["id"], rec["tier"], "climbed" if rec["climbed"] else "", rec["latency_ms"],
+                print(self.mode + self.sfx, row["id"], rec["tier"], "climbed" if rec["climbed"] else "", rec["latency_ms"],
                       rec["grade"], rec["error"], flush=True)
         if self.mode in ("POOL", "WARM"):
-            counts(f"{self.mode} end")
-        return f"{self.mode} finished in {time.time() - t0:.0f} s"
+            counts(f"{self.mode}{self.sfx} end", self.tenant)
+        return f"{self.mode}{self.sfx} finished in {time.time() - t0:.0f} s"
 
 
 @functools.lru_cache(None)
@@ -243,50 +252,60 @@ def _db() -> PgStore:  # one connection for the counts; Supabase's session poole
     return PgStore(os.environ["CHIMERA_DB_URL"], max_size=1)
 
 
-def counts(label: str) -> dict:
-    """Rows of our tenant in the live cache (`prompts`) and bank (`solved_bank`) tables; appended to store.jsonl."""
+def counts(label: str, tenant: str = TENANT) -> dict:
+    """Rows of one tenant in the live cache (`prompts`) and bank (`solved_bank`) tables; appended to store.jsonl."""
     db = _db()
-    c = db._tx(TENANT, "select count(*), count(*) filter (where verified) from prompts where tenant=%s", (TENANT,), "one")
-    b = db._tx(TENANT, "select count(*), coalesce(sum(hits), 0) from solved_bank where tenant=%s", (TENANT,), "one")
-    out = {"label": label, "at": time.time(), "cache_rows": c[0], "cache_verified": c[1], "bank_rows": b[0], "bank_hits": int(b[1])}
+    c = db._tx(tenant, "select count(*), count(*) filter (where verified) from prompts where tenant=%s", (tenant,), "one")
+    b = db._tx(tenant, "select count(*), coalesce(sum(hits), 0) from solved_bank where tenant=%s", (tenant,), "one")
+    out = {"label": label, "tenant": tenant, "at": time.time(), "cache_rows": c[0], "cache_verified": c[1],
+           "bank_rows": b[0], "bank_hits": int(b[1])}
     with (STORE / "store.jsonl").open("a") as fh:
         fh.write(json.dumps(out) + "\n")
     print("store", out, flush=True)
     return out
 
 
-def store_check() -> None:
-    """Read back every row we wrote, regrade it against its question's tests, and time live reads. Then purge."""
+def store_check(reps: int = 3) -> None:
+    """Read back every row repeat 1 wrote, regrade it against its question's tests, and time live reads (probe of all
+    40 questions). Then purge every hard-live tenant, with counts before and after."""
     load_env()
     qs = {scrub(q["prompt"]): q for q in questions()}
     db = _db()
     rows = db._tx(TENANT, "select prompt_text, answer, verified, tier from prompts where tenant=%s", (TENANT,), "all")
     bank = db._tx(TENANT, "select prompt, answer, tier from solved_bank where tenant=%s", (TENANT,), "all")
-    regrade = {"cache": [sum(passes(qs[p], a) for p, a, *_ in rows if p in qs), len(rows), sum(not v for _, _, v, _ in rows),
-                         sum(p not in qs for p, *_ in rows)],
-               "bank": [sum(passes(qs[p], a) for p, a, _ in bank if p in qs), len(bank), 0, sum(p not in qs for p, *_ in bank)]}
+    regrade = {"cache": {"rows": len(rows), "pass_tests_now": sum(passes(qs[p], a) for p, a, *_ in rows if p in qs),
+                         "unverified": sum(not v for _, _, v, _ in rows), "not_our_question": sum(p not in qs for p, *_ in rows),
+                         "by_tier": dict(collections.Counter(t for *_, t in rows))},
+               "bank": {"rows": len(bank), "pass_tests_now": sum(passes(qs[p], a) for p, a, _ in bank if p in qs),
+                        "not_our_question": sum(p not in qs for p, *_ in bank),
+                        "by_tier": dict(collections.Counter(t for *_, t in bank))}}
     emb = A.LockedEmbedder()
+    emb.embed("warm up")
     run = Run("WARM", emb)
-    lat: dict[str, list] = {"cache_read": [], "bank_read": [], "ping": []}
-    hits = collections.Counter()
+    run.cache.ping()  # the first call opens the connection; not timed
+    lat: dict[str, list] = {"cache_lookup": [], "bank_exact_read": [], "db_ping": []}
+    hits: collections.Counter = collections.Counter()
     for q in qs.values():
         t = time.perf_counter()
         lk = run.cache.lookup(q["prompt"])
-        lat["cache_read"].append((time.perf_counter() - t) * 1000)
-        hits["cache_" + ("hit" if lk.hit else lk.status or "miss")] += 1
+        lat["cache_lookup"].append((time.perf_counter() - t) * 1000)
+        hits["cache_" + ("hit" if lk.hit else "miss" if lk.status == "ok" else "skipped_over_budget")] += 1
         t = time.perf_counter()
         bl = run.bank.store.exact(TENANT, bank_hash(scrub(q["prompt"])))
-        lat["bank_read"].append((time.perf_counter() - t) * 1000)
+        lat["bank_exact_read"].append((time.perf_counter() - t) * 1000)
         hits["bank_" + ("hit" if bl else "miss")] += 1
-        lat["ping"].append(run.cache.ping())  # one bare DB round trip, ms
-    out = {"regrade [passing, rows, unverified, unknown prompt]": regrade, "probe_hits": dict(hits),
+        lat["db_ping"].append(run.cache.ping())  # one bare DB round trip, ms
+    out = {"regrade": regrade, "probe_hits": dict(hits),
            **{f"{k}_p50_ms": round(summary.pct(v, 0.5), 1) for k, v in lat.items()},
            **{f"{k}_p90_ms": round(summary.pct(v, 0.9), 1) for k, v in lat.items()}}
     (STORE / "store_check.json").write_text(json.dumps(out, indent=1))
     print(json.dumps(out, indent=1))
-    counts("after store check, before purge")
-    print("purged cache", run.cache.purge(), "bank", run.bank.purge(), flush=True)
-    counts("after purge")
+    for k in range(1, reps + 1):
+        t = tenant_of(k)
+        counts("before purge", t)
+        r = Run("WARM" if k == 1 else f"WARM:{k}", emb)
+        print("purged", t, "cache", r.cache.purge(), "bank", r.bank.purge(), flush=True)
+        counts("after purge", t)
 
 
 def run(modes: list[str]) -> None:
@@ -301,28 +320,35 @@ def run(modes: list[str]) -> None:
 
 
 # ---------------------------------------------------------------- numbers ----
+def stats(rs: list[dict]) -> dict:
+    top = [r["per_tier"].get(TOP.name, {}) for r in rs]
+    gpu = [r["per_tier"].get(GPU, {}) for r in rs]
+    lat = [r["latency_ms"] for r in rs]
+    return {"n": len(rs), "solved": sum(r["grade"] for r in rs), "wrong_served": sum(r["grade"] != 1 for r in rs),
+            "answered_by": dict(collections.Counter(r["tier"] + ("+climb" if r["climbed"] else "") for r in rs)),
+            # 30B tried, its confidence was under the gate, so the pool sent the question up without testing the answer
+            "gate_up": sum(r["tier"] == TOP.name and not r["climbed"] and GPU in r["attempts"] for r in rs),
+            "top_calls": sum(t.get("calls", 0) for t in top), "top_tokens_in": sum(t.get("tokens_in", 0) for t in top),
+            "top_tokens_out": sum(t.get("tokens_out", 0) for t in top),
+            "top_dollars": round(sum(t.get("dollars", 0.0) for t in top), 6),
+            "gpu_calls": sum(g.get("calls", 0) for g in gpu),
+            "gpu_tokens": sum(g.get("tokens_in", 0) + g.get("tokens_out", 0) for g in gpu),
+            "p50_ms": summary.pct(lat, 0.5), "p90_ms": summary.pct(lat, 0.9),
+            "cache_skipped": sum(r["store"].get("cache_status") not in (None, "ok") for r in rs),
+            "errors": sum(bool(r["error"]) for r in rs)}
+
+
 def tables() -> None:
     qs = questions()
-    rows = {m: [json.loads(x) for x in (STORE / f"{m}.jsonl").read_text().splitlines()]
-            for m in ("PLAIN", "POOL", "TOP", "WARM") if (STORE / f"{m}.jsonl").exists()}
-    out = {}
-    for m, rs in rows.items():
-        top = [r["per_tier"].get(TOP.name, {}) for r in rs]
-        gpu = [r["per_tier"].get(GPU, {}) for r in rs]
-        lat = [r["latency_ms"] for r in rs]
-        out[m] = {"n": len(rs), "solved": sum(r["grade"] for r in rs), "wrong_served": sum(r["grade"] != 1 for r in rs),
-                  "answered_by": dict(collections.Counter(r["tier"] + ("+climb" if r["climbed"] else "") for r in rs)),
-                  "top_calls": sum(t.get("calls", 0) for t in top), "top_tokens_in": sum(t.get("tokens_in", 0) for t in top),
-                  "top_tokens_out": sum(t.get("tokens_out", 0) for t in top),
-                  "top_dollars": round(sum(t.get("dollars", 0.0) for t in top), 6),
-                  "gpu_calls": sum(g.get("calls", 0) for g in gpu), "gpu_tokens": sum(g.get("tokens_in", 0) + g.get("tokens_out", 0) for g in gpu),
-                  "p50_ms": summary.pct(lat, 0.5), "p90_ms": summary.pct(lat, 0.9),
-                  "errors": sum(bool(r["error"]) for r in rs)}
-    if "PLAIN" in rows and "POOL" in rows:
-        out["recovery"] = summary.recovery(qs, rows["PLAIN"], rows["POOL"])
-    by = {m: {r["id"]: r for r in rs} for m, rs in rows.items()}
-    out["per_question"] = {q["id"]: {m: (by[m][q["id"]]["grade"], by[m][q["id"]]["tier"] + ("+climb" if by[m][q["id"]]["climbed"] else ""))
-                                     for m in by if q["id"] in by[m]} for q in qs}
+    rows = {f.stem: [json.loads(x) for x in f.read_text().splitlines()]
+            for f in sorted(STORE.glob("*.jsonl")) if f.stem.split("_")[0] in ("PLAIN", "POOL", "TOP", "WARM")}
+    out: dict = {k: stats(v) for k, v in rows.items()}
+    for sfx in ("", "_r2", "_r3"):
+        if f"PLAIN{sfx}" in rows and f"POOL{sfx}" in rows:
+            out["recovery" + sfx] = summary.recovery(qs, rows[f"PLAIN{sfx}"], rows[f"POOL{sfx}"])
+    out["per_question"] = {q["id"]: {m: (by[q["id"]]["grade"], by[q["id"]]["tier"] + ("+climb" if by[q["id"]]["climbed"] else ""))
+                                     for m, by in ((m, {r["id"]: r for r in rs}) for m, rs in rows.items()) if q["id"] in by}
+                           for q in qs}
     (STORE / "tables.json").write_text(json.dumps(out, indent=1))
     print(json.dumps({k: v for k, v in out.items() if k != "per_question"}, indent=1))
 
