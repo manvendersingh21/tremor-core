@@ -60,6 +60,7 @@ class Answer(TypedDict):
     tier: str             # who answered: exact_cache, semantic_cache, gpu-small, cloud-deepseek, ...
     model: str
     tokens: int           # tokens the models used for this question, climbs included (0 on a cache hit)
+    tokens_saved: int     # tokens that never reached the biggest tier (a cache hit: the whole call it avoided)
     dollars: float        # what it cost at list price
     dollars_saved: float  # what it did not cost against the biggest tier
     cache_hit: bool
@@ -126,6 +127,7 @@ class Assistant:
             steps.append({"tier": final["tier"], "model": final["model"], "text": res.text, "cache": final["cache"],
                           "kind": _kind(res.telemetry.events), "tokens": final["tokens_in"] + final["tokens_out"],
                           "dollars": final["dollars"], "dollars_saved": final["dollars_saved"], "ms": final["ms"],
+                          "tokens_saved": final["tokens_kept_off_big"],
                           "verified": ok, "tried": [e["tier"] for e in res.telemetry.events if e["step"] == "call"]})
             if ok is not False:
                 break
@@ -136,8 +138,13 @@ class Assistant:
             else:
                 break  # the top tier failed the check too: serve it, marked verified=False
         last = steps[-1]
+        saved_tokens, saved = last["tokens_saved"], last["dollars_saved"]
+        top = self._pools[0].top
+        if last["cache"] and top is not None:  # the call the cache avoided: facts + question in, the answer out
+            t_in, t_out = (len(brief) + len(prompt)) // 4 + 1, len(last["text"]) // 4 + 1
+            saved_tokens, saved = t_in + t_out, t_in / 1000 * top.cost_per_1k_in + t_out / 1000 * top.cost_per_1k_out
         a = Answer(answer=last["text"], tier=last["tier"], model=last["model"], tokens=sum(s["tokens"] for s in steps),
-                   dollars=sum(s["dollars"] for s in steps), dollars_saved=last["dollars_saved"],
+                   tokens_saved=saved_tokens, dollars=sum(s["dollars"] for s in steps), dollars_saved=round(saved, 6),
                    cache_hit=bool(last["cache"]), latency_ms=round((time.perf_counter() - t0) * 1000, 1),
                    verified=last["verified"], tried=[t for s in steps for t in s["tried"]],
                    steps=[{k: v for k, v in s.items() if k != "text"} for s in steps])
@@ -148,7 +155,8 @@ class Assistant:
     def reset_stats(self) -> None:
         with self._lock:
             self._stats = {"questions": 0, "cache_hits": 0, "exact": 0, "cosine": 0, "model_calls": 0, "climbs": 0,
-                           "tokens": 0, "dollars": 0.0, "dollars_saved": 0.0, "by_tier": Counter()}
+                           "unverified": 0, "tokens": 0, "tokens_saved": 0, "dollars": 0.0, "dollars_saved": 0.0,
+                           "by_tier": Counter()}
 
     def stats(self) -> dict:
         with self._lock:
@@ -163,9 +171,11 @@ class Assistant:
             s["cache_hits"] += a["cache_hit"]
             if a["cache_hit"]:
                 s["exact" if kind == "exact" else "cosine"] += 1
+            s["unverified"] += a["verified"] is False
             s["model_calls"] += len(a["tried"])
-            s["climbs"] += max(len(a["steps"]) - 1, 0)
+            s["climbs"] += max(len(a["tried"]) - 1, 0)  # tiers called above the first one (low confidence, empty, failed check)
             s["tokens"] += a["tokens"]
+            s["tokens_saved"] += a["tokens_saved"]
             s["dollars"] += a["dollars"]
             s["dollars_saved"] += a["dollars_saved"]
             s["by_tier"][a["tier"]] += 1
