@@ -1,0 +1,62 @@
+{
+  "company": "Lumen Home",
+  "note": "Demo knowledge base. The company, policies, hours and steps are invented for the demo.",
+  "hours": {
+    "chat and email support": "8:00 to 20:00 Monday to Friday, 10:00 to 16:00 Saturday, closed Sunday (US Eastern time)",
+    "phone support": "9:00 to 17:00 Monday to Friday (US Eastern time)",
+    "warehouse dispatch": "orders placed before 14:00 on a weekday ship the same day"
+  },
+  "contact": [
+    "Email: support@lumenhome.example",
+    "Phone: 1-800-555-0142",
+    "Chat: the chat button on every page of lumenhome.example"
+  ],
+  "faq": [
+    {"q": "How do I reset my password?",
+     "a": "Go to the sign-in page and click Forgot password. Enter your account email. Open the reset link we email you within 15 minutes and choose a new password. The link works for 24 hours."},
+    {"q": "How do I change my email address?",
+     "a": "Sign in, open Account, then Profile, and click Change email. We send a confirmation link to the new address; the change applies once you click it."},
+    {"q": "How do I get a refund?",
+     "a": "Open Orders, pick the order and click Return or refund. Unused items can be returned within 30 days of delivery. Refunds go back to the original payment method within 5 to 7 business days after the item reaches our warehouse."},
+    {"q": "Where is my order?",
+     "a": "Open Orders and click Track. The tracking number appears once the order ships. Standard shipping takes 3 to 5 business days; express takes 1 to 2 business days."},
+    {"q": "How do I cancel my order?",
+     "a": "Open Orders and click Cancel order. You can cancel until the order ships, which is usually the same day for orders placed before 14:00. After it ships, return it for a refund instead."},
+    {"q": "How do I cancel my subscription?",
+     "a": "Open Account, then Subscriptions, and click Cancel subscription. It stays active until the end of the billing month and is not renewed. There is no cancellation fee."},
+    {"q": "How do I change my shipping address?",
+     "a": "Before the order ships: open Orders, pick the order and click Edit address. After it ships, contact support with the tracking number."},
+    {"q": "Which payment methods do you accept?",
+     "a": "Visa, Mastercard, American Express, PayPal and gift cards."},
+    {"q": "Do you ship internationally?",
+     "a": "We ship to the US and Canada only. Shipping to Canada takes 5 to 8 business days."},
+    {"q": "How much does shipping cost?",
+     "a": "Standard shipping is free on orders over $50 and $5.99 otherwise. Express shipping is $14.99."},
+    {"q": "My item arrived damaged. What do I do?",
+     "a": "Open Orders, pick the order, click Report a problem and add a photo. We send a replacement or a full refund, and you do not need to return the damaged item."},
+    {"q": "How do I update my payment method?",
+     "a": "Sign in, open Account, then Payment methods. Add the new card and set it as default."},
+    {"q": "How do I delete my account?",
+     "a": "Open Account, then Privacy, and click Delete account. We delete your data within 30 days. Open orders must be finished or cancelled first."},
+    {"q": "How do I use a gift card?",
+     "a": "Enter the gift card code at checkout under Payment. Gift cards never expire."},
+    {"q": "Do you offer a warranty?",
+     "a": "Every product has a 2-year warranty against defects. Open Orders, pick the order and click Warranty claim."},
+    {"q": "Can I change my order after I place it?",
+     "a": "You can edit the items or the address until the order ships. Open Orders, pick the order and click Edit order."},
+    {"q": "How do I contact a person?",
+     "a": "Use chat or email during support hours, or call 1-800-555-0142 during phone hours. Chat replies usually come within 5 minutes."},
+    {"q": "I did not get the confirmation email.",
+     "a": "Check your spam folder first. Then open Orders: every order is listed there even without the email. You can resend the confirmation from the order page."},
+    {"q": "Do you price match?",
+     "a": "We do not price match. We do refund the difference if our own price drops within 14 days of your order."},
+    {"q": "How do I apply a discount code?",
+     "a": "Enter the code at checkout under Discount code and click Apply. Only one code can be used per order."}
+  ],
+  "policies": [
+    "Returns: unused items within 30 days of delivery; return shipping is free with the prepaid label.",
+    "Refunds: to the original payment method, 5 to 7 business days after the return arrives.",
+    "Subscriptions: billed monthly; cancel any time, no fee.",
+    "Privacy: we never sell customer data."
+  ]
+}

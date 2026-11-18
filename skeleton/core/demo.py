@@ -18,7 +18,7 @@ from chimera_core.cache.pgvector_cache import PgVectorCache
 from chimera_core.router import SpeculativeCascadeRouter
 
 DIM = 4096  # 256 let "diaper" and "rice" share a slot: a false cache hit
-# Words that do not change what a shopper or coder asks. Question words (where, when, how, what) stay.
+# Words that do not change what a customer, student or coder asks. Question words (where, when, how, what) stay.
 STOP = set("a an the is are am be do does did i you we me my our your of to in on at for it this that there any "
            "can could would please tell find locate get have has sell carry stock some".split())
 
