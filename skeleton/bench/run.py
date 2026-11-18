@@ -7,6 +7,8 @@ Store: warm the cache with the 30 seed questions, then ask N shopper questions (
 questions (a few are asked far more than others), 18% other wording of a seed question, 12% new questions.
 A served cache answer is wrong when it differs from the first answer the same question got (or, the first time
 other wording is asked, its seed question's answer). Coder: three small bug-fix tasks, each asked twice; tests decide.
+Class: 150 student questions (3 assignments, a paper, a chapter; 70% pasted as given, 20% reworded, 10% really
+different), no warm-up, so the first student of each question pays (skeleton/apps/coder/classroom.py).
 Rows go to bench/.scratch/skeleton/ (git-ignored); the tables print as markdown.
 """
 from __future__ import annotations
@@ -22,6 +24,7 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from skeleton.apps.coder import classroom  # noqa: E402
 from skeleton.apps.coder import demo as coder_demo  # noqa: E402
 from skeleton.apps.store.store import QUESTIONS, make_assistant, seed  # noqa: E402
 
@@ -78,6 +81,42 @@ def store(live: bool, n: int, seed_n: int) -> dict:
     return s
 
 
+def students(live: bool, n: int, seed_n: int) -> dict:
+    """A class: n student questions over 3 assignments, a paper and a chapter. No warm-up: each item's first
+    student pays the model. Same wrong-answer rule as the store."""
+    room = classroom.Classroom(live)
+    first: dict[tuple, str] = {}
+    rows, wrong = [], 0
+    try:
+        for item, q, kind, means in classroom.class_mix(n, random.Random(seed_n)):
+            a = room.ask(item, q)
+            ref = first.get((item, q)) or first.get((item, means))
+            bad = bool(a["cache_hit"] and ref is not None and a["answer"] != ref)
+            wrong += bad
+            first.setdefault((item, q), a["answer"])
+            rows.append({"item": item, "q": q, "kind": kind, "tier": a["tier"], "cache_hit": a["cache_hit"],
+                         "tokens": a["tokens"], "tokens_saved": a["tokens_saved"], "dollars": a["dollars"],
+                         "dollars_saved": a["dollars_saved"], "ms": a["latency_ms"], "verified": a["verified"],
+                         "tried": a["tried"], "wrong_hit": bad})
+        s = room.stats()
+    finally:
+        room.close()
+    by_item = {}
+    for r in rows:
+        b = by_item.setdefault(r["item"], {"asked": 0, "hits": 0, "model": 0})
+        b["asked"] += 1
+        b["hits"] += r["cache_hit"]
+        b["model"] += not r["cache_hit"]
+    by_kind = {k: (sum(r["cache_hit"] for r in rows if r["kind"] == k), sum(r["kind"] == k for r in rows))
+               for k in classroom.KIND}
+    s.update(wrong_hits=wrong, by_item=by_item, by_kind=by_kind, distinct=len({(r["item"], r["q"]) for r in rows}),
+             big_only_dollars=round(s["dollars"] + s["dollars_saved"], 6),
+             p50_hit_ms=_p50([r["ms"] for r in rows if r["cache_hit"]]),
+             p50_miss_ms=_p50([r["ms"] for r in rows if not r["cache_hit"]]))
+    _write(f"students_{_mode(live)}.jsonl", rows)
+    return s
+
+
 def coder(live: bool) -> list[dict]:
     rows = coder_demo.run(live=live)
     _write(f"coder_{_mode(live)}.jsonl", rows)
@@ -123,15 +162,36 @@ def markdown(s: dict, rows: list[dict], live: bool, n: int) -> str:
     return "\n".join(lines)
 
 
+def students_markdown(s: dict, live: bool, n: int) -> str:
+    k = s["by_kind"]
+    lines = [f"### Class ({_mode(live)}): {n} student questions, no warm-up", "",
+             "| | Value |", "|---|---|",
+             f"| Distinct questions | {s['distinct']} |",
+             f"| Cache hit rate | **{s['hit_rate'] * 100:.1f}%** ({s['cache_hits']} of {s['questions']}: exact {s['exact']}, cosine {s['cosine']}) |",
+             f"| Hits by wording | same {k['same'][0]}/{k['same'][1]}, reworded {k['reworded'][0]}/{k['reworded'][1]}, "
+             f"different {k['different'][0]}/{k['different'][1]} |",
+             f"| Wrong cache answers | {s['wrong_hits']} |",
+             f"| Model calls | {s['model_calls']} (climbs {s['climbs']}) |",
+             f"| Answers that failed their check | {s['unverified']} |",
+             f"| Tokens used / kept off the 763B | {s['tokens']:,} / {s['tokens_saved']:,} |",
+             f"| $ spent / if every question went to the 763B (estimate) | ${s['dollars']:.6f} / ${s['big_only_dollars']:.6f} |",
+             "", "| Item | Asked | From the cache | Model answers |", "|---|---|---|---|"]
+    for item, b in s["by_item"].items():
+        lines.append(f"| {item} | {b['asked']} | {b['hits']} | {b['model']} |")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--live", action="store_true")
     ap.add_argument("--n", type=int, default=200)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--students", type=int, default=150)
     args = ap.parse_args(argv)
     s = store(args.live, args.n, args.seed)
     rows = coder(args.live)
-    md = markdown(s, rows, args.live, args.n)
+    st = students(args.live, args.students, args.seed)
+    md = markdown(s, rows, args.live, args.n) + "\n\n" + students_markdown(st, args.live, args.students)
     (OUT / f"results_{_mode(args.live)}.md").write_text(md + "\n")
     print(md)
     return 0
