@@ -1,5 +1,5 @@
 {
-  "note": "seed: the 30 common shopper questions that warm the cache. paraphrases: other wording of seed questions. novel: questions no seed covers (some the guide answers, some it does not). skeleton/bench/run.py mixes them.",
+  "note": "seed: the 30 common shopper questions that warm the cache. paraphrases: [other wording, the seed question it means]. novel: questions no seed covers (some the guide answers, some it does not). skeleton/bench/run.py mixes them.",
   "seed": [
     "What do you have today?",
     "What are today's specials?",
@@ -33,21 +33,66 @@
     "Do you have ice cream?"
   ],
   "paraphrases": [
-    "where is the oat milk",
-    "what's on special today?",
-    "Which aisle has the eggs?",
-    "what time do you close?",
-    "Tell me your opening hours",
-    "Where can I find the coffee?",
-    "is the hot food kitchen open now",
-    "Do you sell gluten-free bread?",
-    "where can i find the bread",
-    "how much does oat milk cost?",
-    "Where do I find rice?",
-    "Do you carry almond milk?",
-    "Where are bananas?",
-    "Do you have any vegan food?",
-    "Where can I find the restrooms?"
+    [
+      "where is the oat milk",
+      "Where do I find oat milk?"
+    ],
+    [
+      "what's on special today?",
+      "What are today's specials?"
+    ],
+    [
+      "Which aisle has the eggs?",
+      "Where are the eggs?"
+    ],
+    [
+      "what time do you close?",
+      "When does the store close?"
+    ],
+    [
+      "Tell me your opening hours",
+      "What are your opening hours?"
+    ],
+    [
+      "Where can I find the coffee?",
+      "Where is the coffee?"
+    ],
+    [
+      "is the hot food kitchen open now",
+      "Is the kitchen open now?"
+    ],
+    [
+      "Do you sell gluten-free bread?",
+      "Do you have gluten-free bread?"
+    ],
+    [
+      "where can i find the bread",
+      "Where is the bread?"
+    ],
+    [
+      "how much does oat milk cost?",
+      "How much is oat milk?"
+    ],
+    [
+      "Where do I find rice?",
+      "Where is the rice?"
+    ],
+    [
+      "Do you carry almond milk?",
+      "Do you have almond milk?"
+    ],
+    [
+      "Where are bananas?",
+      "Where can I find bananas?"
+    ],
+    [
+      "Do you have any vegan food?",
+      "Do you have vegan options?"
+    ],
+    [
+      "Where can I find the restrooms?",
+      "Where are the restrooms?"
+    ]
   ],
   "novel": [
     "Do you have quinoa?",
