@@ -1,0 +1,39 @@
+1
+00:00:00,300 --> 00:00:08,800
+Companies pay a frontier model for every coding call, even FizzBuzz. Chimera answers each call at the cheapest place that gets it right.
+
+2
+00:00:09,850 --> 00:00:21,970
+This take is live, on our own graphics card. I hold W and walk up to the gates. I look left, and left again. One click, and the gates swing open. Then the great door, and the Great Hall.
+
+3
+00:00:24,120 --> 00:00:43,900
+I ask the Count a question. The call climbs a ladder. First our shared cache, then our own thirty billion model, then the big seven hundred sixty-three billion model. The cache has not seen this question. So our thirty billion model answers, on our own card, in about a second. No token bill.
+
+4
+00:00:44,960 --> 00:00:54,110
+I ask the same question again. This time the shared cache answers, in a fraction of a second. Zero tokens, and no model was called.
+
+5
+00:00:55,210 --> 00:01:01,760
+Now FizzBuzz. Our thirty billion model writes it in a second or two, and every token stays off the big model.
+
+6
+00:01:04,310 --> 00:01:21,860
+Now a hard design task. The thirty billion model tries first, but it is not sure enough. So the call climbs to the seven hundred sixty-three billion model. Here is a loss. With the climb, this call is slower than asking the big model alone, at about the same cost.
+
+7
+00:01:23,360 --> 00:01:43,100
+Here is the bill for a month of coding calls. When three in ten calls are repeats, we spend sixty-two to eighty-seven percent less than G P T five point five alone. Now the loss. Against the cheap seven hundred sixty-three billion model, at a hundred thousand calls a day, we cost six hundred seven percent more.
+
+8
+00:01:44,150 --> 00:01:58,220
+We built this with Kiro. Seven steering files, seven specs, six hooks, four custom agents, M C P tools and a Power. Property tests from the specs found four real bugs, and all four are fixed.
+
+9
+00:01:59,320 --> 00:02:03,500
+Stop paying a frontier model for FizzBuzz. We prove it with tests.
+
+10
+00:02:04,600 --> 00:02:23,640
+On our own A six thousand card, calls to the seven hundred sixty-three billion model fell seventy point seven percent, with zero wrong answers from the cache. We got two hundred ninety-two of three hundred one coding tasks right. The big model alone got two hundred eighty-six. The loss: a first pass is slower.

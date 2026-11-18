@@ -54,11 +54,11 @@ def duration(f: Path) -> float:
                                 capture_output=True, text=True, check=True).stdout)
 
 
-def synth(text: str, out: Path) -> None:
-    for a, b in SAY:
+def synth(text: str, out: Path, voice: dict = VOICE, say: list = SAY) -> None:
+    for a, b in say:
         text = text.replace(a, b)
-    body = json.dumps({'text': text, 'model_id': VOICE['model_id'], 'voice_settings': VOICE['voice_settings']}).encode()
-    req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE['voice_id']}?output_format={VOICE['output_format']}",
+    body = json.dumps({'text': text, 'model_id': voice['model_id'], 'voice_settings': voice['voice_settings']}).encode()
+    req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{voice['voice_id']}?output_format={voice['output_format']}",
                                  data=body, headers={'xi-api-key': os.environ['ELEVENLABS_API_KEY'], 'Content-Type': 'application/json',
                                                      'Accept': 'audio/mpeg'})
     with urllib.request.urlopen(req, timeout=120) as r:  # noqa: S310 (fixed https host)

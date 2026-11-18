@@ -240,15 +240,19 @@
     let drag = null;
     gl.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && !touch && gl.requestPointerLock && !document.pointerLockElement) { try { const r = gl.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (er) { /* drag still works */ } }
-      drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { gl.setPointerCapture(e.pointerId); } catch (er) { /* the pointer is locked: no capture needed */ }
+      drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 }; try { gl.setPointerCapture(e.pointerId); } catch (er) { /* the pointer is locked: no capture needed */ }
     });
     gl.addEventListener('pointermove', (e) => {
       const locked = document.pointerLockElement === gl;
-      if (locked && (e.movementX || e.movementY)) { look(e.movementX, e.movementY); if (drag) { drag.x = e.clientX; drag.y = e.clientY; } return; }
-      if (drag && e.pointerId === drag.id) { look((e.clientX - drag.x) * (touch ? 1.6 : 1), (e.clientY - drag.y) * (touch ? 1.6 : 1)); drag.x = e.clientX; drag.y = e.clientY; }
+      if (locked && (e.movementX || e.movementY)) { look(e.movementX, e.movementY); if (drag) { drag.moved += Math.abs(e.movementX) + Math.abs(e.movementY); drag.x = e.clientX; drag.y = e.clientY; } return; }
+      if (drag && e.pointerId === drag.id) { drag.moved += Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y); look((e.clientX - drag.x) * (touch ? 1.6 : 1), (e.clientY - drag.y) * (touch ? 1.6 : 1)); drag.x = e.clientX; drag.y = e.clientY; }
     });
     const dragEnd = () => { drag = null; };
-    gl.addEventListener('pointerup', dragEnd); gl.addEventListener('pointercancel', dragEnd);
+    gl.addEventListener('pointerup', (e) => {   // a click (not a drag) on a shut gate or door you look at opens it
+      const t = S.target, click = drag && e.pointerId === drag.id && drag.moved < 6; dragEnd();
+      if (click && t && (t.kind === 'gates' || t.kind === 'door') && !S.open[t.kind]) arrive(t.kind);
+    });
+    gl.addEventListener('pointercancel', dragEnd);
     document.addEventListener('pointerlockchange', () => root.classList.toggle('m-locked', document.pointerLockElement === gl));
     const joy = $('m-joy'); let jid = null;
     const jm = (e) => { const r = joy.getBoundingClientRect(), dx = e.clientX - (r.left + 60), dy = e.clientY - (r.top + 60), d = Math.min(1, Math.hypot(dx, dy) / 50), a = Math.atan2(dy, dx); S.joy.x = d < 0.2 ? 0 : Math.cos(a) * d; S.joy.y = d < 0.2 ? 0 : Math.sin(a) * d; joy.firstElementChild.style.transform = `translate(${Math.cos(a) * d * 40}px,${Math.sin(a) * d * 40}px)`; };
@@ -428,7 +432,7 @@
       else if (t && (t.kind === 'gates' || t.kind === 'door')) {
         const z = zNow(), pz = t.kind === 'gates' ? PLAN.gateZ : PLAN.doorZ, behind = z < pz;
         if (S.open[t.kind] && !S.walking && (behind || Math.abs(z - pz) > 1.2)) h = `<kbd>E</kbd> close ${NAME[t.kind]}${behind ? ' behind you' : ''}`;
-        else if (!S.open[t.kind] && !S.walking) h = behind ? `<kbd>E</kbd> open ${NAME[t.kind]}, or walk back to ${t.kind === 'gates' ? 'them' : 'it'}` : `Walk up and ${NAME[t.kind]} open${t.kind === 'gates' ? '' : 's'} · <kbd>E</kbd> opens now`;
+        else if (!S.open[t.kind] && !S.walking) h = behind ? `<kbd>E</kbd> open ${NAME[t.kind]}, or walk back to ${t.kind === 'gates' ? 'them' : 'it'}` : `Walk up and ${NAME[t.kind]} open${t.kind === 'gates' ? '' : 's'} · <kbd>E</kbd> or a click opens now`;
       }
       if (!h && !S.panel && !S.map && !S.walking && S.s < 0.05) h = touch ? 'Push the stick up to walk to the castle · drag to look around' : 'Hold <kbd>W</kbd> to walk to the castle · drag or click to look around';
       if (!h && S.hall && !S.panel && !S.walking) h = touch ? 'Tap a gold sign to open its room' : 'Look at a gold door and press <kbd>E</kbd> · <kbd>W</kbd> walks on down the hall';
