@@ -1,6 +1,12 @@
-# Skeleton Crew results: one skeleton, two apps
+# Skeleton Crew results: one skeleton, three apps
 
-One run of `skeleton/bench/run.py`, live and demo, on 2026-11-17. No repeats. The help desk and the class/coder sections were run live about 10 minutes apart (`--only helpdesk` for the help desk).
+One run of `skeleton/bench/run.py`, live and demo, on 2026-11-17. No repeats. The live sections come from two runs about 10 minutes apart: the store, coder and class first, then the help desk (`--only helpdesk`).
+
+| Live, one run | Questions | From the cache | Wrong cache answers | Cache hit, median | $ spent / all-763B estimate |
+|---|---|---|---|---|---|
+| Coder, class mode (submission app 1) | 150 student questions | **92.7%** | 0 | 162 ms | $0.0007 / $0.0263 |
+| Help desk (submission app 2) | 200 support tickets | **86.0%** | 0 | 113 ms | $0.0014 / $0.0756 |
+| Store (bonus app) | 200 shopper questions | **86.0%** | 0 | 122 ms | $0.0031 / $0.0488 |
 
 - **Live:** the self-hosted 30B (`qwen3:30b-instruct`, Ollama on GPU 1 of our A6000 box, reached over a tunnel), the Crusoe 763B (`deepseek-ai/DeepSeek-V4.1-Flash`), the shared Supabase cache (all-MiniLM-L6-v2, cosine 0.97, guard on, normalized prompts). Both GPUs were idle when each run started, and our server was stopped right after each (GPU 1 back to 12 MiB).
 - **Demo:** stub models (`DEMO_MODELS` in each app), the same `PgVectorCache` code over an in-memory table, a word-bag embedder (`skeleton/core/demo.py`). It needs no key, and CI runs it.
@@ -14,7 +20,7 @@ Rerun:
 .venv/bin/python skeleton/bench/run.py --live    # 30B (CHIMERA_GPU_URL), 763B (CRUSOE_API_KEY), Supabase (CHIMERA_DB_URL)
 ```
 
-Rows: `bench/.scratch/skeleton/{helpdesk,coder,students}_{live,demo}.jsonl` (git-ignored).
+Rows: `bench/.scratch/skeleton/{helpdesk,store,coder,students}_{live,demo}.jsonl` (git-ignored).
 
 A cache answer counts as wrong when it differs from the first answer to the same question. If the question is new wording, it is compared with its seed question's answer instead.
 
@@ -81,6 +87,28 @@ What this shows:
 - Failed: reworded tickets reached their seed's answer by cosine only 8 times. "where is my order??" and "how do i reset my password" hit; "I forgot my password, how do I reset it?" did not.
 - Demo climbed more (25 against 4) because the stub 30B only matches words. The live 30B answered most new tickets itself.
 
+## Store (bonus app): 200 shopper questions after a 30-question warm-up
+
+Live numbers are from the first live run (the store code is unchanged since). Its catalog is `skeleton/apps/store/foods.json` (invented).
+
+Mix (seed 7): 70% the 30 common questions (rank r asked with weight 1/r), 18% other wording of one of them, 12% new questions. 50 distinct questions.
+
+| | Live | Demo |
+|---|---|---|
+| Warm-up (30 questions) | 31 model calls, 34,593 tokens, 30 s | 30 model calls, 22,033 tokens |
+| Cache hit rate | **86.0%** (172 of 200: exact 168, cosine 4) | 90.5% (181: exact 160, cosine 21) |
+| Wrong cache answers | **0** | 0 |
+| Model calls (climbs to the 763B) | 38 (10) | 26 (7) |
+| Answers that failed the catalog check | 7 | 7 |
+| Tokens used / kept off the 763B | 42,706 / 147,293 | 19,120 / 142,177 |
+| $ spent / if every question went to the 763B | $0.003075 / $0.048769 | $0.001645 / $0.046293 |
+| Median latency: cache hit / model | **122 ms** / 866 ms | (not timed) |
+
+What this shows:
+- After warm-up, 172 of 200 questions needed no model, and a hit answered in 122 ms (p50, p90 149 ms).
+- Failed: live, other wording reached its seed question's answer far less often than in demo (4 cosine hits against 21). Of the 39 reworded asks, 24 came from the cache, but 20 of those were repeats of a rewording that had already paid once. MiniLM put "where is the oat milk" and "Where do I find oat milk?" below 0.97, and the band that would catch them is off (`bench/results_paraphrase_cache.md`). The demo word bag treats them as the same, so the demo hit rate is the optimistic one.
+- Failed: the 3 questions the guide cannot answer ("Can I order a birthday cake?") paid a 30B call and a 763B call every time they were asked (7 asks). Their answer fails the check, so it is never cached.
+
 ## Coder: 3 bug-fix tasks, each asked twice
 
 | Task | Pass | Live: answered by | Live tokens | Live ms | Demo: tiers called |
@@ -104,6 +132,6 @@ Live, the real 30B fixed all three tasks, so nothing climbed. The demo 30B break
 
 ## Verdict
 
-- Held: one `Assistant` serves both apps. Each app is a TOML file, one knowledge hook and one verify hook.
-- Held, live: a class asking the same assignments and readings got 92.7% of its 150 questions from the cache, in 162 ms (p50), with 0 wrong cache answers. Spend was $0.0007 against about $0.026 if every question had gone to the 763B. The help desk got 86.0% of 200 tickets, with 0 wrong; model tokens per ticket fell from 1,208 to 373.
-- Failed: few reworded tickets reached their seed's answer at cosine 0.97 (8). Answers that quote the support phone number are never cached (privacy scrub). One check false-rejected a numbered list (fixed after the run). Single run, no repeats.
+- Held: one `Assistant` serves all three apps. Each app is a TOML file, one knowledge hook and one verify hook.
+- Held, live: a class asking the same assignments and readings got 92.7% of its 150 questions from the cache, in 162 ms (p50), with 0 wrong cache answers. Spend was $0.0007 against about $0.026 if every question had gone to the 763B. The help desk got 86.0% of 200 tickets, with 0 wrong; model tokens per ticket fell from 1,208 to 373. The store got 86.0% of 200, with 0 wrong.
+- Failed: few reworded questions reached their seed's answer at cosine 0.97 (help desk 8, store 4). Questions the knowledge base or catalog cannot answer pay a 30B and a 763B call every time. Answers that quote the support phone number are never cached (privacy scrub). One check false-rejected a numbered list (fixed after the run). Single run, no repeats.
