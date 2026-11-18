@@ -79,3 +79,4 @@ console.log(JSON.stringify({{mono: zs.every((z, i) => i === 0 || z < zs[i - 1]),
     assert o["inside"] and len(set(o["rooms"])) == 10
     walk = (SITE / "game" / "walk.js").read_text()
     assert "open: { gates: false, door: false }" in walk  # the gates and the door are shut when the page opens
+    assert "drag.moved < 6" in walk and "!S.open[t.kind]) arrive(t.kind)" in walk  # a click (not a drag) opens the gate you look at
