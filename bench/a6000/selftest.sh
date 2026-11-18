@@ -73,4 +73,21 @@ wait_for 15 gone "$A" || fail "GPU 0 server not killed after a stranger on GPU 1
 wait_for 5 gone "$B" || fail "GPU 1 server not killed"
 echo "4 ok: stranger on GPU 1 -> both servers killed in $(( $(date +%s) - t0 )) s"
 echo exit > "$T/run/want"; sleep 6
+
+# 5. ONLY_GPUS=1: both GPUs free for longer than GPU 0's clear time, we still start on GPU 1 only
+rm -f "$T/run/gpu"*.pid "$T/logs/yield_events.log"
+set_state '' 12 12
+echo run > "$T/run/want"
+PATH="$F:$PATH" A6000_ROOT=$T ONLY_GPUS=1 setsid nohup bash "$T/bin/watchdog.sh" > "$T/logs/watchdog5.log" 2>&1 < /dev/null &
+wait_for 30 test -s "$T/run/gpu1.pid" || fail "ONLY_GPUS=1: never started on GPU 1"
+B=$(pid_of 1)
+set_state "GPU-one, $B, 20000\n" 12 20012
+sleep 20
+[ -s "$T/run/gpu0.pid" ] && fail "ONLY_GPUS=1: started on GPU 0"
+echo "5 ok: ONLY_GPUS=1 -> GPU 1 only"
+set_state "GPU-one, $B, 20000\nGPU-zero, 434343, 900\n" 912 20012
+t0=$(date +%s)
+wait_for 15 gone "$B" || fail "ONLY_GPUS=1: GPU 1 server not killed after a new pid on GPU 0"
+echo "5 ok: new pid on GPU 0 -> our GPU 1 server killed in $(( $(date +%s) - t0 )) s"
+echo exit > "$T/run/want"; sleep 6
 echo "PASS"; cat "$T/logs/yield_events.log"
