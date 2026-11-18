@@ -1,0 +1,9 @@
+# skeleton/apps/helpdesk: the whole app config. Keys never go here (they live in .env).
+mode = "demo"                         # demo: stub models, in-memory cache. live: chimera.toml tiers + Supabase
+namespace = "skeleton-helpdesk"
+ladder = ["gpu-small", "cloud-deepseek"]   # after the cache: self-hosted 30B, then the 763B
+max_tokens = 250
+instructions = """You answer customer support tickets for the company below. Answer in at most three short sentences, using only the knowledge base below.
+Give the steps the knowledge base gives, and quote numbers (days, prices, phone numbers, hours) exactly as written.
+You do not know the current time or the customer's order: give the hours or the steps instead.
+If the knowledge base does not answer the ticket, reply exactly: I don't know."""

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support chat</title>
+<style>
+  :root { --blue: #1d4ed8; --ink: #1e2533; --muted: #5f6b7d; --line: #dbe1ea; --bg: #f6f8fb; --amber: #b45309; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  header { background: #0f172a; color: #fff; padding: 16px 20px; }
+  header h1 { margin: 0; font-size: 21px; }
+  header p { margin: 4px 0 0; opacity: .85; font-size: 14px; }
+  .badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 12px;
+           background: #dcfce7; color: #166534; vertical-align: middle; }
+  .badge.demo { background: #fff1e0; color: var(--amber); }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 19px; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .cost { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0 12px;
+          display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+  .cost svg { flex: 0 0 auto; }
+  .bytier { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  .chat { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-height: 120px; }
+  .msg { margin: 8px 0; max-width: 85%; padding: 9px 12px; border-radius: 12px; }
+  .me { margin-left: auto; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+  .bot { background: #eef2f7; border-bottom-left-radius: 4px; }
+  .meta { margin-top: 6px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .tier { font-weight: 600; padding: 0 7px; border-radius: 999px; }
+  .t-cache { background: #dcfce7; color: #166534; } .t-30b { background: #dbeafe; color: #1e3a8a; }
+  .t-big { background: #fee2e2; color: #991b1b; } .warn { color: var(--amber); }
+  form { display: flex; gap: 8px; margin-top: 10px; }
+  input { flex: 1; font: inherit; padding: 11px; border: 1px solid var(--line); border-radius: 10px; }
+  button { font: inherit; border: 0; border-radius: 10px; padding: 0 18px; background: var(--blue); color: #fff; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { background: #fff; color: var(--blue); border: 1px solid var(--line); padding: 5px 10px; font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Support chat <span id="mode" class="badge">...</span></h1>
+  <p>A few questions make most tickets. Each is answered once, checked against the knowledge base, and then served from the cache.</p>
+</header>
+<main>
+  <section class="stats" aria-label="Totals since start">
+    <div class="stat"><b id="s-q">0</b><span>tickets</span></div>
+    <div class="stat"><b id="s-hit">0%</b><span>cache hit rate</span></div>
+    <div class="stat"><b id="s-calls">0</b><span>model calls</span></div>
+    <div class="stat"><b id="s-saved-tok">0</b><span>tokens saved</span></div>
+    <div class="stat"><b id="s-spent">$0</b><span>spent</span></div>
+    <div class="stat"><b id="s-saved">$0</b><span>saved</span></div>
+  </section>
+  <div class="cost" aria-live="polite">
+    <svg id="curve" width="220" height="56" role="img" aria-label="model tokens per ticket as tickets grow"></svg>
+    <div id="cost-text"></div>
+  </div>
+  <div class="bytier" id="bytier"></div>
+  <section class="chat" id="chat" aria-live="polite"></section>
+  <form id="f">
+    <label for="q" style="position:absolute;left:-9999px">Your question</label>
+    <input id="q" maxlength="500" placeholder="How do I reset my password?" autocomplete="off" required>
+    <button type="submit">Send</button>
+  </form>
+  <div class="chips" id="chips"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const usd = (x) => "$" + (x < 0.01 ? x.toFixed(6) : x.toFixed(4));
+const LABEL = { exact_cache: ["cache (exact)", "t-cache"], semantic_cache: ["cache (cosine)", "t-cache"],
+                "gpu-small": ["30B, self-hosted", "t-30b"], "cloud-deepseek": ["763B, Crusoe", "t-big"] };
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+function drawCurve(points) {
+  const svg = $("curve"), W = 220, H = 56, P = 6;
+  svg.replaceChildren();
+  if (points.length < 2) return;
+  const xs = points.map((p) => Math.log10(p.tickets)), ys = points.map((p) => p.tokens);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y1 = Math.max(...ys) || 1;
+  const pts = points.map((p, i) => [P + (W - 2 * P) * (xs[i] - x0) / ((x1 - x0) || 1), H - P - (H - 2 * P) * ys[i] / y1]);
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  line.setAttribute("points", pts.map((p) => p.join(",")).join(" "));
+  line.setAttribute("fill", "none"); line.setAttribute("stroke", "#1d4ed8"); line.setAttribute("stroke-width", "2");
+  svg.append(line);
+}
+
+async function stats() {
+  const s = await (await fetch("/api/stats")).json();
+  $("s-q").textContent = s.questions;
+  $("s-hit").textContent = Math.round(s.hit_rate * 100) + "%";
+  $("s-calls").textContent = s.model_calls;
+  $("s-saved-tok").textContent = s.tokens_saved.toLocaleString();
+  $("s-spent").textContent = usd(s.dollars);
+  $("s-saved").textContent = usd(s.dollars_saved);
+  const pts = [...s.curve, s.per_ticket].filter((p, i, a) => i === a.length - 1 || p.tickets !== a[a.length - 1].tickets);
+  drawCurve(pts);
+  const warm = s.curve.find((p) => p.tickets === s.warmup_tickets) || s.curve[0], now = s.per_ticket;
+  const tok = (p) => Math.round(p.tokens).toLocaleString();
+  $("cost-text").textContent = warm
+    ? `Cost per ticket as volume rises: ${tok(warm)} model tokens per ticket after ${warm.tickets} tickets, ` +
+      `${tok(now)} after ${now.tickets}. Spend per ticket ${usd(now.dollars)}, against ${usd(now.big_only_dollars)} if every ticket went to the 763B.`
+    : "Cost per ticket shows after the first ticket.";
+  const parts = Object.entries(s.by_tier).map(([k, n]) => `${(LABEL[k] || [k])[0]}: ${n}`);
+  $("bytier").textContent = `The first ${s.warmup_tickets} tickets warmed the cache. Answered by ` + parts.join(", ") + ".";
+}
+
+async function ask(q) {
+  $("chat").append(el("div", "msg me", q));
+  const bot = el("div", "msg bot", "...");
+  $("chat").append(bot);
+  const r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q }) });
+  const a = await r.json();
+  bot.textContent = "";
+  if (!r.ok) { bot.append(el("span", "warn", a.error ? a.error.message : "error")); return; }
+  bot.append(el("div", null, a.answer));
+  const [label, cls] = LABEL[a.tier] || [a.tier, "t-30b"];
+  const meta = el("div", "meta");
+  meta.append(el("span", "tier " + cls, label), el("span", null, Math.round(a.latency_ms) + " ms"),
+              el("span", null, a.tokens + " tokens"), el("span", null, "spent " + usd(a.dollars)),
+              el("span", null, "saved " + usd(a.dollars_saved)));
+  if (a.tried.length > 1) meta.append(el("span", null, "climbed: " + a.tried.join(" -> ")));
+  if (a.verified === false) meta.append(el("span", "warn", "not in the knowledge base: an agent will follow up"));
+  bot.append(meta);
+  bot.scrollIntoView({ block: "nearest" });
+  stats();
+}
+
+$("f").addEventListener("submit", (e) => { e.preventDefault(); const q = $("q").value.trim(); if (q) { ask(q); $("q").value = ""; } });
+
+(async () => {
+  const g = await (await fetch("/api/info")).json();
+  $("title").firstChild.textContent = g.company + " support chat ";
+  $("mode").textContent = g.mode === "demo" ? "demo: stub models, in-memory cache" : "live";
+  if (g.mode === "demo") $("mode").classList.add("demo");
+  for (const q of g.samples) { const b = el("button", "chip", q); b.type = "button"; b.onclick = () => ask(q); $("chips").append(b); }
+  stats();
+})();
+</script>
+</body>
+</html>

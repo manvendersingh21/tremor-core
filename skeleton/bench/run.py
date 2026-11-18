@@ -1,10 +1,11 @@
-"""One skeleton, two apps: the store's cache hit rate on a shopper mix, and the coder's climbs.
+"""One skeleton, two apps: the help desk's cache hit rate on a ticket mix, the coder's climbs, and a class.
 
     .venv/bin/python skeleton/bench/run.py            # demo: stub models, in-memory cache (labelled demo)
     .venv/bin/python skeleton/bench/run.py --live     # 30B on your GPU box, 763B, Supabase cache
 
-Store: warm the cache with the 30 seed questions, then ask N shopper questions (default 200, seed 7): 70% seed
-questions (a few are asked far more than others), 18% other wording of a seed question, 12% new questions.
+Help desk: warm the cache with the 30 seed questions, then N support tickets (default 200, seed 7): 70% seed
+questions (a few are asked far more than others), 18% other wording of a seed question, 12% new tickets.
+Cost per ticket (model tokens, $) is recorded at 1, 5, 10, 20, 30, 50, 100, 200 tickets, warm-up included.
 A served cache answer is wrong when it differs from the first answer the same question got (or, the first time
 other wording is asked, its seed question's answer). Coder: three small bug-fix tasks, each asked twice; tests decide.
 Class: 150 student questions (3 assignments, a paper, a chapter; 70% pasted as given, 20% reworded, 10% really
@@ -26,12 +27,12 @@ sys.path.insert(0, str(ROOT))
 
 from skeleton.apps.coder import classroom  # noqa: E402
 from skeleton.apps.coder import demo as coder_demo  # noqa: E402
-from skeleton.apps.store.store import QUESTIONS, make_assistant, seed  # noqa: E402
+from skeleton.apps.helpdesk.helpdesk import QUESTIONS, make_assistant  # noqa: E402
 
 OUT = ROOT / "bench/.scratch/skeleton"
 
 
-def shopper_mix(n: int, rng: random.Random) -> list[tuple[str, str]]:
+def ticket_mix(n: int, rng: random.Random) -> list[tuple[str, str]]:
     """(question, the question it means). Seed questions follow a Zipf-like pull: rank r has weight 1 / r."""
     q = json.loads(QUESTIONS.read_text())
     seeds, paras, novel = q["seed"], q["paraphrases"], q["novel"]
@@ -51,20 +52,38 @@ def shopper_mix(n: int, rng: random.Random) -> list[tuple[str, str]]:
     return out
 
 
-def store(live: bool, n: int, seed_n: int) -> dict:
+MARKS = (1, 5, 10, 20, 30, 50, 100, 200, 500, 1000)
+
+
+def helpdesk(live: bool, n: int, seed_n: int) -> dict:
     bot = make_assistant(live)
     rng = random.Random(seed_n)
     seeds = json.loads(QUESTIONS.read_text())["seed"]
     first: dict[str, str] = {}
+    curve, tot = [], {"tickets": 0, "tokens": 0, "dollars": 0.0, "big": 0.0}
+
+    def count(a: dict) -> None:  # cost per ticket so far, warm-up tickets included
+        tot["tickets"] += 1
+        tot["tokens"] += a["tokens"]
+        tot["dollars"] += a["dollars"]
+        tot["big"] += a["dollars"] + a["dollars_saved"]
+        if tot["tickets"] in MARKS:
+            k = tot["tickets"]
+            curve.append({"tickets": k, "tokens": round(tot["tokens"] / k, 1), "dollars": tot["dollars"] / k,
+                          "big_only_dollars": tot["big"] / k})
+
     t0 = time.perf_counter()
     for s in seeds:  # warm-up, as the server does at start; first answers are the reference
-        first[s] = bot.ask(s)["answer"]
+        a = bot.ask(s)
+        first[s] = a["answer"]
+        count(a)
     warm = bot.stats()
     warm["wall_s"] = round(time.perf_counter() - t0, 1)
     bot.reset_stats()
     rows, wrong = [], 0
-    for q, means in shopper_mix(n, rng):
+    for q, means in ticket_mix(n, rng):
         a = bot.ask(q)
+        count(a)
         ref = first.get(q) or first.get(means)  # this question's first answer, else its seed question's
         bad = bool(a["cache_hit"] and ref is not None and a["answer"] != ref)
         first.setdefault(q, a["answer"])
@@ -75,15 +94,15 @@ def store(live: bool, n: int, seed_n: int) -> dict:
     s = bot.stats()
     hits = [r["ms"] for r in rows if r["cache_hit"]]
     miss = [r["ms"] for r in rows if not r["cache_hit"]]
-    s.update(warmup=warm, wrong_hits=wrong, p50_hit_ms=_p50(hits), p50_miss_ms=_p50(miss),
+    s.update(warmup=warm, wrong_hits=wrong, curve=curve, p50_hit_ms=_p50(hits), p50_miss_ms=_p50(miss),
              distinct=len({r["q"] for r in rows}), big_only_dollars=round(s["dollars"] + s["dollars_saved"], 6))
-    _write(f"store_{_mode(live)}.jsonl", rows)
+    _write(f"helpdesk_{_mode(live)}.jsonl", rows)
     return s
 
 
 def students(live: bool, n: int, seed_n: int) -> dict:
     """A class: n student questions over 3 assignments, a paper and a chapter. No warm-up: each item's first
-    student pays the model. Same wrong-answer rule as the store."""
+    student pays the model. Same wrong-answer rule as the help desk."""
     room = classroom.Classroom(live)
     first: dict[tuple, str] = {}
     rows, wrong = [], 0
@@ -138,23 +157,30 @@ def _write(name: str, rows: list[dict]) -> None:
             f.write(json.dumps(r) + "\n")
 
 
-def markdown(s: dict, rows: list[dict], live: bool, n: int) -> str:
+def helpdesk_markdown(s: dict, live: bool, n: int) -> str:
     w = s["warmup"]
     by = ", ".join(f"{k} {v}" for k, v in sorted(s["by_tier"].items(), key=lambda kv: -kv[1]))
-    lines = [f"### Store ({_mode(live)}): {n} shopper questions after a 30-question warm-up", "",
+    lines = [f"### Help desk ({_mode(live)}): {n} support tickets after a 30-ticket warm-up", "",
              "| | Value |", "|---|---|",
              f"| Warm-up | {w['questions']} questions, {w['model_calls']} model calls, {w['tokens']:,} tokens, {w['wall_s']} s |",
-             f"| Distinct questions in the mix | {s['distinct']} |",
+             f"| Distinct tickets in the mix | {s['distinct']} |",
              f"| Cache hit rate | **{s['hit_rate'] * 100:.1f}%** ({s['cache_hits']} of {s['questions']}: exact {s['exact']}, cosine {s['cosine']}) |",
              f"| Wrong cache answers | {s['wrong_hits']} |",
              f"| Model calls | {s['model_calls']} (climbs {s['climbs']}) |",
              f"| Answered by | {by} |",
-             f"| Answers that failed the catalog check (served as \"ask at the desk\") | {s['unverified']} |",
+             f"| Answers that failed the knowledge-base check (left to a person) | {s['unverified']} |",
              f"| Tokens used / kept off the 763B | {s['tokens']:,} / {s['tokens_saved']:,} |",
              f"| $ spent (list price) | ${s['dollars']:.6f} |",
-             f"| $ if every question went to the 763B (estimate) | ${s['big_only_dollars']:.6f} |",
+             f"| $ if every ticket went to the 763B (estimate) | ${s['big_only_dollars']:.6f} |",
              f"| Median latency: cache hit / model | {s['p50_hit_ms']} ms / {s['p50_miss_ms']} ms |", "",
-             f"### Coder ({_mode(live)}): 3 bug-fix tasks, each asked twice", "",
+             "Cost per ticket as volume rises (warm-up tickets included):", "",
+             "| Tickets | Model tokens per ticket | $ per ticket | $ per ticket, 763B only (estimate) |", "|---|---|---|---|",
+             *[f"| {c['tickets']} | {c['tokens']:,.0f} | ${c['dollars']:.6f} | ${c['big_only_dollars']:.6f} |" for c in s["curve"]]]
+    return "\n".join(lines)
+
+
+def coder_markdown(rows: list[dict], live: bool) -> str:
+    lines = [f"### Coder ({_mode(live)}): 3 bug-fix tasks, each asked twice", "",
              "| Task | Pass | Answered by | Tiers called | Tests | Tokens | $ spent | ms |", "|---|---|---|---|---|---|---|---|"]
     for r in rows:
         lines.append(f"| {r['task']} | {r['pass']} | {r['tier']} | {' -> '.join(r['tried']) or '(cache)'} | "
@@ -187,11 +213,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--n", type=int, default=200)
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--students", type=int, default=150)
+    ap.add_argument("--only", default="helpdesk,coder,class", help="comma list of sections to run")
     args = ap.parse_args(argv)
-    s = store(args.live, args.n, args.seed)
-    rows = coder(args.live)
-    st = students(args.live, args.students, args.seed)
-    md = markdown(s, rows, args.live, args.n) + "\n\n" + students_markdown(st, args.live, args.students)
+    parts = []
+    if "helpdesk" in args.only:
+        parts.append(helpdesk_markdown(helpdesk(args.live, args.n, args.seed), args.live, args.n))
+    if "coder" in args.only:
+        parts.append(coder_markdown(coder(args.live), args.live))
+    if "class" in args.only:
+        parts.append(students_markdown(students(args.live, args.students, args.seed), args.live, args.students))
+    md = "\n\n".join(parts)
     (OUT / f"results_{_mode(args.live)}.md").write_text(md + "\n")
     print(md)
     return 0
