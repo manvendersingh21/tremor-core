@@ -12,6 +12,8 @@ Shoppers ask the same things all day: what is on special, where is the oat milk,
 # open http://127.0.0.1:8766
 ```
 
+Live (A6000 30B, 763B, Supabase), 86.0% of 200 shopper questions came from the cache in 122 ms (median), with 0 wrong cache answers (`skeleton/RESULTS.md`). The same thing makes the coder's class mode pay: many students, one question.
+
 At start it asks the 30 common questions in `questions.json` once, so the cache is warm. In live mode the Supabase cache keeps them, so the next start costs no model calls.
 
 ## Files

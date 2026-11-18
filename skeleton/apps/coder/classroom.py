@@ -100,8 +100,9 @@ def text(reading: str) -> str:
 def summary_ok(summary: str, source: str) -> bool:
     """Short, sure, and every number in it appears in the source text."""
     nums = set(re.findall(r"\d[\d,.]*\d|\d", source))
+    body = re.sub(r"(?m)^\s*\d+[.)]\s+", "", summary)  # list markers "1." are not facts
     return (bool(summary.strip()) and len(summary) < len(source) / 2 and "i don't know" not in summary.lower()
-            and all(n in nums for n in re.findall(r"\d[\d,.]*\d|\d", summary)))
+            and all(n in nums for n in re.findall(r"\d[\d,.]*\d|\d", body)))
 
 
 # ---- demo stand-ins for the 30B and the 763B -------------------------------------------------------------
