@@ -71,7 +71,7 @@ def run(live: bool = False, passes: int = 2, echo=None) -> list[dict]:
                     echo(f"\n== pass {n}: {t['name']} ==\n{report(r)}")
                 a = r.answer
                 rows.append({"task": t["name"], "pass": n, "tier": a["tier"], "tried": a["tried"],
-                             "climbs": len(a["steps"]) - 1, "cache_hit": a["cache_hit"], "verified": a["verified"],
+                             "climbs": max(len(a["tried"]) - 1, 0), "cache_hit": a["cache_hit"], "verified": a["verified"],
                              "tokens": a["tokens"], "dollars": a["dollars"], "dollars_saved": a["dollars_saved"],
                              "ms": a["latency_ms"]})
     return rows
