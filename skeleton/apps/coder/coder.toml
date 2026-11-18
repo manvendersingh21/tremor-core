@@ -1,0 +1,13 @@
+# skeleton/apps/coder: the whole app config. Keys never go here (they live in .env).
+mode = "demo"                         # demo: stub models, in-memory cache. live: chimera.toml tiers + Supabase
+namespace = "skeleton-coder"
+ladder = ["gpu-small", "cloud-deepseek"]   # after the cache: self-hosted 30B, then the 763B
+max_tokens = 2048
+instructions = """You edit files in a repo. Reply with edits only, no other text.
+Small change: a line with only the file path, then
+<<<<<<< SEARCH
+(exact old lines)
+=======
+(new lines)
+>>>>>>> REPLACE
+New file or full rewrite: a line FILE: path, the whole new content, then a line END FILE."""
