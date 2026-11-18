@@ -7,6 +7,7 @@
 #   echo exit > $A6000_ROOT/run/want     # stop our servers and exit
 #   echo manual > $A6000_ROOT/run/want   # start nothing; a server we started by hand writes run/gpu<i>.pid and is
 #                                        # still killed at once on contention
+#   ONLY_GPUS="1" bash watchdog.sh ...   # start servers only on these GPU indices; every GPU is still watched
 #
 # Poll every 5 s.
 #   START  GPU i only when it has no compute process that is not ours and under 300 MiB not held by our pids, for
@@ -40,7 +41,7 @@ declare -a CLEAR BASE_P BASE_M FP FM
 for ((i = 0; i < N; i++)); do CLEAR[i]=0; BASE_P[i]=""; BASE_M[i]=0; done
 YIELDED=0
 QUIET=$RESUME_CLEAR
-echo "watchdog start $(date -Is) gpus=$N cores=$CORES poll=${POLL}s limit=${LIMIT_MIB}MiB yield=all-gpus"
+echo "watchdog start $(date -Is) gpus=$N cores=$CORES poll=${POLL}s limit=${LIMIT_MIB}MiB yield=all-gpus serve_on=${ONLY_GPUS:-all}"
 
 tree() {  # a pid and all its descendants (Ollama runs the model in child "runner" processes)
   local p=$1 k
@@ -143,7 +144,7 @@ while true; do
     mine=$(ours_of "$i")
     if [ -n "${FP[i]}" ] || [ "${FM[i]}" -gt "$LIMIT_MIB" ]; then CLEAR[i]=0; else CLEAR[i]=$((CLEAR[i] + POLL)); fi
     need=$CLEAR_FIRST; [ "$i" = 0 ] && need=$CLEAR_GPU0
-    if [ -z "$mine" ] && [ "$want" = "run" ] && [ "${CLEAR[i]}" -ge "$need" ] \
+    if [ -z "$mine" ] && [ "$want" = "run" ] && [[ " ${ONLY_GPUS:-$i} " == *" $i "* ]] && [ "${CLEAR[i]}" -ge "$need" ] \
        && { [ "$YIELDED" = 0 ] || [ "$QUIET" -ge "$RESUME_CLEAR" ]; }; then
       [ "$YIELDED" = 1 ] && echo "resumed GPU $i at $(date -Is) after ${QUIET} s quiet" | tee -a "$EV"
       [ -f "$R/run/gpu$i.aux" ] && stop_gpu "$i"   # a proxy or tunnel left from a server that died
