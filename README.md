@@ -4,6 +4,8 @@
 
 CHIMERA is a router for LLM calls. It tries the cheapest tier that can answer: a shared Supabase cache (exact, then cosine >= 0.97), then a 30B model on your own GPU (Ollama `qwen3:30b-instruct`), optionally a 120B model on a Modal H200, then the largest cloud model (Crusoe DeepSeek-V4.1-Flash, 763B). When a big model solves a problem, the answer is stored as teacher data (N+1 memory), so the 30B can use solved examples next time ([docs/memory.md](docs/memory.md)). The first benchmarks below also used a Mac Qwen2.5-3B as the lowest tier; it is now an experiment tier, off by default. A tier pool lets a company list its own hardware, and a gateway serves the router to other apps. Each answer is logged with the tier used, tokens, latency and dollars. A separate firewall scores risky actions (pay, delete, merge) from 0 to 100 and asks for approval above 70. It is an experiment. The measured results below are mixed.
 
+**Kiroween Skeleton Crew entry: [skeleton/](skeleton/README.md).** One small skeleton, `Assistant(config).ask(prompt, context)` over this router, and two apps built on it: a terminal coding agent (`skeleton/apps/coder/`) and a food-store helper web app (`skeleton/apps/store/`). Results: [skeleton/RESULTS.md](skeleton/RESULTS.md).
+
 ## Architecture
 
 ```mermaid
