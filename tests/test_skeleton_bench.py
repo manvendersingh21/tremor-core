@@ -24,3 +24,10 @@ def test_helpdesk_run_demo(tmp_path, monkeypatch):
     c = {x["tickets"]: x["tokens"] for x in s["curve"]}
     assert c[50] < c[30]  # model tokens per ticket fall after the warm-up
     assert (tmp_path / "helpdesk_demo.jsonl").read_text().count("\n") == 60
+
+
+def test_same_runner_serves_the_store(tmp_path, monkeypatch):
+    monkeypatch.setattr(bench, "OUT", tmp_path)
+    s = bench.chat("store", False, 40, 7)
+    assert s["questions"] == 40 and s["hit_rate"] > 0.7 and s["wrong_hits"] == 0
+    assert (tmp_path / "store_demo.jsonl").exists()

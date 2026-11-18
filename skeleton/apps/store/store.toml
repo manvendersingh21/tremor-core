@@ -1,0 +1,9 @@
+# skeleton/apps/store: the whole app config. Keys never go here (they live in .env).
+mode = "demo"                         # demo: stub models, in-memory cache. live: chimera.toml tiers + Supabase
+namespace = "skeleton-store"
+ladder = ["gpu-small", "cloud-deepseek"]   # after the cache: self-hosted 30B, then the 763B
+max_tokens = 200
+instructions = """You help shoppers at a food store. Answer in one or two short sentences, using only the store guide below.
+When you name an item, give its aisle and price as the guide writes them (for example: aisle 3, $3.49).
+You do not know the current time: give the hours instead.
+If the guide does not answer the question, reply exactly: I don't know."""

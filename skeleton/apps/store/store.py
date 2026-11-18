@@ -1,0 +1,94 @@
+"""Food-store helper built only on the skeleton API.
+
+knowledge = Catalog (foods.json as a short store guide; its version is the file hash plus the day, so the cache
+starts fresh when the catalog or the day's specials change). verify = Catalog.grounded: an answer may only quote
+prices and aisles that are in the catalog, and "I don't know" climbs to the 763B.
+"""
+from __future__ import annotations
+
+import datetime as dt
+import hashlib
+import json
+import pathlib
+import re
+
+from skeleton.core import Assistant
+from skeleton.core.demo import words
+
+HERE = pathlib.Path(__file__).resolve().parent
+CONFIG, FOODS, QUESTIONS = HERE / "store.toml", HERE / "foods.json", HERE / "questions.json"
+UNSURE = re.compile(r"\b(i don'?t know|i do not know|not sure|no information)\b", re.I)
+QWORDS = {"where", "when", "what", "how", "much", "which", "who", "why"}
+
+
+class Catalog:
+    """shortcut: the whole guide goes in every model prompt (about 900 tokens); switch to retrieval past ~200 items."""
+
+    def __init__(self, path: pathlib.Path = FOODS, today: dt.date | None = None) -> None:
+        raw = path.read_text()
+        self.data, self.day = json.loads(raw), (today or dt.date.today())
+        self.weekday = self.day.strftime("%A").lower()
+        self.version = f"{hashlib.sha256(raw.encode()).hexdigest()[:12]}:{self.day.isoformat()}"
+        self.prices = set(re.findall(r"\d+\.\d\d", raw))
+        self.text = "\n".join(self.lines())
+
+    def lines(self) -> list[str]:
+        d = self.data
+        out = [f"Store guide for {d['store']} ({self.weekday.title()})."]
+        out += [f"{k.title()} hours: {v}." for k, v in d["hours"].items()]
+        out.append(f"Today's specials ({self.weekday.title()}): " + "; ".join(f"{s}" for s in d["specials"][self.weekday]) + ".")
+        out.append("Kitchen menu: " + ", ".join(d["kitchen_menu"]) + ".")
+        out += [f"Aisle {n}: {name}." for n, name in d["aisles"].items()]
+        out += [f"{i['name']}: aisle {i['aisle']}, ${i['price']}" + (f" ({', '.join(i['tags'])})" if i.get("tags") else "")
+                + "." for i in d["items"]]
+        return out + d["services"]
+
+    def __call__(self, question: str) -> str:
+        return self.text
+
+    def grounded(self, answer: str) -> bool:
+        """Non-empty, sure, and every quoted price and aisle exists in the catalog."""
+        if not answer.strip() or UNSURE.search(answer):
+            return False
+        prices = re.findall(r"\$\s?(\d+(?:\.\d\d)?)", answer)
+        aisles = re.findall(r"\baisles?\s+(\d+)", answer, re.I)
+        return all(p in self.prices for p in prices) and all(a in self.data["aisles"] for a in aisles)
+
+
+def demo_30b(prompt: str) -> str:
+    """Demo stand-in for the 30B: the guide lines that cover at least half of the question's words, else ""."""
+    guide, _, q = prompt.rpartition("Question:")
+    guide = guide[guide.find("Store guide for"):]  # the guide lines only, not the instructions
+    want = set(words(q)) - QWORDS
+    if not want:
+        return ""
+    scored = []
+    for line in (x for x in guide.splitlines() if x.strip()):
+        w = set(words(line))
+        scored.append((len(want & w), len(want & w) / max(len(w), 1), line))
+    best = max((s[0] for s in scored), default=0)
+    if best * 2 < len(want):
+        return ""
+    top = sorted((s for s in scored if s[0] == best), key=lambda s: -s[1])[:3]  # most on-topic lines first
+    return " ".join(s[2] for s in top)
+
+
+DEMO_MODELS = {"gpu-small": demo_30b,
+               "cloud-deepseek": lambda p: "I don't know: the store guide does not cover that. "
+                                           "Please ask at the customer service desk."}
+
+
+def make_assistant(live: bool = False, catalog: Catalog | None = None) -> Assistant:
+    import tomllib
+    catalog = catalog or Catalog()
+    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {})}
+    return Assistant(cfg, knowledge=catalog, verify=catalog.grounded, demo_models=DEMO_MODELS)
+
+
+def seed(bot: Assistant, questions: list[str] | None = None) -> dict:
+    """Ask the common questions once so shoppers get cache hits. Returns the seeding totals; stats restart at 0."""
+    for q in questions or json.loads(QUESTIONS.read_text())["seed"]:
+        bot.ask(q)
+    done = bot.stats()
+    bot.reset_stats()
+    return done
