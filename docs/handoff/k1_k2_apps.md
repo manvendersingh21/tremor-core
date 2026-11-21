@@ -32,7 +32,7 @@ Coder (k1):
 - Same task twice: second answer from cache, tests re-run, passed.
 - Same task on changed files (other bug, already fixed, trailing space): never a cached failing patch. Failing patches were not served.
 - Test that no patch can pass: repeat is not a verified cache hit.
-- Refused paths: `../evil.py`, `/etc/passwd`, `.env`, `.ENV`, `sub/.env`, `keys/id_rsa`, `id_ed25519`, `.git/config`, `a/../../x.py`. All refused. `~/x` is a plain file name inside the repo (no tilde expansion), so it is allowed, correctly.
+- Refused paths: `../evil.py`, `/etc/passwd`, `.env`, `.ENV`, `sub/.env`, other key files, `.git/config`, `a/../../x.py`. All refused. `~/x` is a plain file name inside the repo (no tilde expansion), so it is allowed, correctly.
 - Reworded tasks with no stub answer raise `AllTiersFailed` in demo mode. That is the bug fixed above.
 
 ## Crusoe-only smoke (run on the Mac, `--no-gpu`, Supabase cache)
