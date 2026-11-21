@@ -104,6 +104,34 @@ class VllmBackend:
         return int(str(tok).split(":")[-1])
 
 
+class VllmPromptLogprobsBackend(VllmBackend):
+    """vLLM verifier: scores draft ids in ONE pass with `prompt_logprobs=0` on /v1/completions.
+
+    Only token ids go up; per position vLLM returns the logprob of the actual token. Bytes of the
+    last request are in bytes_up/bytes_down. Needs the same tokenizer as the draft model.
+    """
+
+    bytes_up = bytes_down = 0
+
+    def _post(self, path: str, payload: dict) -> dict:
+        body = json.dumps(payload).encode()
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        req = urllib.request.Request(f"{self.base_url}{path}", data=body, headers=headers)
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
+            raw = resp.read()
+        self.bytes_up, self.bytes_down = len(body), len(raw)
+        return json.loads(raw)
+
+    def score_tokens(self, prompt_ids: list[int], draft_ids: list[int]) -> list[float]:
+        data = self._post("/v1/completions", {"model": self.model, "prompt": prompt_ids + draft_ids,
+                                              "max_tokens": 1, "prompt_logprobs": 0})
+        pl = data["choices"][0]["prompt_logprobs"]  # [None, {"<id>": {"logprob": x, ...}}, ...]
+        n = len(prompt_ids)
+        return [float(pl[n + i][str(t)]["logprob"]) for i, t in enumerate(draft_ids)]
+
+
 class SpecVerifierBackend:
     """Client for bench/verify_server.py (llama.cpp target on the GPU box, reached via ssh tunnel).
 

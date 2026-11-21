@@ -116,3 +116,14 @@ def test_router_verify_encodes_chatml_prompt_for_chatml_draft(monkeypatch):
     r = SpeculativeCascadeRouter(Local(), cv.CloudVerifier(cv.SpecVerifierBackend()), tokenizer=tok)
     out = r.generate("hi")
     assert tok.encoded[0].startswith("<|im_start|>user\nhi") and out.telemetry.tier_used == "cloud_verified"
+
+
+def test_vllm_prompt_logprobs_scores_draft_in_one_post(monkeypatch):
+    from chimera_core.inference import cloud_verifier as cv
+    payload = {"choices": [{"prompt_logprobs": [None, {"7": {"logprob": -0.5}}, {"9": {"logprob": -2.0}}]}]}
+    seen = []
+    monkeypatch.setattr(cv.urllib.request, "urlopen", _fake_urlopen(payload, seen))
+    b = cv.VllmPromptLogprobsBackend("http://x", "m", api_key="k")
+    assert b.score_tokens([5], [7, 9]) == [-0.5, -2.0]
+    assert len(seen) == 1 and seen[0][1]["prompt"] == [5, 7, 9] and seen[0][1]["prompt_logprobs"] == 0
+    assert b.bytes_up > 0 and b.bytes_down > 0

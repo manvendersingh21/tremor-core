@@ -38,6 +38,7 @@ def main() -> None:
     ap.add_argument("--forever", action="store_true")
     ap.add_argument("--config", default=None)
     ap.add_argument("--prompts", type=int, default=0, help="use only the first N prompts per round")
+    ap.add_argument("--only", default="", help="comma list of tier names to use")
     ap.add_argument("--url", action="append", default=[], metavar="TIER=URL")
     a = ap.parse_args()
 
@@ -46,6 +47,7 @@ def main() -> None:
     tiers = cfg.tiers or load_config(ROOT / "chimera.example.toml").tiers
     over = dict(u.split("=", 1) for u in a.url)
     tiers = [t.model_copy(update={"url": over[t.name]}) if t.name in over else t for t in tiers]
+    tiers = [t for t in tiers if not a.only or t.name in a.only.split(",")]
     pool = TierPool(tiers, min_confidence=cfg.thresholds.confidence, max_tokens=512)
     cloud = {t.name for t in pool.tiers if t.device == "cloud"}
     top = next((t for t in reversed(pool.tiers) if t.device == "cloud"), None)  # price baseline for "saved"
