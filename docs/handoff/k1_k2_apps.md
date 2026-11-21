@@ -50,3 +50,16 @@ Help desk repeat median hit: 102 ms. Two repeats were not cache hits: an answer 
 - Coder class run was all warm cache from earlier runs, so it shows the hit path, not a first-model-call path.
 - The live Crusoe path of `coder ask --live` was not run (needs a real repo task; only the class run was).
 - Python 3.11 and 3.12 (CI) were not run on the boxes.
+
+## Round 2 (extra jobs)
+
+| Job | Box | Result |
+|---|---|---|
+| Fresh-clone full suite on Python 3.11 and 3.12 | k1 | 365 tests each, 0 failed, 5 skipped. Installed with `uv` (not on the boxes; put in a venv). |
+| Hypothesis tests for skeleton core and coder | k1 | PR #8. Found a real gap: the coder path guard allowed a file inside a directory named `.env` (`.env/a`). Fixed, and kept as a property test. |
+| Secret scan (tree and all history), link check, README figure match | k2 | PR #7, `docs/audits/k2_audit.md`. No real credential. The old private box address and a key file path sit in 4 early commits; removing them needs a history rewrite, which is the owner's call. 0 broken links. |
+| Store `--no-gpu` flag | k2 | PR #9. The store was the one app without it. |
+| Crusoe-only smoke, store, 10 questions twice | Mac | 9 of 10 repeats from the cache, 0 wrong cache answers, 2 answers failed the grounding check (served marked unverified, never cached), 11,365 tokens, $0.003457, median hit 112 ms. |
+| Crusoe-only smoke, help desk | Mac | see above (20 asks, 0 wrong). |
+
+The Crusoe key stayed on the Mac, so smoke runs ran there, not on the boxes. `site/demo.json` counts the files in `docs/handoff/`; adding a handoff note needs `python3 site/build.py` or CI goes red.
