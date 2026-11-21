@@ -11,6 +11,7 @@ Shoppers ask the same things all day: what is on special, where is the oat milk,
 ```bash
 .venv/bin/python -m skeleton.apps.store            # demo: stub models, in-memory cache, no keys
 .venv/bin/python -m skeleton.apps.store --live     # 30B (CHIMERA_GPU_URL), 763B (CRUSOE_API_KEY), Supabase (CHIMERA_DB_URL)
+.venv/bin/python -m skeleton.apps.store --no-gpu   # Crusoe 763B only + Supabase; no GPU needed
 # open http://127.0.0.1:8767
 ```
 
