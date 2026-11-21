@@ -296,7 +296,8 @@ def summarize(rows: list[dict], app: str) -> dict:
 def fmt_row(name: str, s: dict, app: str) -> str:
     n = s["n"]
     extra = f" ({s['rules']} by rules)" if s["rules"] else ""
-    return (f"| {name} | {s['correct']}/{n} | {s['wrong']}{'' if app == 'coder' else f' (+{s['miss']} missed)'} | "
+    missed = "" if app == "coder" else f" (+{s['miss']} missed)"
+    return (f"| {name} | {s['correct']}/{n} | {s['wrong']}{missed} | "
             f"{s['hit']}/{n}{extra} | {s['p50_ms']} | ${s['per_1000']:.2f} |")
 
 
