@@ -17,6 +17,7 @@ import tempfile
 from dataclasses import dataclass, field
 
 from skeleton.core import Answer, Assistant
+from chimera_core.tiers import AllTiersFailed
 from apps.terminal.edits import parse_edits, plan, unified
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -147,7 +148,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_gpu:
         cfg["ladder"] = ["cloud-deepseek"]
     coder = Coder(args.repo, args.file, args.test, config=cfg)
-    r = coder.ask(args.task)
+    try:
+        r = coder.ask(args.task)
+    except AllTiersFailed as e:  # every tier failed or was unreachable: say so, no traceback, no made-up patch
+        print(f"no tier answered: {e}", file=sys.stderr)
+        return 2
     print(report(r))
     if args.apply and r.answer["verified"]:
         coder.apply(r.changes)
