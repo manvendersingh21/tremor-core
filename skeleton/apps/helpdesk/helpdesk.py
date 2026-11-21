@@ -77,10 +77,12 @@ DEMO_MODELS = {"gpu-small": lambda p: _match(p, 0.6),  # the 30B stand-in: a clo
                "cloud-deepseek": lambda p: _match(p, 0.4) or "I don't know: a support agent will reply by email."}
 
 
-def make_assistant(live: bool = False, kb: KnowledgeBase | None = None) -> Assistant:
+def make_assistant(live: bool = False, kb: KnowledgeBase | None = None, no_gpu: bool = False) -> Assistant:
     import tomllib
     kb = kb or KnowledgeBase()
     cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {})}
+    if no_gpu:
+        cfg["ladder"] = ["cloud-deepseek"]
     return Assistant(cfg, knowledge=kb, verify=kb.grounded, demo_models=DEMO_MODELS)
 
 

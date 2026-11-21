@@ -145,9 +145,11 @@ DEMO_MODELS = {"gpu-small": demo_models(False), "cloud-deepseek": demo_models(Tr
 class Classroom:
     """One shared cache for the whole class: an assignment bot (the coder) and a reading bot."""
 
-    def __init__(self, live: bool = False, root: pathlib.Path | None = None) -> None:
+    def __init__(self, live: bool = False, root: pathlib.Path | None = None, no_gpu: bool = False) -> None:
         base = tomllib.loads(CONFIG.read_text())
-        mode = {"mode": "live"} if live else {}
+        mode: dict = {"mode": "live"} if live else {}
+        if no_gpu:
+            mode["ladder"] = ["cloud-deepseek"]
         self.coder_bot = Assistant({**base, **mode, "namespace": "skeleton-class-code"}, demo_models=DEMO_MODELS)
         self.read_bot = Assistant({**base, **mode, "namespace": "skeleton-class-read", "instructions": SUMMARY_RULES,
                                    "max_tokens": 400}, demo_models=DEMO_MODELS)
@@ -209,8 +211,8 @@ def line(who: str, a: dict) -> str:
             f"saved ${a['dollars_saved']:.6f}  {a['latency_ms']:>6.0f} ms  {ok}")
 
 
-def main(live: bool = False, students: int = 5) -> int:
-    room = Classroom(live)
+def main(live: bool = False, students: int = 5, no_gpu: bool = False) -> int:
+    room = Classroom(live, no_gpu=no_gpu)
     try:
         for item, (a_name, q) in {"assignment": ("a3-palindrome", ASSIGNMENTS["a3-palindrome"]["questions"][0][0]),
                                   "reading": ("paper", READINGS["paper"]["questions"][0][0])}.items():

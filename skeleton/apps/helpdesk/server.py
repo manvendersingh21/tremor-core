@@ -26,9 +26,9 @@ MARKS = (1, 5, 10, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000)
 
 
 class App:
-    def __init__(self, live: bool = False, warm: bool = True, kb: KnowledgeBase | None = None) -> None:
+    def __init__(self, live: bool = False, warm: bool = True, kb: KnowledgeBase | None = None, no_gpu: bool = False) -> None:
         self.kb = kb or KnowledgeBase()
-        self.bot = make_assistant(live, self.kb)
+        self.bot = make_assistant(live, self.kb, no_gpu=no_gpu)
         self.mode = "live" if live else "demo"
         self.questions = json.loads(QUESTIONS.read_text())["seed"]
         self._lock = threading.Lock()
@@ -127,11 +127,14 @@ def handler(app: App):
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m skeleton.apps.helpdesk")
     ap.add_argument("--live", action="store_true", help="real tiers and the Supabase cache (keys from .env)")
+    ap.add_argument("--no-gpu", action="store_true", dest="no_gpu",
+                    help="live but Crusoe 763B only (cache -> 763B); no GPU needed")
     ap.add_argument("--port", type=int, default=8766)
     ap.add_argument("--no-warm", action="store_true", help="skip asking the 30 common questions at start")
     args = ap.parse_args(argv)
-    print(f"warming the cache with the common questions ({'live' if args.live else 'demo'})...", flush=True)
-    app = App(live=args.live, warm=not args.no_warm)
+    live = args.live or args.no_gpu
+    print(f"warming the cache with the common questions ({'live' if live else 'demo'})...", flush=True)
+    app = App(live=live, warm=not args.no_warm, no_gpu=args.no_gpu)
     w = app.warmup
     if w["questions"]:
         print(f"warm: {w['questions']} tickets, {w['cache_hits']} already cached, {w['model_calls']} model calls")

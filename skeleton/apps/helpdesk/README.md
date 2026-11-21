@@ -8,11 +8,14 @@ Many customers, the same few questions: how do I reset my password, how do I get
 
 ```bash
 .venv/bin/python -m skeleton.apps.helpdesk           # demo: stub models, in-memory cache, no keys
+.venv/bin/python -m skeleton.apps.helpdesk --no-gpu  # Crusoe 763B only, Supabase cache; no GPU needed
 .venv/bin/python -m skeleton.apps.helpdesk --live    # 30B (CHIMERA_GPU_URL), 763B (CRUSOE_API_KEY), Supabase (CHIMERA_DB_URL)
 # open http://127.0.0.1:8766
 ```
 
 Live, on the A6000 30B with the 763B and Supabase, 86.0% of 200 tickets came from the cache in 113 ms (median), with 0 wrong cache answers. Model tokens per ticket fell from 1,208 at 30 tickets to 373 at 200 (`skeleton/RESULTS.md`). Answers that quote the support phone number are not cached, because the core's privacy scrub treats the number as personal data.
+
+**No-GPU Crusoe-only run (2026-11-20, `--no-gpu`):** 10 unique questions asked once each (warm-up), then asked again. Warm: 0 hits (first asks), 0 wrong. Repeat: 10/10 from the cache (100%), 0 wrong, median 102 ms. Total: 10,648 tokens, $0.00365, saved $0.00376 vs all-763B baseline.
 
 At start it asks the 30 common questions in `questions.json` once, so the cache is warm. Those 30 count as the first tickets in the stats. In live mode Supabase keeps the answers, so the next start costs no model calls.
 

@@ -127,19 +127,25 @@ def main(argv: list[str] | None = None) -> int:
     ask.add_argument("--file", action="append", required=True, help="file the task may edit (repeat)")
     ask.add_argument("--test", required=True, help='test command, e.g. "python -m pytest -q"')
     ask.add_argument("--live", action="store_true", help="real tiers (A6000 30B, then 763B) and Supabase cache")
+    ask.add_argument("--no-gpu", action="store_true", dest="no_gpu",
+                     help="live but Crusoe 763B only (cache -> 763B); no GPU needed")
     ask.add_argument("--apply", action="store_true", help="write the patch to the repo once the tests pass")
     sub.add_parser("demo", help="offline demo: a climb, a 30B answer and a cache hit")
     cls = sub.add_parser("class", help="a class: student 1 pays the model, students 2..N get the cache")
     cls.add_argument("--students", type=int, default=5)
     cls.add_argument("--live", action="store_true")
+    cls.add_argument("--no-gpu", action="store_true", dest="no_gpu",
+                     help="live but Crusoe 763B only; no GPU needed")
     args = ap.parse_args(argv)
     if args.cmd == "demo":
         from .demo import main as demo
         return demo()
     if args.cmd == "class":
         from .classroom import main as classroom
-        return classroom(args.live, args.students)
-    cfg = {**_toml(), "mode": "live"} if args.live else CONFIG
+        return classroom(args.live or args.no_gpu, args.students, no_gpu=args.no_gpu)
+    cfg = {**_toml(), "mode": "live"} if (args.live or args.no_gpu) else CONFIG
+    if args.no_gpu:
+        cfg["ladder"] = ["cloud-deepseek"]
     coder = Coder(args.repo, args.file, args.test, config=cfg)
     r = coder.ask(args.task)
     print(report(r))
