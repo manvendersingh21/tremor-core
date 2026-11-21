@@ -2846,7 +2846,7 @@
    "terminal-agent"
   ],
   "spec_tasks": [
-   56,
+   66,
    99
   ],
   "ears": 135,
@@ -2889,7 +2889,7 @@
   "bugs_found": 4,
   "bugs_fixed": 4,
   "xfail_left": 0,
-  "handoffs": 12,
+  "handoffs": 13,
   "posters": [
    {
     "title": "Steering",
@@ -2907,7 +2907,7 @@
     "title": "Specs",
     "big": "7 specs",
     "lines": [
-     "135 EARS requirements (SHALL). 56 of 99 tasks ticked.",
+     "135 EARS requirements (SHALL). 66 of 99 tasks ticked.",
      "cache-and-verify, castle-3d-ui, chimera-speculative-os, lora-distill, n1-memory-and-bank, savings-replay, terminal-agent."
     ],
     "src": [
@@ -2965,10 +2965,10 @@
    },
    {
     "title": "Kiro Crew",
-    "big": "12 handoffs",
+    "big": "13 handoffs",
     "lines": [
      "A backend chat and a frontend chat built this, each owning its folders.",
-     "Finished work items left 12 handoff notes in docs/handoff/."
+     "Finished work items left 13 handoff notes in docs/handoff/."
     ],
     "src": [
      "docs/handoff/",
