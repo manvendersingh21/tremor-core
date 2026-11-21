@@ -4,7 +4,9 @@
     .venv/bin/python bench/run_terminal_agent.py --mode cloud --label cloud
     .venv/bin/python bench/run_terminal_agent.py --report          # write results md + csv from the two JSON files
 
-Scratch lives under $KIROCREW_SCRATCH. Cache namespace is unique per run, so the two runs never share answers.
+Scratch, logs and checkpoints live in bench/.scratch/terminal-agent/ (git-ignored). Each finished task appends one
+row to <label>.jsonl there; a rerun skips the ids already in it (--fresh starts over). The cache namespace is
+fixed per label and saved with the rows, so a resumed run keeps it; the two labels never share answers.
 """
 from __future__ import annotations
 
@@ -23,7 +25,7 @@ ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 from terminal_tasks import T  # noqa: E402
 
-SCRATCH = pathlib.Path(os.environ.get("KIROCREW_SCRATCH", "/tmp")) / "terminal-agent"
+SCRATCH = HERE / ".scratch" / "terminal-agent"
 PY = str(ROOT / ".venv/bin/python")
 
 
@@ -137,20 +139,41 @@ def main() -> None:
     ap.add_argument("--only", type=int, nargs="*")
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--no-bank", action="store_true", help="pass --no-bank to chimera code: measure the model tiers alone")
+    ap.add_argument("--fresh", action="store_true", help="drop saved rows for this label and start over")
     a = ap.parse_args()
     if a.report:
         return report()
-    ns = f"termbench-{a.label}-{int(time.time())}"
-    out = []
+    SCRATCH.mkdir(parents=True, exist_ok=True)
+    rows_path = SCRATCH / f"{a.label}.jsonl"
+    if a.fresh:
+        rows_path.unlink(missing_ok=True)
+    done = load_rows(rows_path)
+    ns = done[0]["ns"] if done else f"termbench-{a.label}-{int(time.time())}"
+    seen = {r["id"] for r in done}
     for t in T:
-        if a.only and t["id"] not in a.only:
+        if (a.only and t["id"] not in a.only) or t["id"] in seen:
             continue
-        r = run_task(t, a.mode, a.label, ns, ["--no-bank"] if a.no_bank else [])
+        r = {**run_task(t, a.mode, a.label, ns, ["--no-bank"] if a.no_bank else []), "ns": ns}
+        with open(rows_path, "a") as fh:  # one row per finished task: a crash loses at most the task in flight
+            fh.write(json.dumps(r) + "\n")
+        done.append(r)
         print(f"#{r['id']:>2} {r['task']:<34} {'PASS' if r['passed'] else 'FAIL'} {r['tiers']} rep={r['repair_rounds']} tok={r['tokens']} ${r['dollars']:.5f} {r['agent_ms']/1000:.1f}s", flush=True)
-        out.append(r)
-    if not a.only:
+    if not a.only and len({r["id"] for r in done}) == len(T):
+        out = sorted(({k: v for k, v in r.items() if k != "ns"} for r in done), key=lambda r: r["id"])
         (HERE / f"terminal_{a.label}.json").write_text(json.dumps(out, indent=1))
 
+
+def load_rows(path: pathlib.Path) -> list[dict]:
+    """Saved rows, last one per id wins; a half-written last line is ignored."""
+    rows: dict[int, dict] = {}
+    if path.exists():
+        for ln in path.read_text().splitlines():
+            try:
+                r = json.loads(ln)
+                rows[r["id"]] = r
+            except (ValueError, KeyError):
+                pass
+    return list(rows.values())
 
 if __name__ == "__main__":
     main()

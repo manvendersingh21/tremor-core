@@ -75,7 +75,12 @@ if __name__ == "__main__":
     ap.add_argument("--port", type=int, default=18101)
     ap.add_argument("--n-gpu-layers", type=int, default=24)
     ap.add_argument("--n-ctx", type=int, default=2048)
+    ap.add_argument("--threads", type=int, default=3)
     a = ap.parse_args()
+    # The container has a 4-CPU quota and a 27.9 GB RAM cap: threads (incl. batch threads, which
+    # default to all 96 host cores) must stay under the quota, and use_mmap=False keeps the CPU-side
+    # layers resident instead of thrashing the shared page cache.
     model = Llama(model_path=a.model, n_gpu_layers=a.n_gpu_layers, n_ctx=a.n_ctx, n_batch=512,
+                  n_threads=a.threads, n_threads_batch=a.threads, use_mmap=False,
                   logits_all=True, verbose=False)
     uvicorn.run(build_app(model), host="127.0.0.1", port=a.port, log_level="warning")

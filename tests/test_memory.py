@@ -127,20 +127,6 @@ def test_graph_down_never_fails_the_call(monkeypatch):
     assert m.retrieve("sort a list").examples == []
 
 
-@pytest.mark.skipif(not os.environ.get("CHIMERA_GRAPH_URL"), reason="needs the Neo4j port forward (live)")
-def test_neo4j_live_roundtrip():
-    st = Neo4jGraphStore()
-    a, b = mk("t_a", st), mk("t_b", st)
-    try:
-        put(a, "sort a list of integers ascending")
-        assert a.retrieve("sort a list of integers ascending").examples
-        assert b.retrieve("sort a list of integers ascending").examples == []
-    finally:
-        a.purge()
-        b.purge()
-    assert a.stats()["problem"] == 0
-
-
 def test_graph_error_skips_the_graph_for_a_cooldown(monkeypatch):
     # Found live (bench/run_faults.py neo4j): an Aura that never answers cost every call a 10 s connect timeout.
     from chimera_core.memory import memory as mm

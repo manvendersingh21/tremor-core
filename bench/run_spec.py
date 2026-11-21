@@ -5,7 +5,7 @@ target tokens (correction at the first rejection, or a bonus token if all K pass
 min(1, p_target/p_draft). Both sides sample at temperature 1 so the two distributions are the
 plain softmaxes. No KV tensors cross the network; each side keeps its own prefix cache.
 
-Needs: Mac llama-server on :8080, tunnel to the verifier on :18101, (baseline) tunnel to Ollama on :11435.
+Needs: Mac llama-server on :8080, tunnel to the verifier on :18101, (baseline) tunnel to Ollama on :11437 (ssh -f -N -L 127.0.0.1:11437:127.0.0.1:11434 ...).
 Run:   .venv/bin/python bench/run_spec.py
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ import conftest  # noqa: E402,F401  (registers chimera_core)
 from chimera_core.inference.cloud_verifier import CloudVerifier, SpecVerifierBackend  # noqa: E402
 from chimera_core.inference.local_draft import LlamaCppTokenizer, chatml  # noqa: E402
 
-DRAFT, VERIFIER, OLLAMA = "http://127.0.0.1:8080", "http://127.0.0.1:18101", "http://127.0.0.1:11435"
+DRAFT, VERIFIER, OLLAMA = "http://127.0.0.1:8080", "http://127.0.0.1:18101", "http://127.0.0.1:11437"
 IDS = ["e1", "e5", "e7", "e8", "c1", "c2", "c3", "c5", "h1", "h2"]  # filled below if absent
 MAX_NEW, KS = 200, (4, 8)
 EOS = {151645, 151643}  # <|im_end|>, <|endoftext|>
@@ -143,11 +143,11 @@ def write_md(out: list[dict], ids: list[str], n_tok_checked: int, rtts: list[flo
     lines = ["# Cross-device speculative decoding results", "",
              "## Setup",
              "- Draft: Mac, llama.cpp `llama-server`, Qwen2.5-3B-Instruct Q4_K_M, `127.0.0.1:8080`, temperature 1 (top_k 0, top_p 1, min_p 0), own prompt cache.",
-             "- Target: GPU box (Tesla V100 32 GB), `bench/verify_server.py` (llama-cpp-python, `logits_all`), the same GGUF blob Ollama serves for `qwen3:30b-instruct` (Q4_K_M), 24 of 48 layers on GPU (about 9 GB VRAM; Ollama's 19 GB sits beside it), rest on CPU. Own prefix reuse. Reached through `ssh -L` to `127.0.0.1:18101`.",
+             "- Target: GPU box (Tesla V100 32 GB), `bench/verify_server.py` (llama-cpp-python, `logits_all`), the same GGUF blob Ollama serves for `qwen3:30b-instruct` (Q4_K_M), 30 of 49 layers on GPU (11.4 GB VRAM; Ollama's 19 GB sits beside it), the other 19 on CPU with 3 threads (the container has a 4-CPU quota and a 27.9 GB RAM cap). Own prefix reuse. Reached through `ssh -L` to `127.0.0.1:18101`.",
              "- Protocol per round trip: Mac sends `prompt_ids + K draft_ids` (JSON ints). GPU returns K target logprobs and one target-sampled token per position. Accept token i with probability min(1, p_target/p_draft). On first rejection the target's sample at that position is appended; if all K pass, the K+1th sample is a free bonus token. No KV tensors move.",
              "- Correction sampling: the target's own sample at the rejection point (existing `CloudVerifier` approximation). Exact lossless decoding would sample from the residual max(0, p_t - p_d), which needs the full draft distribution. Accept/reject math is the exact rule.",
              f"- Prompts: {len(ids)} from `bench/prompts.jsonl` ({', '.join(ids)}), max {MAX_NEW} new tokens, K in {list(KS)}. One run each, sampled output, so numbers are noisy.",
-             f"- Baseline: plain generation on the GPU box by Ollama `qwen3:30b-instruct` (all layers on GPU, raw ChatML prompt, temperature 1), timed from the Mac through the same kind of ssh tunnel (`:11435`).",
+             f"- Baseline: plain generation on the GPU box by Ollama `qwen3:30b-instruct` (all layers on GPU, raw ChatML prompt, temperature 1), timed from the Mac through the same kind of ssh tunnel (`:11437`). Other workers were using the same box during the run (Ollama's runner at about 300% CPU of the 4-CPU quota), so the verifier's 19 CPU layers were starved; see verdict.",
              "",
              "## Tokenizer check",
              f"The Mac draft tokenizer (`/tokenize`, special tokens parsed) and the GPU target tokenizer (llama.cpp on the Qwen3 GGUF) produced identical ids on {n_tok_checked} of {n_tok_checked} strings (the ChatML-wrapped test prompts plus a unicode/code string). The script asserts this before verifying anything.",
@@ -174,7 +174,7 @@ def write_md(out: list[dict], ids: list[str], n_tok_checked: int, rtts: list[flo
     lines += ["", f"Plain Ollama on the GPU box: mean {olm:.2f} tok/s wall clock (decode only, server side: {st.mean(r['decode_tok_s'] for r in ol):.2f} tok/s).",
               "", "## Verdict", "",
               f"Speculative tok/s vs plain Ollama: K=4 {sp4 / olm:.2f}x, K=8 {sp8 / olm:.2f}x (1.00x = same speed).", "",
-              "VERDICT_PLACEHOLDER", ""]
+              "VERDICT_PLACEHOLDER (written by hand from the numbers above after each run)", ""]
     (ROOT / "bench/spec_results.md").write_text("\n".join(lines))
 
 

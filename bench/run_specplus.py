@@ -150,7 +150,7 @@ def main() -> None:
     tok, model = LlamaCppTokenizer(DRAFT), Model()
     ps = prompts()[: 6 if quick else None]
     items = [(pid, t, tok.encode(chatml(t))) for pid, t in ps]
-    rtts = [0.0, 0.05, 0.15, 0.30]
+    rtts = [0.0, 0.05, 0.15, 0.30, 0.60]
     csv_rows, md_tables = [], {}
     for section, srv in (("ablation", 0.05), ("fast_server", 0.025)):
         rows = []
