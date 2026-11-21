@@ -23,7 +23,7 @@ from apps.terminal.edits import parse_edits, plan, unified
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG = HERE / "coder.toml"
 SKIP = shutil.ignore_patterns(".git", ".venv", "node_modules", "__pycache__", ".env*")
-_SECRET_FILE = re.compile(r"(^|/)(\.env[^/]*|id_[a-z0-9]+|[^/]*\.(pem|key))$", re.I)
+_SECRET_FILE = re.compile(r"(^|/)(\.env[^/]*|id_[a-z0-9]+|[^/]*\.(pem|key))(/|$)", re.I)  # any path part, so .env/a is refused too
 
 
 @dataclass
