@@ -20,6 +20,15 @@
   --bad:#ff7b72;--good:#3fb950;--fogc:transparent;
   --serif:Inter,system-ui,sans-serif;--serif-it:var(--serif);--num:var(--serif);
   --art:0;--glow1:transparent;--glow2:transparent;--hl:rgba(31,111,235,.27)}
+.dash[data-theme=vicecity]{
+  --bg:#fff;--bg2:#fff4fa;--card:#fff;--card-glow:rgba(255,45,149,.12);
+  --line:#ff2d95;--fg:#1a1030;--mut:#56497a;--accent:#b0005f;--accent-fg:#fff;--em:#00608a;
+  --cache:#00608a;--phone:#7a2cc4;--mac:#8a4b00;--gpus:#b0005f;--gpul:#c4006b;--crusoe:#54259a;
+  --bad:#b00020;--good:#00608a;--fogc:transparent;
+  --serif:"Avenir Next Condensed",Futura,"Century Gothic","Trebuchet MS",sans-serif;--serif-it:var(--serif);--num:var(--serif);
+  --art:0;--glow1:rgba(255,45,149,.12);--glow2:rgba(0,194,255,.14);--hl:rgba(0,194,255,.2)}
+.dash[data-theme=vicecity] .th{display:none}
+.dash[data-theme=vicecity] em{font-style:normal}
 .dash .g,.dash .dstage,.dash .scene.g,.dash .fili{display:none}
 .dash[data-theme=gothic] .g{display:inline}
 .dash[data-theme=gothic] .ng{display:none}

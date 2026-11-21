@@ -21,6 +21,7 @@ from urllib.parse import parse_qs, urlparse
 from .helpdesk import QUESTIONS, KnowledgeBase, make_assistant
 
 INDEX = pathlib.Path(__file__).resolve().parent / "index.html"
+CSS = pathlib.Path(__file__).resolve().parents[2] / "web" / "vicecity.css"  # shared Vice City theme
 MAX_Q, MAX_BODY = 500, 4096
 MARKS = (1, 5, 10, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000)
 
@@ -85,6 +86,8 @@ def handler(app: App):
             u = urlparse(self.path)
             if u.path in ("/", "/index.html"):
                 return self._send(200, INDEX.read_bytes(), "text/html; charset=utf-8")
+            if u.path == "/vicecity.css":
+                return self._send(200, CSS.read_bytes(), "text/css; charset=utf-8")
             if u.path == "/api/info":
                 return self._json(200, app.info())
             if u.path == "/api/stats":

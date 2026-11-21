@@ -13,7 +13,7 @@ import tempfile
 
 from skeleton.core import Assistant
 
-from .coder import CONFIG, Coder, report
+from .coder import CONFIG, Coder, _vice, report
 
 PY = shlex.quote(sys.executable)
 TASKS = [
@@ -68,7 +68,7 @@ def run(live: bool = False, passes: int = 2, echo=None) -> list[dict]:
             for t in TASKS:
                 r = Coder(repos[t["name"]], [t["file"]], f"{PY} check.py", assistant=bot).ask(t["task"])
                 if echo:
-                    echo(f"\n== pass {n}: {t['name']} ==\n{report(r)}")
+                    echo(_vice(f"\n== pass {n}: {t['name']} ==\n{report(r)}"))
                 a = r.answer
                 rows.append({"task": t["name"], "pass": n, "tier": a["tier"], "tried": a["tried"],
                              "climbs": max(len(a["tried"]) - 1, 0), "cache_hit": a["cache_hit"], "verified": a["verified"],
@@ -78,6 +78,9 @@ def run(live: bool = False, passes: int = 2, echo=None) -> list[dict]:
 
 
 def main() -> int:
+    from . import vice
+    if vice.use_color():
+        print(vice.banner())
     rows = run(echo=print)
     ok = all(r["verified"] for r in rows)
     print(f"\n{sum(r['cache_hit'] for r in rows)} of {len(rows)} asks served from the cache; "

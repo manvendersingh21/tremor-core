@@ -19,7 +19,7 @@ function lab(k){const s=h('span');s.append(h('span',T[k].th,'th'),h('span',T[k].
 function dotted(k,...kids){const s=h('span');const d=h('span',null,'dot');d.style.background=`var(${T[k].c})`;s.append(d,...kids);return s}
 
 // themes: set on every .dash block; the choice is saved in localStorage
-const THEMES={gothic:'Gothic',hollowkeep:'Hollowkeep',standard:'Standard'};
+const THEMES={gothic:'Gothic',hollowkeep:'Hollowkeep',standard:'Standard',vicecity:'Vice City'};
 function setTheme(t,save){
   dashes.forEach(d=>d.dataset.theme=t);
   document.querySelectorAll('[data-theme-btn]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.themeBtn===t));

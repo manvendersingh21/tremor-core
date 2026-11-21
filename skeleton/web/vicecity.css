@@ -1,0 +1,66 @@
+/* Vice City theme for the Skeleton Crew pages (help desk, store). White page, hot pink and electric blue.
+   Neon colours are for headings, borders and glows only. Body text uses the dark inks below (WCAG AA, see skeleton/docs/vice_city_ui.md).
+   No logos or assets from any game; the heading font is a plain system stack. */
+:root {
+  --pink: #ff2d95; --blue: #00c2ff;                 /* neon: headings, glows, borders */
+  --pink-ink: #b0005f; --blue-ink: #00608a;         /* readable on white: 7.0:1 and 6.9:1 */
+  --ink: #1a1030; --muted: #56497a; --line: #f3b6d9; --bg: #ffffff; --amber: #8a4b00;
+  --neon-font: "Avenir Next Condensed", "Futura", "Century Gothic", "Trebuchet MS", "Arial Narrow", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink);
+       background: linear-gradient(180deg, #fff 0, #fff 60%, #fff4fa 100%) fixed; min-height: 100vh; }
+header { position: relative; overflow: hidden; padding: 22px 20px 26px; background: #fff;
+         border-bottom: 0; }
+header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 8px;   /* the 80s sunset stripe */
+  background: linear-gradient(90deg, #ffb000, #ff5e3a 28%, #ff2d95 55%, #b84dff 78%, #00c2ff); }
+header::before { content: ""; position: absolute; right: 0; bottom: 8px; width: 240px; height: 100%; opacity: .9; pointer-events: none;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 120' preserveAspectRatio='xMaxYMax meet'><circle cx='150' cy='92' r='44' fill='%23ff2d95' fill-opacity='.16'/><g fill='%23b0005f' fill-opacity='.8'><path d='M200 120 C198 86 204 60 214 40 L218 41 C210 62 206 88 208 120Z'/><path d='M214 40 C196 30 180 36 168 50 C184 40 198 38 214 40Z'/><path d='M214 40 C226 22 246 22 258 34 C242 28 228 30 214 40Z'/><path d='M214 40 C212 22 200 10 184 8 C200 16 208 26 214 40Z'/><path d='M214 40 C220 24 234 14 250 14 C236 20 226 28 214 40Z'/></g><g fill='%2300608a' fill-opacity='.65'><path d='M150 120 C150 98 153 84 158 72 L161 73 C157 86 155 100 156 120Z'/><path d='M158 72 C148 66 138 70 130 79 C140 72 150 70 158 72Z'/><path d='M158 72 C166 62 178 62 186 70 C176 66 167 67 158 72Z'/><path d='M158 72 C156 62 148 56 140 55 C150 60 155 65 158 72Z'/></g></svg>") right bottom / contain no-repeat; }
+header h1 { position: relative; margin: 0; font: 900 clamp(26px, 6vw, 40px)/1.05 var(--neon-font); font-style: italic;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--pink);
+  background: linear-gradient(180deg, #ff2d95 0, #ff2d95 46%, #7a5cff 54%, #00c2ff 100%); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 6px rgba(255, 45, 149, .45)) drop-shadow(0 1px 0 #fff); }
+header p { position: relative; margin: 8px 0 0; max-width: 560px; font-size: 14px; color: var(--muted); }
+.badge { display: inline-block; margin-left: 8px; padding: 2px 10px; border-radius: 999px; font: 700 12px/1.5 system-ui, sans-serif;
+  letter-spacing: 0; text-transform: none; font-style: normal; vertical-align: middle; color: var(--blue-ink); background: #e6f8ff;
+  border: 1px solid var(--blue); -webkit-text-fill-color: var(--blue-ink); }
+.badge.demo { color: var(--pink-ink); background: #ffeaf5; border-color: var(--pink); -webkit-text-fill-color: var(--pink-ink); }
+main { max-width: 900px; margin: 0 auto; padding: 18px 16px 40px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat { background: #fff; border: 2px solid var(--pink); border-radius: 12px; padding: 8px 10px;
+  box-shadow: 0 0 0 1px #fff, 0 4px 14px rgba(255, 45, 149, .22); }
+.stat:nth-child(even) { border-color: var(--blue); box-shadow: 0 0 0 1px #fff, 0 4px 14px rgba(0, 194, 255, .28); }
+.stat b { display: block; font: 800 20px/1.2 var(--neon-font); overflow-wrap: anywhere; color: var(--pink-ink); }
+.stat:nth-child(even) b { color: var(--blue-ink); }
+.stat span { font-size: 12px; color: var(--muted); }
+.cost, .specials, .chat, .answer { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.cost { padding: 10px 12px; margin: 8px 0 12px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 14px;
+  border-left: 5px solid var(--blue); }
+.cost svg { flex: 0 0 auto; }
+.cost svg polyline { stroke: var(--pink); filter: drop-shadow(0 0 3px rgba(255, 45, 149, .6)); }
+.specials { padding: 10px 12px; margin-bottom: 14px; font-size: 14px; border-left: 5px solid var(--pink); background: #fff7fb; }
+.bytier { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.chat { padding: 12px; min-height: 120px; }
+.msg { margin: 8px 0; max-width: 85%; padding: 9px 12px; border-radius: 14px; }
+.me { margin-left: auto; color: #fff; border-bottom-right-radius: 4px; background: linear-gradient(135deg, #c4006b, #7a2cc4); }
+.bot { background: #eefaff; border: 1px solid #a8e6ff; border-bottom-left-radius: 4px; }
+.answer { padding: 14px; margin-bottom: 10px; }
+.answer .q { color: var(--pink-ink); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.meta { margin-top: 6px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.answer .meta { margin-top: 8px; font-size: 13px; }
+.tier { font-weight: 700; padding: 1px 9px; border-radius: 999px; border: 1px solid currentColor; }
+.t-cache { background: #e6f8ff; color: var(--blue-ink); } .t-30b { background: #f3ecff; color: #54259a; }
+.t-big { background: #ffeaf5; color: var(--pink-ink); } .warn { color: var(--amber); }
+form { display: flex; gap: 8px; margin-top: 10px; }
+.answer + form, #f { margin-top: 10px; }
+input { flex: 1; font: inherit; color: var(--ink); padding: 12px; background: #fff; border: 2px solid var(--blue); border-radius: 12px; }
+input::placeholder { color: #6b5f8c; }
+button { font: 800 15px var(--neon-font); letter-spacing: .06em; text-transform: uppercase; color: #fff; border: 0; border-radius: 12px; padding: 0 20px;
+  cursor: pointer; background: linear-gradient(135deg, #c4006b, #7a2cc4 70%, #00608a); box-shadow: 0 0 12px rgba(255, 45, 149, .5); }
+button:hover { box-shadow: 0 0 18px rgba(0, 194, 255, .8); }
+button:focus-visible, input:focus-visible, .chip:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 16px; }
+.chip { font: 600 14px system-ui, sans-serif; letter-spacing: 0; text-transform: none; color: var(--blue-ink); background: #fff;
+  border: 1px solid var(--blue); border-radius: 999px; padding: 6px 12px; box-shadow: none; }
+.chip:hover { background: #e6f8ff; box-shadow: 0 0 8px rgba(0, 194, 255, .6); }
+@media (max-width: 480px) { header::before { width: 150px; opacity: .55; } header { padding-right: 16px; } .msg { max-width: 95%; } }

@@ -153,11 +153,18 @@ def main(argv: list[str] | None = None) -> int:
     except AllTiersFailed as e:  # every tier failed or was unreachable: say so, no traceback, no made-up patch
         print(f"no tier answered: {e}", file=sys.stderr)
         return 2
-    print(report(r))
+    print(_vice(report(r), banner=True))
     if args.apply and r.answer["verified"]:
         coder.apply(r.changes)
         print("applied to " + ", ".join(r.changes))
     return 0 if r.answer["verified"] else 1
+
+
+def _vice(text: str, banner: bool = False) -> str:
+    from . import vice
+    if not vice.use_color():
+        return text
+    return (vice.banner() + "\n" if banner else "") + vice.paint(text)
 
 
 def _toml() -> dict:
