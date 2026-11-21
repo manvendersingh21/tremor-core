@@ -20,3 +20,5 @@ bench/datasets/suite.jsonl
 bench/.scratch/
 bench/datasets/cache_eval.jsonl
 bench/results_cache_eval.json
+chimera.toml
+apps/phantom-phone/hud-web/telemetry.jsonl
