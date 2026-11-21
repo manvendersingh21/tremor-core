@@ -78,10 +78,12 @@ DEMO_MODELS = {"gpu-small": demo_30b,
                                            "Please ask at the customer service desk."}
 
 
-def make_assistant(live: bool = False, catalog: Catalog | None = None) -> Assistant:
+def make_assistant(live: bool = False, catalog: Catalog | None = None, no_gpu: bool = False) -> Assistant:
     import tomllib
     catalog = catalog or Catalog()
     cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {})}
+    if no_gpu:
+        cfg["ladder"] = ["cloud-deepseek"]
     return Assistant(cfg, knowledge=catalog, verify=catalog.grounded, demo_models=DEMO_MODELS)
 
 
