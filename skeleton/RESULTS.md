@@ -8,6 +8,13 @@ One run of `skeleton/bench/run.py`, live and demo, on 2026-11-17. No repeats. Th
 | Help desk (submission app 2) | 200 support tickets | **86.0%** | 0 | 113 ms | $0.0014 / $0.0756 |
 | Store (bonus app) | 200 shopper questions | **86.0%** | 0 | 122 ms | $0.0031 / $0.0488 |
 
+Crusoe-only run (2026-11-20, `--no-gpu`, no A6000, Supabase + 763B only), 10+10 helpdesk / 5+5 coder (warm then repeat):
+
+| `--no-gpu` run | Warm questions | Warm hits | Repeat hits | Wrong cached | Tokens | $ spent | $ saved vs all-763B | Hit p50 | Miss p50 |
+|---|---|---|---|---|---|---|---|---|---|
+| Help desk | 10 | 0 (first asks) | **10/10 (100%)** | 0 | 10,648 | $0.00365 | $0.00376 | 102 ms | 966 ms |
+| Coder | 5 | 0 (first asks) | **5/5 (100%)** | 0 | 796 | $0.00081 | $0.00074 | 108 ms | 1,152 ms |
+
 - **Live:** the self-hosted 30B (`qwen3:30b-instruct`, Ollama on GPU 1 of our A6000 box, reached over a tunnel), the Crusoe 763B (`deepseek-ai/DeepSeek-V4.1-Flash`), the shared Supabase cache (all-MiniLM-L6-v2, cosine 0.97, guard on, normalized prompts). Both GPUs were idle when each run started, and our server was stopped right after each (GPU 1 back to 12 MiB).
 - **Demo:** stub models (`DEMO_MODELS` in each app), the same `PgVectorCache` code over an in-memory table, a word-bag embedder (`skeleton/core/demo.py`). It needs no key, and CI runs it.
 

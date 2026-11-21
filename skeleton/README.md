@@ -76,14 +76,18 @@ print(bot.stats())                 # questions, hit_rate, model_calls, climbs, t
 make setup                                          # once
 .venv/bin/python -m skeleton.apps.coder demo        # coder, offline: a climb, then cache hits
 .venv/bin/python -m skeleton.apps.coder class       # a class, offline: student 1 pays, students 2..5 hit the cache
+.venv/bin/python -m skeleton.apps.coder class --no-gpu  # Crusoe 763B only + Supabase; no GPU needed
 .venv/bin/python -m skeleton.apps.coder ask "Fix add() so add(2, 3) == 5" \
     --repo path/to/repo --file calc.py --test "python -m pytest -q" --live
 .venv/bin/python -m skeleton.apps.helpdesk          # help-desk chat, demo: http://127.0.0.1:8766
+.venv/bin/python -m skeleton.apps.helpdesk --no-gpu # Crusoe 763B only + Supabase; no GPU needed
 .venv/bin/python -m skeleton.apps.helpdesk --live   # A6000 30B, Crusoe 763B, Supabase cache
 .venv/bin/python -m skeleton.apps.store             # bonus: food-store helper, demo: http://127.0.0.1:8767
 .venv/bin/python skeleton/bench/run.py              # all three apps on the same skeleton
 .venv/bin/python -m pytest -q tests/test_skeleton_*.py
 ```
+
+`--no-gpu` uses `cloud-deepseek` (Crusoe 763B) only: cache → 763B. No self-hosted GPU. Needs `CRUSOE_API_KEY` and `CHIMERA_DB_URL` in `.env`.
 
 Live mode reads `CHIMERA_GPU_URL`, `CHIMERA_GPU_KEY`, `CRUSOE_API_KEY` and `CHIMERA_DB_URL` from `.env`. No key goes in a TOML.
 
