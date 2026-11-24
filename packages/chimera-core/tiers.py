@@ -337,6 +337,8 @@ class TierPool:
                 err = type(e).__name__
                 ev("call", {"tier": t.name, "model": t.model, "ok": False, "error": err, "ms": round(ms, 1),
                             "tokens_in": 0, "tokens_out": 0, "cached_tokens": 0})
+                code = f"http_{e.code}" if isinstance(e, urllib.error.HTTPError) and e.code in (429, 503) else "error"
+                ev("climb", {"tier": t.name, "reason": code, "error": err})  # own reason: reports count 429s apart
                 why, skipped = f"climb: {t.name} failed ({err})", []
                 continue
             ms = (time.perf_counter() - ta) * 1000
@@ -348,12 +350,14 @@ class TierPool:
             ev("call", {"tier": t.name, "model": t.model, "ok": True, "ms": round(ms, 1), "tokens_in": tin,
                         "tokens_out": tout, "cached_tokens": u.cached_tokens})
             if not (text or "").strip():  # never served: climb (the tier is up, so no health strike)
+                ev("climb", {"tier": t.name, "reason": "empty_answer"})  # thinking spent the tokens: never served
                 why, skipped = f"climb: {t.name} gave an empty answer", []
                 continue
             if conf is not None:
                 ev("draft", {"tier": t.name, "model": t.model, "confidence": round(conf, 4), "gate": self.min_confidence})
             if conf is not None and conf < self.min_confidence:
                 fallback = (text, t, conf)  # low confidence: climb (its tokens stay billed to this tier)
+                ev("climb", {"tier": t.name, "reason": "low_confidence"})
                 why, skipped = f"climb: {t.name} confidence {conf:.3f} < gate {self.min_confidence}", []
                 continue
             return self._result(text, t, attempts, usage, t0, conf)

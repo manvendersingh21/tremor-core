@@ -267,7 +267,7 @@ def test_same_family_rule():
 def test_example_config_loads():
     from chimera_core.config import ROOT, load_config
     names = [t.name for t in load_config(ROOT / "chimera.example.toml").tiers]
-    assert names == ["phone-3b", "mac-3b", "gpu-h200", "gpu-small", "gpu-large", "gpu-120b", "cloud-mid", "cloud-top", "cloud-deepseek",
+    assert names == ["phone-3b", "mac-3b", "gpu-h200", "gpu-small", "gpu-large", "gpu-120b", "crusoe-small", "crusoe-mid", "cloud-mid", "cloud-top", "cloud-deepseek",
                      "cloud-coder", "cloud-largest"]
 
 
@@ -275,6 +275,14 @@ def test_default_order_is_h200_if_warm_then_gpu_30b_then_763b():
     from chimera_core.config import ROOT, load_config
     order = [t.name for t in TierPool(load_config(ROOT / "chimera.example.toml").tiers).tiers]
     assert order == ["gpu-h200", "gpu-small", "gpu-120b", "cloud-deepseek"]  # gpu-120b: off while its URL is unset
+
+
+def test_crusoe_tiers_are_off_and_sort_by_price_when_enabled():
+    from chimera_core.config import ROOT, load_config
+    ts = {t.name: t for t in load_config(ROOT / "chimera.example.toml").tiers}
+    assert not ts["crusoe-small"].enabled and not ts["crusoe-mid"].enabled
+    cr = [ts[n].model_copy(update={"enabled": True}) for n in ("cloud-deepseek", "crusoe-mid", "cloud-top", "crusoe-small")]
+    assert [t.name for t in TierPool(cr, probe=lambda t: True).tiers] == ["crusoe-small", "cloud-top", "crusoe-mid", "cloud-deepseek"]
 
 
 def test_router_uses_pool_behind_flag(tmp_path):
@@ -335,3 +343,27 @@ def test_doctor_shows_an_unset_tier_as_off(monkeypatch, capsys):
                                                "url": "$CHIMERA_120B_URL", "api_key_env": "CHIMERA_120B_KEY"}])
     assert cli.doctor(cfg) == 0
     assert "gpu-120b off (CHIMERA_120B_URL not set" in capsys.readouterr().out
+
+
+def test_empty_answer_and_429_climb_with_their_own_reason(monkeypatch):
+    import io
+    import urllib.error
+
+    from chimera_core import ladder, tiers
+    monkeypatch.setattr(tiers, "_sleep", lambda s: None)
+    monkeypatch.setenv("CRUSOE_API_KEY", "test")
+    replies = iter(["thinking", 429, 429, 429])  # tier a: only reasoning, no content; tier b: 429 on every try
+
+    def post(self, path, body):
+        r = next(replies)
+        if r == 429:
+            raise urllib.error.HTTPError("u", 429, "busy", {}, io.BytesIO())
+        return {"choices": [{"message": {"content": "", "reasoning_content": "hmm"}}], "usage": {}}
+    monkeypatch.setattr(ladder.TopBackend, "_post", post)
+    tl = [TierCfg(name=n, device="cloud", backend="openai", url="http://x", model="m", max_complexity=1.0,
+                  cost_per_1k_out=c) for n, c in (("a", 0.1), ("b", 0.2))]
+    p = TierPool(tl, probe=lambda t: True)
+    events = []
+    with pytest.raises(AllTiersFailed):
+        p.generate("x", 0.1, on_event=lambda step, d: events.append((step, d)))
+    assert [(d["tier"], d["reason"]) for s, d in events if s == "climb"] == [("a", "empty_answer"), ("b", "http_429")]

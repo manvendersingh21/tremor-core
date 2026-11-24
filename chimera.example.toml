@@ -136,6 +136,43 @@ api_key_env = "CHIMERA_120B_KEY"   # NAME of the env var with the vLLM bearer to
 template_kwargs = { reasoning_effort = "low" }
 teacher = true               # its checked answers are stored as N+1 memory
 
+# ---- Crusoe tiers by role. All off: the product ladder stays cache -> gpu-small -> cloud-deepseek. ----
+# Pool order is cost_per_1k_in + cost_per_1k_out, so with all enabled: crusoe-small 0.00025, cloud-top
+# 0.00030, crusoe-mid 0.00050, cloud-deepseek 0.00149. Prices: https://www.crusoe.ai/cloud/pricing (read
+# 2026-11-24), dollars per 1M tokens in/out. Each model got one non-empty call (bench/crusoe_probe.py).
+# Left out: Qwen3.8-27B (cloud-mid below, $0.25/$2.00 costs more than the 763B), GLM-5.3 ($1.40/$4.40),
+# Nemotron-3-Nano-Omni ($0.30/$1.83), GLM-5.3-Flash ($0.15/$0.50: empty content, it spends 400 tokens thinking),
+# gemma-4-31b-it ($0.14/$0.40: works, no room between crusoe-mid and the 763B that it improves on).
+
+[[tiers]]
+name = "crusoe-small"        # Nemotron 3.5 Lightning 30B A3B, $0.05 / $0.20 per 1M
+device = "cloud"
+backend = "openai"
+url = "https://api.inference.crusoecloud.com"
+model = "nvidia/Nemotron-3.5-Lightning-30B-A3B"
+family = "nemotron"
+max_complexity = 0.45
+cost_per_1k_in = 0.00005
+cost_per_1k_out = 0.0002
+timeout_s = 90
+template_kwargs = { enable_thinking = false }
+logprobs = true              # probe: logprobs come back (bench/.scratch/crusoe_tiers/probe.jsonl)
+enabled = false              # off: the product ladder does not use it
+
+[[tiers]]
+name = "crusoe-mid"          # Nemotron 3.5 Super VL 120B A12B, $0.10 / $0.40 per 1M
+device = "cloud"
+backend = "openai"
+url = "https://api.inference.crusoecloud.com"
+model = "nvidia/NVIDIA-Nemotron-3.5-Super-VL"
+family = "nemotron"
+max_complexity = 0.85
+cost_per_1k_in = 0.0001
+cost_per_1k_out = 0.0004
+timeout_s = 120
+template_kwargs = { enable_thinking = false }
+enabled = false              # off: the product ladder does not use it
+
 [[tiers]]
 name = "cloud-mid"
 device = "cloud"
@@ -148,10 +185,10 @@ cost_per_1k_in = 0.00025
 cost_per_1k_out = 0.002
 timeout_s = 120
 template_kwargs = { enable_thinking = false }
-enabled = false              # experiment: not in the product ladder
+enabled = false              # experiment: costs more than the 763B ($0.25/$2.00), so it would sort after it
 
 [[tiers]]
-name = "cloud-top"           # largest model on the account (checked with /v1/models)
+name = "cloud-top"           # name kept for old configs: gpt-oss-120b $0.05/$0.25 sorts 2nd, not last
 device = "cloud"
 backend = "openai"
 url = "https://api.inference.crusoecloud.com"
