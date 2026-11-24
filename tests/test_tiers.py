@@ -366,4 +366,4 @@ def test_empty_answer_and_429_climb_with_their_own_reason(monkeypatch):
     events = []
     with pytest.raises(AllTiersFailed):
         p.generate("x", 0.1, on_event=lambda step, d: events.append((step, d)))
-    assert [(d["tier"], d["reason"]) for s, d in events if s == "climb"] == [("a", "empty_answer"), ("b", "http_429")]
+    assert [(d["tier"], d["climb_reason"]) for s, d in events if s == "call" and "climb_reason" in d] == [("a", "empty_answer"), ("b", "http_429")]
