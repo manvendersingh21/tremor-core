@@ -36,6 +36,31 @@ def norm(text: str) -> str:
     return t
 
 
+# Small talk with a short tail ("thanks, that helped!", "great, that worked, bye"): every word is a social word.
+# A message with any other word ("hi, my order arrived broken") is a real question and goes on.
+_THANKS = {"thanks", "thank", "thx", "cheers", "appreciate", "appreciated", "helped", "worked", "works", "solved",
+           "fixed", "sorted", "perfect", "great", "awesome", "brilliant", "excellent", "wonderful", "lovely", "super", "nice"}
+_BYE = {"bye", "goodbye", "later", "cya", "ciao"}
+_HELLO = {"hello", "hi", "hey", "hiya", "morning", "afternoon", "evening"}
+_GLUE = {"that", "it", "this", "you", "your", "youre", "for", "the", "help", "all", "again", "team", "there", "guys",
+         "everyone", "now", "so", "much", "very", "a", "lot", "bunch", "really", "good", "best", "ok", "okay", "got", "i",
+         "will", "be", "back", "no", "more", "questions", "see", "have", "day", "take", "care", "was", "is", "thats",
+         "what", "needed", "exactly", "and", "to", "of", "in", "one", "quick", "answer", "answers", "support", "assistance"}
+_SOCIAL = _THANKS | _BYE | _HELLO | _GLUE
+
+
+def _social(t: str) -> str | None:
+    """The small-talk reply when `t` (normalised) is only social words, at most 8, else None."""
+    toks = t.replace("'", "").split()
+    if not 0 < len(toks) <= 8 or not set(toks) <= _SOCIAL or "what" in toks[:1] or "i" in toks[:1]:
+        return None
+    key = set(toks)
+    for words, reply in ((_THANKS, SMALL_TALK[1][1]), (_BYE, SMALL_TALK[2][1]), (_HELLO, SMALL_TALK[0][1])):
+        if key & words:
+            return reply
+    return None
+
+
 class Rules:
     def __init__(self, table: list[tuple[re.Pattern, Callable[[], str] | str]]) -> None:
         self.table = table
@@ -73,7 +98,7 @@ class Rules:
         for pat, ans in self.table:
             if pat.match(t):
                 return ans() if callable(ans) else ans
-        return None
+        return _social(t)
 
 
 class RulesFirst:

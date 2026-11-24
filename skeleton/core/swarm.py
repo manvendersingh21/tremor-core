@@ -24,6 +24,14 @@ SWARM_LADDER = ["crusoe-small", "cloud-top", "cloud-deepseek"]  # Nemotron Light
 Free = tuple[str, Callable[[str], "str | None"]]
 
 
+def real_embedder(bot, given=None):
+    """The embedder for meaning-based matching: the one given (tests), else the router's when it is a real model.
+    Demo mode's word-bag HashEmbedder knows no synonyms, so it is not used: the word-overlap path decides."""
+    from .demo import HashEmbedder
+    emb = given or getattr(getattr(bot, "router", None), "embedder", None)
+    return None if emb is None or isinstance(emb, HashEmbedder) else emb
+
+
 class Swarm:
     def __init__(self, bot, free: list[Free] | None = None, check: Callable[[str, str], bool] | None = None,
                  fallback: str | None = None) -> None:

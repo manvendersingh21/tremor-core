@@ -13,7 +13,7 @@ import re
 
 from skeleton.core import Assistant
 from skeleton.core.demo import words
-from skeleton.core.kblookup import KBLookup, backed
+from skeleton.core.kblookup import KBLookup, Semantic, backed
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG, KB, QUESTIONS = HERE / "helpdesk.toml", HERE / "kb.json", HERE / "questions.json"
@@ -32,6 +32,22 @@ class KnowledgeBase:
         self.version = hashlib.sha256(raw.encode()).hexdigest()[:12]
         self.text = "\n".join(self.lines())
         self.numbers = set(NUM.findall(self.text))
+        self.embedder, self._sem = None, None
+
+    def attach(self, embedder) -> "KnowledgeBase":
+        """Use meaning as well as shared words (the cache's embedder). None: word overlap only."""
+        self.embedder, self._sem = embedder, None
+        return self
+
+    def semantic(self) -> "Semantic | None":
+        if self.embedder is None:
+            return None
+        if self._sem is None:
+            d = self.data
+            ents = [(f"Hours, {k}: {v}.",) * 2 for k, v in d["hours"].items()] + [(c, c) for c in d["contact"]]
+            ents += [(e["q"], f"{e['q']} {e['a']}") for e in d["faq"]] + [(f"Policy. {p}",) * 2 for p in d["policies"]]
+            self._sem = Semantic(self.embedder, [k for k, _ in ents], [t for _, t in ents])
+        return self._sem
 
     def lines(self) -> list[str]:
         d = self.data
@@ -55,11 +71,17 @@ class KnowledgeBase:
         """The swarm's check: grounded (numbers) AND backed by the entries that match the question (word overlap, no
         model). An answer with no numbers that talks about another entry fails. shortcut: overlap knows no synonyms;
         a good paraphrase of the right entry can fail at 0.6 and climbs, the cost is a call, never a wrong answer."""
-        return self.grounded(answer) and backed(self.lines(), question, answer)
+        if not self.grounded(answer):
+            return False
+        sem = self.semantic()
+        return backed(self.lines(), question, answer) or bool(sem and sem.backed(question, answer))
 
     def lookup(self) -> KBLookup:
         """$0 FAQ lookup: answers straight from an entry when the question and the entry's question match strongly."""
-        return KBLookup([(e["q"], e["a"]) for e in self.data["faq"]])
+        from chimera_core.cache.guard import consistent  # numbers, negation, names must agree with the entry's question
+        faq = [(e["q"], e["a"]) for e in self.data["faq"]]
+        sem = Semantic(self.embedder, [q for q, _ in faq]) if self.embedder is not None else None
+        return KBLookup(faq, semantic=sem, guard=consistent)
 
 
 FALLBACK = "I don't know. A support agent will reply by email."
@@ -97,7 +119,7 @@ SWARM_DEMO_MODELS = {"crusoe-small": DEMO_MODELS["gpu-small"], "cloud-top": lamb
 
 
 def make_assistant(live: bool = False, kb: KnowledgeBase | None = None, no_gpu: bool = False,
-                   rules: bool = False, swarm: bool = False, namespace: str | None = None):
+                   rules: bool = False, swarm: bool = False, namespace: str | None = None, embedder=None):
     """swarm=True: rules and KB lookup at $0, then the cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU)."""
     import tomllib
     kb = kb or KnowledgeBase()
@@ -107,8 +129,9 @@ def make_assistant(live: bool = False, kb: KnowledgeBase | None = None, no_gpu: 
         cfg["ladder"] = ["cloud-deepseek"]
     if swarm:
         from skeleton.core.rules import Rules
-        from skeleton.core.swarm import SWARM_LADDER, Swarm
+        from skeleton.core.swarm import SWARM_LADDER, Swarm, real_embedder
         bot = Assistant({**cfg, "ladder": SWARM_LADDER}, knowledge=kb, verify=kb.grounded, demo_models=SWARM_DEMO_MODELS)
+        kb.attach(real_embedder(bot, embedder))  # live: all-MiniLM-L6-v2 from the cache; demo/CI: word overlap
         return Swarm(bot, free=[("rules", Rules.for_faq(kb.data).match), ("kb_lookup", kb.lookup().match)],
                      check=kb.checked, fallback=FALLBACK)
     bot = Assistant(cfg, knowledge=kb, verify=kb.grounded, demo_models=DEMO_MODELS)
