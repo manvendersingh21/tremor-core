@@ -13,6 +13,7 @@ import re
 
 from skeleton.core import Assistant
 from skeleton.core.demo import words
+from skeleton.core.kblookup import KBLookup, backed
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG, KB, QUESTIONS = HERE / "helpdesk.toml", HERE / "kb.json", HERE / "questions.json"
@@ -50,6 +51,20 @@ class KnowledgeBase:
         return all(n in self.numbers for n in NUM.findall(re.sub(r"(?m)^\s*\d+[.)]\s+", "", answer)))
 
 
+    def checked(self, question: str, answer: str) -> bool:
+        """The swarm's check: grounded (numbers) AND backed by the entries that match the question (word overlap, no
+        model). An answer with no numbers that talks about another entry fails. shortcut: overlap knows no synonyms;
+        a good paraphrase of the right entry can fail at 0.6 and climbs, the cost is a call, never a wrong answer."""
+        return self.grounded(answer) and backed(self.lines(), question, answer)
+
+    def lookup(self) -> KBLookup:
+        """$0 FAQ lookup: answers straight from an entry when the question and the entry's question match strongly."""
+        return KBLookup([(e["q"], e["a"]) for e in self.data["faq"]])
+
+
+FALLBACK = "I don't know. A support agent will reply by email."
+
+
 def _match(prompt: str, need: float) -> str:
     """Demo model: the knowledge-base line that covers at least `need` of the ticket's words, else ""."""
     kb, _, q = prompt.rpartition("Question:")
@@ -77,13 +92,25 @@ DEMO_MODELS = {"gpu-small": lambda p: _match(p, 0.6),  # the 30B stand-in: a clo
                "cloud-deepseek": lambda p: _match(p, 0.4) or "I don't know: a support agent will reply by email."}
 
 
+SWARM_DEMO_MODELS = {"crusoe-small": DEMO_MODELS["gpu-small"], "cloud-top": lambda p: _match(p, 0.5),
+                     "cloud-deepseek": DEMO_MODELS["cloud-deepseek"]}
+
+
 def make_assistant(live: bool = False, kb: KnowledgeBase | None = None, no_gpu: bool = False,
-                   rules: bool = False) -> Assistant:
+                   rules: bool = False, swarm: bool = False, namespace: str | None = None):
+    """swarm=True: rules and KB lookup at $0, then the cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU)."""
     import tomllib
     kb = kb or KnowledgeBase()
-    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {})}
+    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {}),
+           **({"namespace": namespace} if namespace else {})}
     if no_gpu:
         cfg["ladder"] = ["cloud-deepseek"]
+    if swarm:
+        from skeleton.core.rules import Rules
+        from skeleton.core.swarm import SWARM_LADDER, Swarm
+        bot = Assistant({**cfg, "ladder": SWARM_LADDER}, knowledge=kb, verify=kb.grounded, demo_models=SWARM_DEMO_MODELS)
+        return Swarm(bot, free=[("rules", Rules.for_faq(kb.data).match), ("kb_lookup", kb.lookup().match)],
+                     check=kb.checked, fallback=FALLBACK)
     bot = Assistant(cfg, knowledge=kb, verify=kb.grounded, demo_models=DEMO_MODELS)
     if rules:  # regex fast path before the cache (skeleton/core/rules.py); off by default
         from skeleton.core.rules import Rules, RulesFirst

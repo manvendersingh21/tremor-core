@@ -14,6 +14,7 @@ import re
 
 from skeleton.core import Assistant
 from skeleton.core.demo import words
+from skeleton.core.kblookup import QWORDS, KBLookup, backed
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG, FOODS, QUESTIONS = HERE / "store.toml", HERE / "foods.json", HERE / "questions.json"
@@ -55,6 +56,20 @@ class Catalog:
         return all(p in self.prices for p in prices) and all(a in self.data["aisles"] for a in aisles)
 
 
+    def checked(self, question: str, answer: str) -> bool:
+        """The swarm's check: grounded (prices, aisles) AND backed by the guide lines that match the question."""
+        return self.grounded(answer) and backed(self.lines(), question, answer)
+
+    def lookup(self) -> KBLookup:
+        """$0 item lookup: "where are the eggs" -> that item's guide line, when exactly one item name fits the question."""
+        d = self.data
+        return KBLookup([(i["name"], f"{i['name']}: aisle {i['aisle']}, ${i['price']}.") for i in d["items"]],
+                        drop=QWORDS | {"aisle", "price", "cost", "buy", "item"}, q_cov=1.0, k_cov=0.5, margin=0.3)
+
+
+FALLBACK = "I don't know. Please ask at the customer service desk."
+
+
 def demo_30b(prompt: str) -> str:
     """Demo stand-in for the 30B: the guide lines that cover at least half of the question's words, else ""."""
     guide, _, q = prompt.rpartition("Question:")
@@ -78,12 +93,23 @@ DEMO_MODELS = {"gpu-small": demo_30b,
                                            "Please ask at the customer service desk."}
 
 
-def make_assistant(live: bool = False, catalog: Catalog | None = None, no_gpu: bool = False) -> Assistant:
+SWARM_DEMO_MODELS = {"crusoe-small": demo_30b, "cloud-top": demo_30b, "cloud-deepseek": DEMO_MODELS["cloud-deepseek"]}
+
+
+def make_assistant(live: bool = False, catalog: Catalog | None = None, no_gpu: bool = False, swarm: bool = False,
+                   namespace: str | None = None):
+    """swarm=True: item lookup at $0, then the cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU)."""
     import tomllib
     catalog = catalog or Catalog()
-    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {})}
+    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {}),
+           **({"namespace": namespace} if namespace else {})}
     if no_gpu:
         cfg["ladder"] = ["cloud-deepseek"]
+    if swarm:
+        from skeleton.core.swarm import SWARM_LADDER, Swarm
+        bot = Assistant({**cfg, "ladder": SWARM_LADDER}, knowledge=catalog, verify=catalog.grounded,
+                        demo_models=SWARM_DEMO_MODELS)
+        return Swarm(bot, free=[("kb_lookup", catalog.lookup().match)], check=catalog.checked, fallback=FALLBACK)
     return Assistant(cfg, knowledge=catalog, verify=catalog.grounded, demo_models=DEMO_MODELS)
 
 
