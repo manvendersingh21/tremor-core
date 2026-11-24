@@ -179,12 +179,24 @@ class Semantic:
         out = [i for s, i in sims[:k] if sims[0][0] - s < q_margin]
         return out + [m for i in out for m in self.members.get(i, []) if m not in out]
 
+    def nearest(self, text: str, k: int = 2) -> list[int]:
+        """The k entries whose full text is closest to `text` (the answer's likely sources)."""
+        try:
+            vs = self._vecs()[1]
+            a = _unit(self.embedder.embed(text))
+        except Exception as e:  # noqa: BLE001
+            raise Unavailable from e
+        return [i for _, i in sorted(((sum(x * y for x, y in zip(a, v)), i) for i, v in enumerate(vs)), reverse=True)[:k]]
+
     def backed_loose(self, question: str, answer: str, a_sim: float = 0.50) -> bool:
         """The answer's closest entry is one the question may be about, and its numbers and weekdays are in them."""
         try:
             qc = self.candidates(question)
             if not qc:
                 return False
+            # an entry that states the same facts as a candidate is a source too ("5 to 7 days" in a policy and an FAQ)
+            qc = qc + [i for i in range(len(self.texts)) if i not in qc and any(agree(self._facts[i], self._facts[c])
+                                                                                  for c in qc)]
             vs = self._vecs()[1]
             a = _unit(self.embedder.embed(answer))
         except Exception:  # noqa: BLE001
@@ -233,8 +245,9 @@ def swarm_check(lines: list[str], sem: "Semantic | None", judge, question: str, 
         return strict or backed(lines, question, answer)
     if not (strict or backed(lines, question, answer) or sem.backed_loose(question, answer)):
         return False
-    return judge.agrees(question, [sem.texts[i] for i in sem.candidates(question)] or matched_lines(lines, question),
-                        answer)
+    # the judge reads the entries the question may be about AND the entries the answer is closest to (its sources)
+    ids = list(dict.fromkeys(sem.candidates(question) + sem.nearest(answer)))
+    return judge.agrees(question, [sem.texts[i] for i in ids] or matched_lines(lines, question), answer)
 
 
 def swarm_covered(sem: "Semantic | None", judge, question: str) -> bool:
