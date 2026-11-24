@@ -43,7 +43,23 @@ class Catalog:
         if self.embedder is None:
             return None
         if self._sem is None:
-            self._sem = Semantic(self.embedder, self.lines())
+            d = self.data
+            lines = self.lines()
+            keys = list(lines)
+            for n, it in enumerate(d["items"]):  # an item line is asked for by its name: "vegan options" is not an item
+                at = lines.index(next(x for x in lines if x.startswith(it["name"] + ":")))
+                keys[at] = it["name"]
+            members = {}
+            hours = [i for i, x in enumerate(lines) if " hours: " in x]
+            lines.append("Opening hours. " + " ".join(f"{k.title()} hours: {v}." for k, v in d["hours"].items()))
+            keys.append("What are your opening hours? When do you close? What time are you open?")
+            members[len(lines) - 1] = hours
+            for tag in sorted({t for i in d["items"] for t in i.get("tags", [])}):
+                tagged = [i for i in d["items"] if tag in i.get("tags", [])]
+                lines.append(f"{tag.title()} items: " + "; ".join(f"{i['name']} aisle {i['aisle']}, ${i['price']}" for i in tagged) + ".")
+                keys.append(f"Do you have {tag} options, {tag} food or {tag} items?")
+                members[len(lines) - 1] = [next(k for k, x in enumerate(lines) if x.startswith(i["name"] + ":")) for i in tagged]
+            self._sem = Semantic(self.embedder, keys, lines, members)
         return self._sem
 
     def lines(self) -> list[str]:

@@ -219,3 +219,55 @@ def test_store_lookup_never_serves_an_item_that_is_on_special_today():
     assert tuesday.lookup().match("How much is the salmon?") is None  # the regular price would be wrong today
     wednesday = store.Catalog(today=dt.date(2026, 11, 25))
     assert wednesday.lookup().match("How much is the salmon?") == "Salmon fillet: aisle 4, $7.49."
+
+
+# ---- near-duplicate entries: the margin looks at the facts, not at the cosine ----------------------------------------
+class BagEmbedder:
+    """One dimension per word (hash), so entries about the same thing score almost the same."""
+
+    def embed(self, text):
+        import re
+        v = [0.0] * 97
+        for w in re.findall(r"[a-z]+", text.lower()):
+            v[sum(map(ord, w)) % 97] += 1.0
+        return v
+
+
+def _sem(entries, members=None):
+    from skeleton.core.kblookup import Semantic
+    return Semantic(BagEmbedder(), [k for k, _ in entries], [t for _, t in entries], members)
+
+
+def test_near_duplicates_that_agree_on_the_facts_are_not_ambiguous():
+    s = _sem([("where is the rice", "Aisle 5: rice and grains."), ("where is the rice", "Basmati rice: aisle 5, $2.89.")])
+    assert s.backed("where is the rice", "Basmati rice is in aisle 5, $2.89.")  # either line backs it
+    assert s.backed("where is the rice", "Rice and grains are in aisle 5.")
+    assert not s.backed("where is the rice", "Rice is in aisle 4.")  # a fact no entry states
+
+
+def test_near_duplicates_with_different_prices_or_aisles_are_refused():
+    s = _sem([("where is the milk", "Oat milk: aisle 3, $3.49."), ("where is the milk", "Almond milk: aisle 3, $3.29.")])
+    assert not s.backed("where is the milk", "Oat milk: aisle 3, $3.49.")  # two prices: which milk?
+    s = _sem([("where is the milk", "Oat milk: aisle 3, $3.49."), ("where is the milk", "Whole milk: aisle 8, $3.49.")])
+    assert not s.backed("where is the milk", "Oat milk: aisle 3, $3.49.")  # two aisles
+    s = _sem([("how do i cancel", "Cancel your order in Orders."), ("how do i cancel", "Cancel your plan in Account.")])
+    assert not s.backed("how do i cancel", "Cancel your order in Orders.")  # no facts at all: cannot tell they agree
+
+
+def test_a_combined_entry_backs_answers_from_its_parts_and_nothing_else():
+    s = _sem([("hours chat", "Hours, chat: 8:00 to 20:00 Monday to Friday, closed Sunday."),
+              ("hours phone", "Hours, phone: 9:00 to 17:00 Monday to Friday."),
+              ("what are your hours open sunday", "Support hours. 8:00 to 20:00 Monday to Friday, closed Sunday. 9:00 to 17:00 Monday to Friday."),
+              ("refund", "Refunds take 5 to 7 days.")], members={2: [0, 1]})
+    assert s.backed("what are your hours open sunday", "Chat is closed on Sunday; phone is 9:00 to 17:00 Monday to Friday.")
+    assert not s.backed("what are your hours open sunday", "Chat is open 8:00 to 22:00.")  # 22:00 is not in the hours
+    assert not s.backed("what are your hours open sunday", "Refunds take 5 to 7 days.")  # an answer from another entry
+
+
+def test_help_desk_and_store_have_hours_policy_and_diet_entries_built_from_the_data():
+    kb = helpdesk.KnowledgeBase().attach(BagEmbedder())
+    assert any(t.startswith("Support hours.") for t in kb.semantic().texts)
+    assert any(t.startswith("Policies.") for t in kb.semantic().texts)
+    c = store.Catalog().attach(BagEmbedder())
+    texts = c.semantic().texts
+    assert any(t.startswith("Opening hours.") for t in texts) and any(t.startswith("Vegan items:") for t in texts)

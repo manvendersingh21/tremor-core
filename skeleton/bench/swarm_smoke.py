@@ -2,7 +2,7 @@
 
     .venv/bin/python skeleton/bench/swarm_smoke.py run [helpdesk|store|coder]   # rows -> bench/.scratch/swarm_a/<app>.jsonl
     .venv/bin/python skeleton/bench/swarm_smoke.py judge                        # grade help-desk and store rows (gemma-4-31b)
-    .venv/bin/python skeleton/bench/swarm_smoke.py report                       # run 1 (run1_*.jsonl) and run 2 side by side
+    .venv/bin/python skeleton/bench/swarm_smoke.py report                       # runs 1, 2 (run1_*, run2_*) and 3 (<app>.jsonl) side by side
 
 Fresh cache namespace per run id (in run_id). Resumable: a row id already in the file is skipped. The key comes from
 .env through chimera_core's loader and is never printed. The judge is not a ladder model.
@@ -142,7 +142,8 @@ def report() -> str:
     lines = ["| App | Run | Asks | Right | Wrong | Miss | Free ($0, no model) | Cache hits ($0) | 763B calls | $ per 1,000 asks | Climb reasons |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
     for app in ("helpdesk", "store", "coder"):
-        for name, f in (("1 (words only)", f"run1_{app}.jsonl"), ("2 (meaning + words)", f"{app}.jsonl")):
+        for name, f in (("1 (words only)", f"run1_{app}.jsonl"), ("2 (meaning + words)", f"run2_{app}.jsonl"),
+                        ("3 (meaning + facts)", f"{app}.jsonl")):
             rows = vp._rows(SCRATCH / f)
             if rows:
                 lines.append(_line(name, rows, app))

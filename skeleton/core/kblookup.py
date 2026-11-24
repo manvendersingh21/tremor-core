@@ -12,6 +12,8 @@ falls through to the cache and the models. Upgrade to embeddings when the knowle
 """
 from __future__ import annotations
 
+import re
+
 from skeleton.core.demo import words
 
 QWORDS = frozenset({"where", "when", "what", "how", "much", "which", "who", "why", "long"})
@@ -87,6 +89,22 @@ def _unit(v: list[float]) -> list[float]:
     return [x / n for x in v]
 
 
+_NUM = re.compile(r"\d[\d,.:\-]*\d|\d")
+_DAY = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b", re.I)
+
+
+def facts(text: str) -> dict[str, frozenset[str]]:
+    """The checkable facts in a text: every number (prices, aisles, hours, durations, phone numbers) and weekday."""
+    return {"num": frozenset(_NUM.findall(text)), "day": frozenset(d.lower() for d in _DAY.findall(text))}
+
+
+def agree(a: dict, b: dict) -> bool:
+    """Two entries agree when they share at least one kind of fact and, for each shared kind, one fact set holds the
+    other. Entries with no facts at all, or with different prices, aisles or hours, do not agree."""
+    shared = [k for k in a if a[k] and b[k]]
+    return bool(shared) and all(a[k] <= b[k] or b[k] <= a[k] for k in shared)
+
+
 class Unavailable(Exception):
     """The embedder failed (model not installed): meaning cannot decide."""
 
@@ -96,12 +114,20 @@ class Semantic:
 
     `embedder.embed(text) -> list[float]` is the cache's embedder. Entry vectors are built on the first use. An
     embedder error (model not installed) means "no match" for lookup and None for backed(), so word overlap decides.
-    Measured on the demo help-desk KB with all-MiniLM-L6-v2 (see skeleton/RESULTS.md): wrong-entry answers are never
-    accepted, because an answer must be closest to the same entry as the question, not just similar to it.
+    The margin protects against two entries that could be meant. A runner-up inside the margin is not a problem when its
+    facts agree with the best entry's (same aisle, same hours, a price list that contains the other): then both are
+    the cluster the answer may come from. A runner-up that disagrees on a price, aisle, hours or days, or states no
+    facts at all, still means "not sure": no match. Agreement is decided from the facts, never from the cosine.
+    An answer is backed when it is closest to an entry of the question's cluster and every number and weekday in it
+    appears in that cluster.
     """
 
-    def __init__(self, embedder, keys: list[str], texts: list[str] | None = None) -> None:
-        self.embedder, self.keys, self.texts = embedder, keys, texts or keys
+    def __init__(self, embedder, keys: list[str], texts: list[str] | None = None,
+                 members: dict[int, list[int]] | None = None) -> None:
+        """members: entry index -> entries it is made of (an "all hours" entry holds each hours line). When the
+        question's cluster contains the whole entry, an answer from one of its parts is backed too."""
+        self.embedder, self.keys, self.texts, self.members = embedder, keys, texts or keys, members or {}
+        self._facts = [facts(t) for t in self.texts]
         self._kv: list[list[float]] | None = None
         self._tv: list[list[float]] | None = None
 
@@ -111,7 +137,8 @@ class Semantic:
             self._tv = [_unit(self.embedder.embed(t)) for t in self.texts]
         return self._kv, self._tv
 
-    def _best(self, text: str, which: int, min_sim: float, min_margin: float) -> int | None:
+    def _cluster(self, text: str, which: int, min_sim: float, min_margin: float) -> list[int]:
+        """[best, agreeing runners-up within the margin], or [] when unsure."""
         try:
             vs = self._vecs()[which]
             q = _unit(self.embedder.embed(text))
@@ -119,23 +146,38 @@ class Semantic:
             raise Unavailable from e
         sims = sorted(((sum(a * b for a, b in zip(q, v)), i) for i, v in enumerate(vs)), reverse=True)
         if not sims or sims[0][0] < min_sim:
-            return None
-        if len(sims) > 1 and sims[0][0] - sims[1][0] < min_margin:
-            return None
-        return sims[0][1]
+            return []
+        best = sims[0][1]
+        out = [best]
+        for sim, i in sims[1:]:
+            if sims[0][0] - sim >= min_margin:
+                break
+            if not agree(self._facts[best], self._facts[i]):
+                return []
+            out.append(i)
+        return out
 
     def entry_for_question(self, question: str, min_sim: float, min_margin: float) -> int | None:
+        """One entry only (an answer served straight): any entry inside the margin refuses, agreeing or not."""
         try:
-            return self._best(question, 0, min_sim, min_margin)
+            c = self._cluster(question, 0, min_sim, min_margin)
         except Unavailable:
             return None
+        return c[0] if len(c) == 1 else None
 
     def backed(self, question: str, answer: str, *, q_sim: float = 0.40, q_margin: float = 0.15,
                a_sim: float = 0.50, a_margin: float = 0.05) -> bool | None:
-        """The question picks one entry clearly, and the answer is closest to that same entry.
-        None when the embedder is unavailable: the caller uses word overlap."""
+        """The question picks a cluster of agreeing entries, the answer is closest to one of them, and its numbers and
+        weekdays are all in the cluster. None when the embedder is unavailable: the caller uses word overlap."""
         try:
-            qi = self._best(question, 0, q_sim, q_margin)
-            return qi is not None and self._best(answer, 1, a_sim, a_margin) == qi
+            qc = self._cluster(question, 0, q_sim, q_margin)
+            ac = self._cluster(answer, 1, a_sim, a_margin) if qc else []
         except Unavailable:
             return None
+        if qc:
+            qc = qc + [m for i in qc for m in self.members.get(i, [])]
+        if not qc or not ac or ac[0] not in qc:
+            return False
+        have = {k: frozenset().union(*(self._facts[i][k] for i in qc)) for k in ("num", "day")}
+        mine = facts(answer)
+        return all(mine[k] <= have[k] for k in have)

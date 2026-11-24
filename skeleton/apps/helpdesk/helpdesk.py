@@ -46,7 +46,16 @@ class KnowledgeBase:
             d = self.data
             ents = [(f"Hours, {k}: {v}.",) * 2 for k, v in d["hours"].items()] + [(c, c) for c in d["contact"]]
             ents += [(e["q"], f"{e['q']} {e['a']}") for e in d["faq"]] + [(f"Policy. {p}",) * 2 for p in d["policies"]]
-            self._sem = Semantic(self.embedder, [k for k, _ in ents], [t for _, t in ents])
+            # structured facts as whole entries, built from the data: all hours together, all policies together
+            hours = "Support hours. " + " ".join(f"Hours, {k}: {v}." for k, v in d["hours"].items())
+            ents += [("What are your hours? Are you open on a weekday, Saturday or Sunday?", hours),
+                     ("What are your policies? Returns, refunds, subscriptions, privacy.", "Policies. " + " ".join(d["policies"]))]
+            texts = [t for _, t in ents]
+            n_hours, n_pol = len(d["hours"]), len(d["policies"])
+            hours_at = list(range(n_hours))  # the hours lines come first
+            pol_at = [texts.index(f"Policy. {p}") for p in d["policies"]]
+            self._sem = Semantic(self.embedder, [k for k, _ in ents], texts,
+                                 members={texts.index(hours): hours_at, len(texts) - 1: pol_at})
         return self._sem
 
     def lines(self) -> list[str]:
