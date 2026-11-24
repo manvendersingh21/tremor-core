@@ -307,6 +307,61 @@ def test_near_miss_is_refused_by_the_check_even_when_words_and_meaning_match():
     assert kb.checked("How do I reset my password?", PASSWORD)
 
 
+# ---- joined-entry class: an answer that combines facts from two separate entries must be refused -----------------
+def test_joined_entry_claim_is_refused_even_when_the_judge_says_yes():
+    """The code must refuse a joined-entry answer before the judge runs. A judge-YES on two separate entries is not
+    enough: each entry must cover ALL the answer's facts on its own. The FakeJudge below always says YES."""
+    class YesJudge:
+        def agrees(self, q, entries, a): return True
+        def covers(self, q, entries): return True
+        bot = None  # no cost tracking
+
+    s = _sem([
+        ("express shipping speed cost",    "Express shipping: 2-3 days, $12.99."),
+        ("canada shipping destination",    "We ship to US and Canada, standard 7-10 days."),
+        ("standard shipping cost price",   "Standard shipping: $4.99."),
+    ])
+    # entry A: has price $12.99, entry B: has duration 7-10 days; neither has both
+    joined_answer = "Express shipping to Canada costs $12.99 and takes 7-10 days."
+    assert not s.backed("express shipping canada destination", joined_answer), (
+        "joined-entry answer must be refused: no single entry states both $12.99 and 7-10 days")
+
+    # an answer from one entry only is backed
+    single_entry = "Express shipping takes 2-3 days and costs $12.99."
+    assert s.backed("express shipping speed cost", single_entry), (
+        "single-entry answer must be backed")
+
+    # backed_loose also refuses a joined claim, even with a YesJudge
+    # entries A and B are both candidates for the joined question; backed_loose uses candidates() not _cluster()
+    from skeleton.core.kblookup import swarm_check
+    lines = ["Express shipping: 2-3 days, $12.99.", "We ship to US and Canada, standard 7-10 days.", "Standard shipping: $4.99."]
+    assert not swarm_check(lines, s, YesJudge(), "express shipping canada destination", joined_answer), (
+        "swarm_check must refuse joined claim even when the judge says YES")
+    assert swarm_check(lines, s, YesJudge(), "express shipping speed cost", single_entry), (
+        "swarm_check must pass a single-entry answer")
+
+
+def test_other_joined_pairs_are_refused():
+    """Additional joined pairs: payment x refund, hours x day.
+    Cases where entries disagree on facts are refused (at the cluster or single-entry gate); we check the result."""
+    s = _sem([
+        ("payment methods",         "We accept credit card and PayPal."),
+        ("refund policy",           "Refunds are processed in 5 to 7 business days."),
+        ("store hours monday",      "We are open Monday to Friday 9:00 to 18:00."),
+        ("store hours saturday",    "We are open Saturday 10:00 to 16:00."),
+        ("apple special",           "Apples are on special today: $0.99 per kg."),
+        ("apple aisle",             "Apples: aisle 2."),
+    ])
+    # payment + refund: each has distinct numbers → not backed (entries disagree or answer not in cluster)
+    assert not s.backed("Can I get a refund on a PayPal payment?",
+                        "Yes, PayPal payments are refunded in 5 to 7 business days.")
+    # hours + day: Saturday hours are in one entry, Monday in another; a combined answer is not backed
+    assert not s.backed("What are your weekday and weekend hours?",
+                        "Monday to Friday 9:00 to 18:00, Saturday 10:00 to 16:00.")
+    # single-entry answers are still fine
+    assert s.backed("What are your Monday hours?", "We are open Monday to Friday 9:00 to 18:00.")
+
+
 def test_no_fact_serves_the_fallback_without_any_tier_call():
     log = []
     from skeleton.core import Assistant

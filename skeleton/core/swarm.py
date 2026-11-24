@@ -105,6 +105,13 @@ class Swarm:
         self.bot, self.free, self.check, self.fallback, self.covered = bot, list(free or []), check, fallback, covered
         self.reset_stats()
 
+    @property
+    def _judge_bot(self):
+        """The judge's internal Assistant, when the check is a KB method with a live judge; else None."""
+        kb = getattr(self.check, "__self__", None)
+        j = getattr(kb, "judge", None)
+        return getattr(j, "bot", None) if j is not None else None
+
     def ask(self, prompt: str, context: str = "", verify=None):
         t0 = time.perf_counter()
         if not context:  # a question with attached text (files) is never answered from the knowledge base
@@ -116,9 +123,20 @@ class Swarm:
                 if not self.covered(prompt):  # after the cache lookup (a miss); no tier is called
                     return self._free("no_fact", prompt, self.fallback, t0, verified=False)
         chk = verify or ((lambda ans: self.check(prompt, ans)) if self.check else None)
+        jbot = self._judge_bot
+        j_before = jbot.stats() if jbot is not None else None
         a = self.bot.ask(prompt, context=context, verify=chk)
         if a["verified"] is False and self.fallback is not None:
             a = {**a, "answer": self.fallback}  # the failed answer is not served
+        if jbot is not None and j_before is not None:
+            j_after = jbot.stats()
+            j_dollars = j_after["dollars"] - j_before["dollars"]
+            j_tried = j_after.get("by_tier", {})
+            j_calls = {t: j_tried.get(t, 0) - j_before.get("by_tier", {}).get(t, 0) for t in j_tried
+                       if j_tried.get(t, 0) > j_before.get("by_tier", {}).get(t, 0)}
+            if j_dollars > 0 or j_calls:
+                extra_tried = [t for t, n in j_calls.items() for _ in range(n)]
+                a = {**a, "dollars": a["dollars"] + j_dollars, "tried": a["tried"] + extra_tried}
         return a
 
     def _cached(self, prompt: str) -> bool:
@@ -167,6 +185,13 @@ class Swarm:
         s["dollars_saved"] += f["dollars_saved"]
         s["by_tier"] = {**s["by_tier"], **f["by"]}
         s["hit_rate"] = round(s["cache_hits"] / s["questions"], 4) if s["questions"] else 0.0
+        # include judge's model calls in the totals (dollars, by_tier); they are already added per-ask in ask()
+        jbot = self._judge_bot
+        if jbot is not None:
+            js = jbot.stats()
+            s["dollars"] = s["dollars"] + js.get("dollars", 0.0)
+            for t, c in js.get("by_tier", {}).items():
+                s["by_tier"][t] = s["by_tier"].get(t, 0) + c
         return s
 
     def __getattr__(self, name):

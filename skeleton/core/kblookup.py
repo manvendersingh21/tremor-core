@@ -189,7 +189,8 @@ class Semantic:
         return [i for _, i in sorted(((sum(x * y for x, y in zip(a, v)), i) for i, v in enumerate(vs)), reverse=True)[:k]]
 
     def backed_loose(self, question: str, answer: str, a_sim: float = 0.50) -> bool:
-        """The answer's closest entry is one the question may be about, and its numbers and weekdays are in them."""
+        """The answer's closest entry is one the question may be about, and ONE entry in the cluster covers all its
+        facts (no joined-entry claims). Entries that share facts with a candidate are added to the cluster first."""
         try:
             qc = self.candidates(question)
             if not qc:
@@ -204,14 +205,21 @@ class Semantic:
         sim, best = max((sum(x * y for x, y in zip(a, v)), i) for i, v in enumerate(vs))
         if sim < a_sim or best not in qc:
             return False
-        have = {k: frozenset().union(*(self._facts[i][k] for i in qc)) for k in ("num", "day")}
-        mine = facts(answer)
-        return all(mine[k] <= have[k] for k in have)
+        return self._one_entry_covers(qc, facts(answer))
+
+    def _one_entry_covers(self, qc: list[int], mine: dict) -> bool:
+        """ONE entry in the cluster states every fact in `mine`. Prevents joined-entry claims like
+        'express shipping goes to Canada' built from two entries that each state only part of it.
+        When the answer has no facts (num, day), the check passes (content words guard it elsewhere)."""
+        if not any(mine[k] for k in mine):
+            return True
+        return any(all(mine[k] <= self._facts[i][k] for k in mine) for i in qc)
 
     def backed(self, question: str, answer: str, *, q_sim: float = 0.40, q_margin: float = 0.15,
                a_sim: float = 0.50, a_margin: float = 0.05) -> bool | None:
-        """The question picks a cluster of agreeing entries, the answer is closest to one of them, and its numbers and
-        weekdays are all in the cluster. None when the embedder is unavailable: the caller uses word overlap."""
+        """The question picks a cluster of agreeing entries, the answer is closest to one of them, its numbers and
+        weekdays are all in the cluster, AND one single entry covers every fact (no joined-entry claims).
+        None when the embedder is unavailable: the caller uses word overlap."""
         try:
             qc = self._cluster(question, 0, q_sim, q_margin)
             ac = self._cluster(answer, 1, a_sim, a_margin) if qc else []
@@ -221,9 +229,8 @@ class Semantic:
             qc = qc + [m for i in qc for m in self.members.get(i, [])]
         if not qc or not ac or ac[0] not in qc:
             return False
-        have = {k: frozenset().union(*(self._facts[i][k] for i in qc)) for k in ("num", "day")}
         mine = facts(answer)
-        return all(mine[k] <= have[k] for k in have)
+        return self._one_entry_covers(qc, mine)
 
 
 def swarm_check(lines: list[str], sem: "Semantic | None", judge, question: str, answer: str) -> bool:
