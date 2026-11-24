@@ -335,8 +335,10 @@ class TierPool:
                 u.errors += 1
                 self._record(t, False, down=not isinstance(e, urllib.error.HTTPError))
                 err = type(e).__name__
+                code = f"http_{e.code}" if isinstance(e, urllib.error.HTTPError) and e.code in (429, 503) else "error"
                 ev("call", {"tier": t.name, "model": t.model, "ok": False, "error": err, "ms": round(ms, 1),
-                            "tokens_in": 0, "tokens_out": 0, "cached_tokens": 0})
+                            "tokens_in": 0, "tokens_out": 0, "cached_tokens": 0,
+                            "climb_reason": code})  # own reason: reports count 429s apart from failed checks
                 why, skipped = f"climb: {t.name} failed ({err})", []
                 continue
             ms = (time.perf_counter() - ta) * 1000
@@ -346,12 +348,14 @@ class TierPool:
             u.cached_tokens = int(((getattr(be, "raw", None) and be.raw.last_usage) or {}).get("cached_tokens", 0))
             u.dollars = tin / 1000 * t.cost_per_1k_in + tout / 1000 * t.cost_per_1k_out
             ev("call", {"tier": t.name, "model": t.model, "ok": True, "ms": round(ms, 1), "tokens_in": tin,
-                        "tokens_out": tout, "cached_tokens": u.cached_tokens})
-            if not (text or "").strip():  # never served: climb (the tier is up, so no health strike)
+                        "tokens_out": tout, "cached_tokens": u.cached_tokens,
+                        **({} if (text or "").strip() else {"climb_reason": "empty_answer"})})
+            if not (text or "").strip():  # never served (a model that only thought): climb, no health strike
                 why, skipped = f"climb: {t.name} gave an empty answer", []
                 continue
             if conf is not None:
-                ev("draft", {"tier": t.name, "model": t.model, "confidence": round(conf, 4), "gate": self.min_confidence})
+                ev("draft", {"tier": t.name, "model": t.model, "confidence": round(conf, 4), "gate": self.min_confidence,
+                            **({"climb_reason": "low_confidence"} if conf < self.min_confidence else {})})
             if conf is not None and conf < self.min_confidence:
                 fallback = (text, t, conf)  # low confidence: climb (its tokens stay billed to this tier)
                 why, skipped = f"climb: {t.name} confidence {conf:.3f} < gate {self.min_confidence}", []
