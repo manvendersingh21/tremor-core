@@ -235,6 +235,9 @@ def _tiers(cfg: Config) -> list[TierCfg]:
         ex = tomllib.loads((ROOT / "chimera.example.toml").read_text()).get("tiers", [])
         all_tiers = [TierCfg.model_validate(t) for t in ex]
     by_name = {t.name: t for t in all_tiers}
+    if cfg.mode == "live":  # a tier chimera.toml does not list (a new Crusoe tier) comes from the example config
+        ex = tomllib.loads((ROOT / "chimera.example.toml").read_text()).get("tiers", [])
+        by_name = {**{t["name"]: TierCfg.model_validate(t) for t in ex}, **by_name}
     missing = [n for n in cfg.ladder if n not in by_name]
     if missing:
         raise KeyError(f"ladder names no [[tiers]] entry: {missing}")

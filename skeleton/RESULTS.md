@@ -142,3 +142,19 @@ Live, the real 30B fixed all three tasks, so nothing climbed. The demo 30B break
 - Held: one `Assistant` serves all three apps. Each app is a TOML file, one knowledge hook and one verify hook.
 - Held, live: a class asking the same assignments and readings got 92.7% of its 150 questions from the cache, in 162 ms (p50), with 0 wrong cache answers. Spend was $0.0007 against about $0.026 if every question had gone to the 763B. The help desk got 86.0% of 200 tickets, with 0 wrong; model tokens per ticket fell from 1,208 to 373. The store got 86.0% of 200, with 0 wrong.
 - Failed: few reworded questions reached their seed's answer at cosine 0.97 (help desk 8, store 4). Questions the knowledge base or catalog cannot answer pay a 30B and a 763B call every time. Answers that quote the support phone number are never cached (privacy scrub). One check false-rejected a numbered list (fixed after the run). Single run, no repeats.
+
+## Swarm on Crusoe only (2026-11-24, no GPU, one run, no repeats)
+
+`skeleton/bench/swarm_smoke.py`: the 60 help-desk asks and 40 coder asks of `vs_pybot.py`, each app in a fresh cache namespace. Order: rules and KB lookup ($0, no model), the shared cache, then Nemotron 3.5 Lightning 30B (`crusoe-small`), gpt-oss-120b (`cloud-top`), DeepSeek V4.1 Flash 763B (`cloud-deepseek`). The first answer that passes the app's check is served. Help-desk answers are graded by gemma-4-31b (not a ladder model); coder answers by running the unit tests. Rows: `bench/.scratch/swarm_a/` (git-ignored).
+
+| App | Asks | Right | Wrong | Miss | Free modules ($0, no model) | Cache hits ($0) | 763B calls | $ per 1,000 asks | Climb reasons |
+|---|---|---|---|---|---|---|---|---|---|
+| Help desk | 60 | 57 | 1 | 2 | 36 (13 rules, 23 KB lookup) | 1 | 13 | $0.12 | failed check 16, low confidence 15 |
+| Coder | 40 | 40 | 0 | 0 | 0 | 9 | 0 | $0.01 | low confidence 4 |
+
+Who served what: help desk, 5 Lightning 30B, 5 gpt-oss-120b, 13 DeepSeek 763B, 36 free, 1 cache. Coder, 27 Lightning 30B, 4 gpt-oss-120b, 9 cache. $ is list price of the model calls only (help desk $0.0072, coder $0.0006); the judge's calls are not in it.
+
+- Wrong 1: "thanks, that helped!" got the fallback "I don't know", because the small-talk rule only matches a bare "thanks". Misses 2: "Can I pay with Bitcoin?" and "How can I talk to a human?" got the fallback; the KB lookup knows no synonyms and every tier's answer failed the new check.
+- The new check rejects answers about the wrong entry even when they have no numbers. In the demo the stand-in model answers "How long does shipping take?" with the shipping price; the old check served it, the new one does not.
+- "Low confidence" is the confidence gate on `crusoe-small` (logprobs on): the answer is dropped and the question climbs. No empty answer and no HTTP 429 happened in this run.
+- Not measured: help-desk rewordings that need a synonym still reach the 763B; store app live; repeat runs; the cache hit rate on a warm namespace.
