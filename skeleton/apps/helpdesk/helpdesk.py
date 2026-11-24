@@ -13,7 +13,7 @@ import re
 
 from skeleton.core import Assistant
 from skeleton.core.demo import words
-from skeleton.core.kblookup import KBLookup, Semantic, backed
+from skeleton.core.kblookup import KBLookup, Semantic, backed, swarm_check, swarm_covered
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG, KB, QUESTIONS = HERE / "helpdesk.toml", HERE / "kb.json", HERE / "questions.json"
@@ -32,7 +32,7 @@ class KnowledgeBase:
         self.version = hashlib.sha256(raw.encode()).hexdigest()[:12]
         self.text = "\n".join(self.lines())
         self.numbers = set(NUM.findall(self.text))
-        self.embedder, self._sem = None, None
+        self.embedder, self._sem, self.judge = None, None, None
 
     def attach(self, embedder) -> "KnowledgeBase":
         """Use meaning as well as shared words (the cache's embedder). None: word overlap only."""
@@ -82,8 +82,11 @@ class KnowledgeBase:
         a good paraphrase of the right entry can fail at 0.6 and climbs, the cost is a call, never a wrong answer."""
         if not self.grounded(answer):
             return False
-        sem = self.semantic()
-        return backed(self.lines(), question, answer) or bool(sem and sem.backed(question, answer))
+        return swarm_check(self.lines(), self.semantic(), self.judge, question, answer)
+
+    def covered(self, question: str) -> bool:
+        """Does the knowledge base hold a fact for this question? False: no model is asked (the fallback is served)."""
+        return swarm_covered(self.semantic(), self.judge, question)
 
     def lookup(self) -> KBLookup:
         """$0 FAQ lookup: answers straight from an entry when the question and the entry's question match strongly."""
@@ -128,7 +131,7 @@ SWARM_DEMO_MODELS = {"crusoe-small": DEMO_MODELS["gpu-small"], "cloud-top": lamb
 
 
 def make_assistant(live: bool = False, kb: KnowledgeBase | None = None, no_gpu: bool = False,
-                   rules: bool = False, swarm: bool = False, namespace: str | None = None, embedder=None):
+                   rules: bool = False, swarm: bool = False, namespace: str | None = None, embedder=None, judge=None):
     """swarm=True: rules and KB lookup at $0, then the cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU)."""
     import tomllib
     kb = kb or KnowledgeBase()
@@ -138,11 +141,12 @@ def make_assistant(live: bool = False, kb: KnowledgeBase | None = None, no_gpu: 
         cfg["ladder"] = ["cloud-deepseek"]
     if swarm:
         from skeleton.core.rules import Rules
-        from skeleton.core.swarm import SWARM_LADDER, Swarm, real_embedder
+        from skeleton.core.swarm import SWARM_LADDER, Swarm, make_judge, need_embedder
         bot = Assistant({**cfg, "ladder": SWARM_LADDER}, knowledge=kb, verify=kb.grounded, demo_models=SWARM_DEMO_MODELS)
-        kb.attach(real_embedder(bot, embedder))  # live: all-MiniLM-L6-v2 from the cache; demo/CI: word overlap
+        kb.attach(need_embedder(bot, embedder))  # live: all-MiniLM-L6-v2, or fail loudly; demo/CI: word overlap
+        kb.judge = judge if judge is not None else make_judge(bot.cfg.model_dump(), bot.cfg.namespace)
         return Swarm(bot, free=[("rules", Rules.for_faq(kb.data).match), ("kb_lookup", kb.lookup().match)],
-                     check=kb.checked, fallback=FALLBACK)
+                     check=kb.checked, fallback=FALLBACK, covered=kb.covered)
     bot = Assistant(cfg, knowledge=kb, verify=kb.grounded, demo_models=DEMO_MODELS)
     if rules:  # regex fast path before the cache (skeleton/core/rules.py); off by default
         from skeleton.core.rules import Rules, RulesFirst

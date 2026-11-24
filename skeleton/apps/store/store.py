@@ -14,7 +14,7 @@ import re
 
 from skeleton.core import Assistant
 from skeleton.core.demo import words
-from skeleton.core.kblookup import QWORDS, KBLookup, Semantic, backed
+from skeleton.core.kblookup import QWORDS, KBLookup, Semantic, backed, swarm_check, swarm_covered
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG, FOODS, QUESTIONS = HERE / "store.toml", HERE / "foods.json", HERE / "questions.json"
@@ -32,7 +32,7 @@ class Catalog:
         self.version = f"{hashlib.sha256(raw.encode()).hexdigest()[:12]}:{self.day.isoformat()}"
         self.prices = set(re.findall(r"\d+\.\d\d", raw))
         self.text = "\n".join(self.lines())
-        self.embedder, self._sem = None, None
+        self.embedder, self._sem, self.judge = None, None, None
 
     def attach(self, embedder) -> "Catalog":
         """Use meaning as well as shared words (the cache's embedder). None: word overlap only."""
@@ -89,8 +89,11 @@ class Catalog:
         """The swarm's check: grounded (prices, aisles) AND backed by the guide lines that match the question."""
         if not self.grounded(answer):
             return False
-        sem = self.semantic()
-        return backed(self.lines(), question, answer) or bool(sem and sem.backed(question, answer))
+        return swarm_check(self.lines(), self.semantic(), self.judge, question, answer)
+
+    def covered(self, question: str) -> bool:
+        """Does the knowledge base hold a fact for this question? False: no model is asked (the fallback is served)."""
+        return swarm_covered(self.semantic(), self.judge, question)
 
     def lookup(self) -> KBLookup:
         """$0 item lookup: "where are the eggs" -> that item's guide line, when exactly one item name fits the question."""
@@ -131,7 +134,7 @@ SWARM_DEMO_MODELS = {"crusoe-small": demo_30b, "cloud-top": demo_30b, "cloud-dee
 
 
 def make_assistant(live: bool = False, catalog: Catalog | None = None, no_gpu: bool = False, swarm: bool = False,
-                   namespace: str | None = None, embedder=None):
+                   namespace: str | None = None, embedder=None, judge=None):
     """swarm=True: item lookup at $0, then the cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU)."""
     import tomllib
     catalog = catalog or Catalog()
@@ -140,11 +143,13 @@ def make_assistant(live: bool = False, catalog: Catalog | None = None, no_gpu: b
     if no_gpu:
         cfg["ladder"] = ["cloud-deepseek"]
     if swarm:
-        from skeleton.core.swarm import SWARM_LADDER, Swarm, real_embedder
+        from skeleton.core.swarm import SWARM_LADDER, Swarm, make_judge, need_embedder
         bot = Assistant({**cfg, "ladder": SWARM_LADDER}, knowledge=catalog, verify=catalog.grounded,
                         demo_models=SWARM_DEMO_MODELS)
-        catalog.attach(real_embedder(bot, embedder))
-        return Swarm(bot, free=[("kb_lookup", catalog.lookup().match)], check=catalog.checked, fallback=FALLBACK)
+        catalog.attach(need_embedder(bot, embedder))  # live: all-MiniLM-L6-v2, or fail loudly; demo/CI: word overlap
+        catalog.judge = judge if judge is not None else make_judge(bot.cfg.model_dump(), bot.cfg.namespace)
+        return Swarm(bot, free=[("kb_lookup", catalog.lookup().match)], check=catalog.checked, fallback=FALLBACK,
+                     covered=catalog.covered)
     return Assistant(cfg, knowledge=catalog, verify=catalog.grounded, demo_models=DEMO_MODELS)
 
 

@@ -271,3 +271,76 @@ def test_help_desk_and_store_have_hours_policy_and_diet_entries_built_from_the_d
     c = store.Catalog().attach(BagEmbedder())
     texts = c.semantic().texts
     assert any(t.startswith("Opening hours.") for t in texts) and any(t.startswith("Vegan items:") for t in texts)
+
+
+# ---- near-miss class: shares words and meaning with an entry, asks about another thing ---------------------------
+class FakeJudge:
+    """Says YES only when the question's key thing is in the entries (a stand-in for the live yes/no model)."""
+
+    def __init__(self, thing_of):
+        self.thing_of, self.calls = thing_of, []
+
+    def _ok(self, question, entries):
+        thing = self.thing_of(question)
+        return thing is None or any(thing in e.lower() for e in entries)
+
+    def covers(self, question, entries):
+        self.calls.append(("covers", question))
+        return self._ok(question, entries)
+
+    def agrees(self, question, entries, answer):
+        self.calls.append(("agrees", question))
+        return self._ok(question, entries)
+
+
+def _thing(q):
+    for w in ("router", "flight", "pause", "password", "order", "subscription"):
+        if w in q.lower():
+            return w
+    return None
+
+
+def test_near_miss_is_refused_by_the_check_even_when_words_and_meaning_match():
+    kb = helpdesk.KnowledgeBase().attach(BagEmbedder())
+    kb.judge = FakeJudge(_thing)
+    assert not kb.checked("How do I reset my router?", PASSWORD)  # the judge: router is not in the password entry
+    assert kb.checked("How do I reset my password?", PASSWORD)
+
+
+def test_no_fact_serves_the_fallback_without_any_tier_call():
+    log = []
+    from skeleton.core import Assistant
+    from skeleton.core.swarm import Swarm
+    models = {t: (lambda p, t=t: (log.append(t), "x")[1]) for t in SWARM_LADDER}
+    kb = helpdesk.KnowledgeBase().attach(BagEmbedder())
+    kb.judge = FakeJudge(_thing)
+    bot = Swarm(Assistant({"mode": "demo", "namespace": "nofact", "ladder": SWARM_LADDER}, knowledge=kb,
+                          verify=kb.grounded, demo_models=models), check=kb.checked, fallback=helpdesk.FALLBACK,
+                covered=kb.covered)
+    a = bot.ask("How do I reset my router?")
+    assert a["answer"] == helpdesk.FALLBACK and a["tier"] == "no_fact" and a["verified"] is False and log == []
+    assert bot.stats()["by_tier"] == {"no_fact": 1}
+
+
+def test_live_swarm_fails_loudly_without_an_embedder(monkeypatch):
+    from skeleton.core import swarm
+
+    class Bot:
+        class cfg:
+            mode = "live"
+        router = None
+    import chimera_core.cache.semantic_cache as sc
+
+    class Boom:
+        def __init__(self, *a, **k):
+            raise ImportError("no sentence-transformers")
+    monkeypatch.setattr(sc, "OnnxMiniLMEmbedder", Boom)
+    with pytest.raises(RuntimeError, match="embedder"):
+        swarm.need_embedder(Bot())
+    Bot.cfg.mode = "demo"
+    assert swarm.need_embedder(Bot()) is None  # demo: word overlap, no error
+
+
+def test_demo_swarm_has_no_judge_and_calls_no_extra_model():
+    bot = helpdesk.make_assistant(swarm=True)
+    assert bot.check.__self__.judge is None

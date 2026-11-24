@@ -165,6 +165,37 @@ class Semantic:
             return None
         return c[0] if len(c) == 1 else None
 
+    def candidates(self, question: str, q_sim: float = 0.40, q_margin: float = 0.15, k: int = 4) -> list[int]:
+        """Entries the question may be about: cosine >= q_sim and within q_margin of the best, at most k, plus the
+        parts of any combined entry among them. Agreement is not required here: the judge reads them all."""
+        try:
+            vs = self._vecs()[0]
+            q = _unit(self.embedder.embed(question))
+        except Exception as e:  # noqa: BLE001
+            raise Unavailable from e
+        sims = sorted(((sum(a * b for a, b in zip(q, v)), i) for i, v in enumerate(vs)), reverse=True)
+        if not sims or sims[0][0] < q_sim:
+            return []
+        out = [i for s, i in sims[:k] if sims[0][0] - s < q_margin]
+        return out + [m for i in out for m in self.members.get(i, []) if m not in out]
+
+    def backed_loose(self, question: str, answer: str, a_sim: float = 0.50) -> bool:
+        """The answer's closest entry is one the question may be about, and its numbers and weekdays are in them."""
+        try:
+            qc = self.candidates(question)
+            if not qc:
+                return False
+            vs = self._vecs()[1]
+            a = _unit(self.embedder.embed(answer))
+        except Exception:  # noqa: BLE001
+            return False
+        sim, best = max((sum(x * y for x, y in zip(a, v)), i) for i, v in enumerate(vs))
+        if sim < a_sim or best not in qc:
+            return False
+        have = {k: frozenset().union(*(self._facts[i][k] for i in qc)) for k in ("num", "day")}
+        mine = facts(answer)
+        return all(mine[k] <= have[k] for k in have)
+
     def backed(self, question: str, answer: str, *, q_sim: float = 0.40, q_margin: float = 0.15,
                a_sim: float = 0.50, a_margin: float = 0.05) -> bool | None:
         """The question picks a cluster of agreeing entries, the answer is closest to one of them, and its numbers and
@@ -181,3 +212,40 @@ class Semantic:
         have = {k: frozenset().union(*(self._facts[i][k] for i in qc)) for k in ("num", "day")}
         mine = facts(answer)
         return all(mine[k] <= have[k] for k in have)
+
+
+def swarm_check(lines: list[str], sem: "Semantic | None", judge, question: str, answer: str) -> bool:
+    """The swarm's answer check (after the app's own number check).
+
+    - No embedder (demo, CI): word overlap only.
+    - Embedder, no judge: meaning (strict cluster rule) or word overlap.
+    - Embedder and judge (live): the answer must pass a structural test (strict meaning, word overlap, or the loose
+      rule: closest to an entry the question may be about, with its facts) AND the judge's yes/no against those
+      entries. The judge closes the near-miss class ("reset my router" vs the password entry), which shares words and
+      meaning with an entry but asks about another thing; the loose rule lets new wordings of a fact through.
+    """
+    if sem is None:
+        return backed(lines, question, answer)
+    strict = sem.backed(question, answer)
+    if strict is None:  # embedder failed: words decide
+        return backed(lines, question, answer)
+    if judge is None:
+        return strict or backed(lines, question, answer)
+    if not (strict or backed(lines, question, answer) or sem.backed_loose(question, answer)):
+        return False
+    return judge.agrees(question, [sem.texts[i] for i in sem.candidates(question)] or matched_lines(lines, question),
+                        answer)
+
+
+def swarm_covered(sem: "Semantic | None", judge, question: str) -> bool:
+    """Is there a KB fact a model could use? No embedder: assume yes (old behaviour). No entry close enough: no.
+    With a judge: it reads the candidate entries and says whether they answer this exact question."""
+    if sem is None:
+        return True
+    try:
+        c = sem.candidates(question)
+    except Unavailable:
+        return True
+    if not c:
+        return False
+    return True if judge is None else judge.covers(question, [sem.texts[i] for i in c])

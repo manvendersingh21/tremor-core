@@ -28,8 +28,11 @@ def _vp():
     return vs_pybot
 
 
+TAG = __import__("os").environ.get("SWARM_TAG", "")  # run 4a, 4b: file prefix and a fresh namespace per tag
+
+
 def _run_id() -> str:
-    p = SCRATCH / "run_id"
+    p = SCRATCH / f"{TAG}run_id"
     SCRATCH.mkdir(parents=True, exist_ok=True)
     if not p.exists():
         p.write_text(time.strftime("%Y%m%d%H%M%S"))
@@ -52,14 +55,22 @@ def store_set(seed: int = 7) -> list[dict]:
     return rows
 
 
+def blind_set() -> list[dict]:
+    """The tester's old blind help-desk set (public since the PR #12 report): bench/.scratch/swarm_c/blind_set.json."""
+    rows = json.loads((ROOT / "bench/.scratch/swarm_c/blind_set.json").read_text())["helpdesk"]
+    return [{**r, "kind": "general", "expect": "a polite small-talk reply", "blind_kind": "smalltalk"}
+            if r["kind"] == "smalltalk" else {**r, "blind_kind": r["kind"]} for r in rows]
+
+
 def run(app: str) -> None:
     vp = _vp()
-    out = SCRATCH / f"{app}.jsonl"
+    out = SCRATCH / f"{TAG}{app}.jsonl"
     done = vp._done(out)
     ns = f"swarm-a-{app}-{_run_id()}"
-    if app == "helpdesk":
+    if app in ("helpdesk", "blind"):
         from skeleton.apps.helpdesk import helpdesk as hd
-        bot, rows = hd.make_assistant(live=True, swarm=True, namespace=ns), vp.helpdesk_set()
+        bot = hd.make_assistant(live=True, swarm=True, namespace=ns)
+        rows = vp.helpdesk_set() if app == "helpdesk" else blind_set()
     elif app == "store":
         from skeleton.apps.store import store as stm
         bot, rows = stm.make_assistant(live=True, swarm=True, namespace=ns), store_set()
@@ -70,11 +81,13 @@ def run(app: str) -> None:
                                "instructions": vp.CODER_INSTRUCTIONS}), fallback="")
         rows = vp.coder_set()
     tracker = bot.router.tracker
+    judge = getattr(getattr(bot.check, "__self__", None), "judge", None) if getattr(bot, "check", None) else None
     for r in rows:
         if r["id"] in done:
             continue
         verify = (lambda ans, fn=r["fn"]: vp.run_tests(vp.code_of(ans), fn)[0]) if app == "coder" else None
         n0 = len(tracker.events)
+        j0 = judge.bot.stats()["dollars"] if judge else 0.0
         try:
             a = bot.ask(r["q"], verify=verify)
         except Exception as e:  # noqa: BLE001  a tier outage is a row, not a crash
@@ -83,7 +96,9 @@ def run(app: str) -> None:
             continue
         climbs = Counter(e["climb_reason"] for t in tracker.events[n0:] for e in (t.events or []) if e.get("climb_reason"))
         climbs["failed_check"] += sum(1 for s in a["steps"][:-1] if s["verified"] is False)
-        row = {**r, "answer": a["answer"], "tier": a["tier"], "tried": a["tried"], "dollars": a["dollars"],
+        jd = (judge.bot.stats()["dollars"] - j0) if judge else 0.0  # the yes/no checks are spend too
+        row = {**r, "answer": a["answer"], "tier": a["tier"], "tried": a["tried"], "dollars": a["dollars"] + jd,
+               "judge_dollars": jd,
                "tokens": a["tokens"], "cache_hit": a["cache_hit"], "ms": a["latency_ms"], "verified": a["verified"],
                "climbs": {k: v for k, v in climbs.items() if v}}
         if app == "coder":
@@ -100,10 +115,10 @@ def judge() -> None:
     from chimera_core.inference.cloud_verifier import CrusoeBackend
     from skeleton.apps.helpdesk.helpdesk import KnowledgeBase
     from skeleton.apps.store.store import Catalog
-    texts = {"helpdesk": KnowledgeBase().text, "store": Catalog().text}
+    texts = {"helpdesk": KnowledgeBase().text, "blind": KnowledgeBase().text, "store": Catalog().text}
     be = CrusoeBackend(JUDGE_MODEL)
     for app, kb in texts.items():
-        path = SCRATCH / f"{app}.jsonl"
+        path = SCRATCH / f"{TAG}{app}.jsonl"
         rows = vp._rows(path)
         for r in rows:
             if r.get("grade"):
@@ -126,7 +141,7 @@ def _line(name: str, rows: list[dict], app: str) -> str:
         right = sum(r.get("grade") == "CORRECT" for r in rows)
         wrong = sum(r.get("grade") == "WRONG" for r in rows)
         miss = sum(r.get("grade") == "MISS" for r in rows)
-    free = sum(r["tier"] in ("rules", "kb_lookup") for r in rows)
+    free = sum(r["tier"] in ("rules", "kb_lookup", "no_fact") for r in rows)
     cache = sum(bool(r["cache_hit"]) for r in rows)
     big = sum("cloud-deepseek" in r["tried"] for r in rows)
     climbs = Counter()
@@ -141,9 +156,10 @@ def report() -> str:
     vp = _vp()
     lines = ["| App | Run | Asks | Right | Wrong | Miss | Free ($0, no model) | Cache hits ($0) | 763B calls | $ per 1,000 asks | Climb reasons |",
              "|---|---|---|---|---|---|---|---|---|---|---|"]
-    for app in ("helpdesk", "store", "coder"):
+    for app in ("helpdesk", "blind", "store", "coder"):
         for name, f in (("1 (words only)", f"run1_{app}.jsonl"), ("2 (meaning + words)", f"run2_{app}.jsonl"),
-                        ("3 (meaning + facts)", f"{app}.jsonl")):
+                        ("3 (meaning + facts)", f"run3_{app}.jsonl"), ("4a (+ judge, no-fact stop)", f"4a{app}.jsonl"),
+                        ("4b (repeat)", f"4b{app}.jsonl")):
             rows = vp._rows(SCRATCH / f)
             if rows:
                 lines.append(_line(name, rows, app))
@@ -153,7 +169,7 @@ def report() -> str:
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "report"
     if cmd == "run":
-        for a in (sys.argv[2:] or ["helpdesk", "store", "coder"]):
+        for a in (sys.argv[2:] or ["helpdesk", "blind", "store", "coder"]):
             run(a)
     elif cmd == "judge":
         judge()

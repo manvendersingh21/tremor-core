@@ -45,7 +45,9 @@ _HELLO = {"hello", "hi", "hey", "hiya", "morning", "afternoon", "evening"}
 _GLUE = {"that", "it", "this", "you", "your", "youre", "for", "the", "help", "all", "again", "team", "there", "guys",
          "everyone", "now", "so", "much", "very", "a", "lot", "bunch", "really", "good", "best", "ok", "okay", "got", "i",
          "will", "be", "back", "no", "more", "questions", "see", "have", "day", "take", "care", "was", "is", "thats",
-         "what", "needed", "exactly", "and", "to", "of", "in", "one", "quick", "answer", "answers", "support", "assistance"}
+         "what", "needed", "exactly", "and", "to", "of", "in", "one", "quick", "answer", "answers", "support", "assistance",
+         # greetings that are questions only in form: "hey, how are you?", "hi, is anyone there?"
+         "how", "are", "doing", "anyone", "someone", "anybody", "here", "been", "youve", "nice", "great", "today"}
 _SOCIAL = _THANKS | _BYE | _HELLO | _GLUE
 
 
