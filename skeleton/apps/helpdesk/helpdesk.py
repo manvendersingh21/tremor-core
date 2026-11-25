@@ -13,6 +13,7 @@ import re
 
 from skeleton.core import Assistant
 from skeleton.core.demo import words
+from skeleton.core.kblookup import KBLookup, Semantic, backed, swarm_check, swarm_covered
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG, KB, QUESTIONS = HERE / "helpdesk.toml", HERE / "kb.json", HERE / "questions.json"
@@ -31,6 +32,31 @@ class KnowledgeBase:
         self.version = hashlib.sha256(raw.encode()).hexdigest()[:12]
         self.text = "\n".join(self.lines())
         self.numbers = set(NUM.findall(self.text))
+        self.embedder, self._sem, self.judge = None, None, None
+
+    def attach(self, embedder) -> "KnowledgeBase":
+        """Use meaning as well as shared words (the cache's embedder). None: word overlap only."""
+        self.embedder, self._sem = embedder, None
+        return self
+
+    def semantic(self) -> "Semantic | None":
+        if self.embedder is None:
+            return None
+        if self._sem is None:
+            d = self.data
+            ents = [(f"Hours, {k}: {v}.",) * 2 for k, v in d["hours"].items()] + [(c, c) for c in d["contact"]]
+            ents += [(e["q"], f"{e['q']} {e['a']}") for e in d["faq"]] + [(f"Policy. {p}",) * 2 for p in d["policies"]]
+            # structured facts as whole entries, built from the data: all hours together, all policies together
+            hours = "Support hours. " + " ".join(f"Hours, {k}: {v}." for k, v in d["hours"].items())
+            ents += [("What are your hours? Are you open on a weekday, Saturday or Sunday?", hours),
+                     ("What are your policies? Returns, refunds, subscriptions, privacy.", "Policies. " + " ".join(d["policies"]))]
+            texts = [t for _, t in ents]
+            n_hours, n_pol = len(d["hours"]), len(d["policies"])
+            hours_at = list(range(n_hours))  # the hours lines come first
+            pol_at = [texts.index(f"Policy. {p}") for p in d["policies"]]
+            self._sem = Semantic(self.embedder, [k for k, _ in ents], texts,
+                                 members={texts.index(hours): hours_at, len(texts) - 1: pol_at})
+        return self._sem
 
     def lines(self) -> list[str]:
         d = self.data
@@ -48,6 +74,29 @@ class KnowledgeBase:
         if not answer.strip() or UNSURE.search(answer):
             return False
         return all(n in self.numbers for n in NUM.findall(re.sub(r"(?m)^\s*\d+[.)]\s+", "", answer)))
+
+
+    def checked(self, question: str, answer: str) -> bool:
+        """The swarm's check: grounded (numbers) AND backed by the entries that match the question (word overlap, no
+        model). An answer with no numbers that talks about another entry fails. shortcut: overlap knows no synonyms;
+        a good paraphrase of the right entry can fail at 0.6 and climbs, the cost is a call, never a wrong answer."""
+        if not self.grounded(answer):
+            return False
+        return swarm_check(self.lines(), self.semantic(), self.judge, question, answer)
+
+    def covered(self, question: str) -> bool:
+        """Does the knowledge base hold a fact for this question? False: no model is asked (the fallback is served)."""
+        return swarm_covered(self.semantic(), self.judge, question)
+
+    def lookup(self) -> KBLookup:
+        """$0 FAQ lookup: answers straight from an entry when the question and the entry's question match strongly."""
+        from chimera_core.cache.guard import consistent  # numbers, negation, names must agree with the entry's question
+        faq = [(e["q"], e["a"]) for e in self.data["faq"]]
+        sem = Semantic(self.embedder, [q for q, _ in faq]) if self.embedder is not None else None
+        return KBLookup(faq, semantic=sem, guard=consistent)
+
+
+FALLBACK = "I don't know. A support agent will reply by email."
 
 
 def _match(prompt: str, need: float) -> str:
@@ -77,13 +126,27 @@ DEMO_MODELS = {"gpu-small": lambda p: _match(p, 0.6),  # the 30B stand-in: a clo
                "cloud-deepseek": lambda p: _match(p, 0.4) or "I don't know: a support agent will reply by email."}
 
 
+SWARM_DEMO_MODELS = {"crusoe-small": DEMO_MODELS["gpu-small"], "cloud-top": lambda p: _match(p, 0.5),
+                     "cloud-deepseek": DEMO_MODELS["cloud-deepseek"]}
+
+
 def make_assistant(live: bool = False, kb: KnowledgeBase | None = None, no_gpu: bool = False,
-                   rules: bool = False) -> Assistant:
+                   rules: bool = False, swarm: bool = False, namespace: str | None = None, embedder=None, judge=None):
+    """swarm=True: rules and KB lookup at $0, then the cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU)."""
     import tomllib
     kb = kb or KnowledgeBase()
-    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {})}
+    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {}),
+           **({"namespace": namespace} if namespace else {})}
     if no_gpu:
         cfg["ladder"] = ["cloud-deepseek"]
+    if swarm:
+        from skeleton.core.rules import Rules
+        from skeleton.core.swarm import SWARM_LADDER, Swarm, make_judge, need_embedder
+        bot = Assistant({**cfg, "ladder": SWARM_LADDER}, knowledge=kb, verify=kb.grounded, demo_models=SWARM_DEMO_MODELS)
+        kb.attach(need_embedder(bot, embedder))  # live: all-MiniLM-L6-v2, or fail loudly; demo/CI: word overlap
+        kb.judge = judge if judge is not None else make_judge(bot.cfg.model_dump(), bot.cfg.namespace)
+        return Swarm(bot, free=[("rules", Rules.for_faq(kb.data).match), ("kb_lookup", kb.lookup().match)],
+                     check=kb.checked, fallback=FALLBACK, covered=kb.covered)
     bot = Assistant(cfg, knowledge=kb, verify=kb.grounded, demo_models=DEMO_MODELS)
     if rules:  # regex fast path before the cache (skeleton/core/rules.py); off by default
         from skeleton.core.rules import Rules, RulesFirst
