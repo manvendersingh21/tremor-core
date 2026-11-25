@@ -45,6 +45,7 @@ class Config(BaseModel):
     chimera_config: str = ""                # live: path to chimera.toml ("" = $CHIMERA_CONFIG or the repo's)
     instructions: str = ""                  # put before the facts and the question in every model prompt
     max_tokens: int = 1024
+    tiers: list[dict] = []                  # extra [[tiers]] entries by name (a harness's grader); keys stay in .env
 
     @classmethod
     def load(cls, src: "Config | dict | str | os.PathLike | None") -> "Config":
@@ -238,6 +239,7 @@ def _tiers(cfg: Config) -> list[TierCfg]:
     if cfg.mode == "live":  # a tier chimera.toml does not list (a new Crusoe tier) comes from the example config
         ex = tomllib.loads((ROOT / "chimera.example.toml").read_text()).get("tiers", [])
         by_name = {**{t["name"]: TierCfg.model_validate(t) for t in ex}, **by_name}
+    by_name.update({t["name"]: TierCfg.model_validate(t) for t in cfg.tiers})
     missing = [n for n in cfg.ladder if n not in by_name]
     if missing:
         raise KeyError(f"ladder names no [[tiers]] entry: {missing}")

@@ -108,16 +108,31 @@ def run(app: str) -> None:
         print(row["id"], row["tier"], row["ms"], flush=True)
 
 
+GRADER_TIER = {"name": "grader-gemma", "device": "cloud", "backend": "openai",
+               "url": "https://api.inference.crusoecloud.com", "model": JUDGE_MODEL, "max_complexity": 1.0,
+               "cost_per_1k_in": 0.00014, "cost_per_1k_out": 0.0004, "timeout_s": 180}  # list price, Crusoe page
+
+
+def grader(namespace: str):
+    """The grading model as a skeleton Assistant: every call goes through the router (telemetry, $), temperature 0
+    (TopBackend), no cache (a grade never answers another row) and no N+1 memory (grades are not teacher data)."""
+    from chimera_core.router import NoMemory
+    from skeleton.core import Assistant
+    bot = Assistant({"mode": "live", "namespace": f"{namespace}:grade", "ladder": [GRADER_TIER["name"]],
+                     "tiers": [GRADER_TIER], "instructions": "", "max_tokens": 300})
+    bot.router.shared, bot.router.memory = None, NoMemory()
+    return bot
+
+
 def judge() -> None:
     vp = _vp()
     import skeleton.core  # noqa: F401
     from chimera_core.config import load_config
     load_config()
-    from chimera_core.inference.cloud_verifier import CrusoeBackend
     from skeleton.apps.helpdesk.helpdesk import KnowledgeBase
     from skeleton.apps.store.store import Catalog
     texts = {"helpdesk": KnowledgeBase().text, "blind": KnowledgeBase().text, "store": Catalog().text}
-    be = CrusoeBackend(JUDGE_MODEL)
+    g = grader(f"swarm-a-{TAG or 'run'}")
     for app, kb in texts.items():
         path = SCRATCH / f"{TAG}{app}.jsonl"
         rows = vp._rows(path)
@@ -128,7 +143,7 @@ def judge() -> None:
             prompt = vp.JUDGE.format(kb="(not about this question: judge general correctness)" if general else kb,
                                      q=r["q"], expect=f"Right answer: {r['expect']}\n" if general else "",
                                      a=r["answer"] or "(no answer)")
-            word = be.complete(prompt, max_tokens=300).strip().upper()
+            word = g.ask(prompt)["answer"].strip().upper()
             r["grade"] = next((w for w in ("CORRECT", "MISS", "WRONG") if w in word), "UNGRADED")
         path.write_text("".join(json.dumps(r) + "\n" for r in rows))
         print("graded", app, len(rows))

@@ -83,20 +83,50 @@ class Catalog:
             return False
         prices = re.findall(r"\$\s?(\d+(?:\.\d\d)?)", answer)
         aisles = re.findall(r"\baisles?\s+(\d+)", answer, re.I)
-        return all(p in self.prices for p in prices) and all(a in self.data["aisles"] for a in aisles)
+        if not (all(p in self.prices for p in prices) and all(a in self.data["aisles"] for a in aisles)):
+            return False
+        said = set(words(answer))
+        for item in self.on_sale():  # an item on special today, named with its regular price: not today's price
+            if set(words(item["name"].split(",")[0])) & said and re.search(rf"\$\s?{re.escape(item['price'])}\b", answer):
+                return False
+        return not self._wrong_tag(answer)
+
+    def _wrong_tag(self, answer: str) -> bool:
+        """A diet tag said of an item whose own entry lacks it. A tag belongs to the item named just before it (its own
+        segment, up to the next item); a tag before the first item ("vegan items such as ...") belongs to all of them."""
+        low = answer.lower()
+        at = sorted((m.start(), i) for i in self.data["items"]
+                    for m in re.finditer(re.escape(i["name"].split(",")[0].lower()), low))
+        if not at:
+            return False
+        lead = low[:at[0][0]]
+        for k, (pos, item) in enumerate(at):
+            seg = low[pos:at[k + 1][0] if k + 1 < len(at) else len(low)]
+            for tag in self.tags:
+                if (tag in seg or tag in lead) and tag not in item.get("tags", []):
+                    return True
+        return False
+
+    @property
+    def tags(self) -> list[str]:
+        return sorted({t for i in self.data["items"] for t in i.get("tags", [])})
+
+    def on_sale(self) -> list[dict]:
+        """Items on special today. A special names an item by the start of its name ("Bananas at 0.99 per kg" is
+        "Bananas, per kg"; "Salmon fillet at 5.99")."""
+        shorts = [s.split(" at ")[0].strip().lower() for s in self.data["specials"].get(self.weekday, [])]
+        out = []
+        for i in self.data["items"]:
+            name, head = i["name"].lower(), i["name"].split(",")[0].strip().lower()
+            if any(name.startswith(s) or s.startswith(head) for s in shorts if s):
+                out.append(i)
+        return out
 
     def checked(self, question: str, answer: str) -> bool:
-        """The swarm's check: grounded (prices, aisles) AND backed by the guide lines that match the question.
-        An answer that quotes the regular price for a specials item is wrong: refuse it."""
+        """The swarm's check: grounded (prices, aisles, today's specials, diet tags) AND backed by the guide lines that
+        match the question (kblookup.swarm_check: the one-entry rule first, then meaning or words, then the judge)."""
         if not self.grounded(answer):
             return False
-        # specials guard: if the question is about an item on special today, the regular price is not right
-        specials_text = " ".join(self.data["specials"].get(self.weekday, [])).lower()
-        for item in self.data.get("items", []):
-            name = item["name"].lower()
-            regular = item["price"]
-            if name in specials_text and name in question.lower() and regular in answer:
-                return False  # the regular price for a specials item is not the current price
         return swarm_check(self.lines(), self.semantic(), self.judge, question, answer)
 
     def covered(self, question: str) -> bool:
@@ -106,9 +136,9 @@ class Catalog:
     def lookup(self) -> KBLookup:
         """$0 item lookup: "where are the eggs" -> that item's guide line, when exactly one item name fits the question."""
         d = self.data
-        special = " ".join(d["specials"][self.weekday]).lower()  # an item on special today has a second price: not a lookup
+        sale = {i["name"] for i in self.on_sale()}  # an item on special today has a second price: not a lookup
         return KBLookup([(i["name"], f"{i['name']}: aisle {i['aisle']}, ${i['price']}.") for i in d["items"]
-                         if i["name"].lower() not in special],
+                         if i["name"] not in sale],
                         drop=QWORDS | {"aisle", "price", "cost", "buy", "item"}, q_cov=1.0, k_cov=0.5, margin=0.3)
 
 

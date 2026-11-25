@@ -14,6 +14,7 @@ Free answers skip the router, so each one logs its own Telemetry row (tier_used 
 """
 from __future__ import annotations
 
+import copy
 import time
 from collections import Counter
 from typing import Callable
@@ -64,6 +65,11 @@ class Judge:
     shortcut: a judge is a model and can be wrong; the wrong-entry matrices in skeleton/RESULTS.md measure it."""
 
     def __init__(self, bot) -> None:
+        # no cache for verdicts: a cached YES for "reset my password" must never answer "reset my router" (a cosine
+        # hit). The call still goes through the router (telemetry, cost); only the cache is off.
+        r = copy.copy(bot.router)
+        r.shared, r.exact, r.semantic = None, None, None
+        bot.router = r
         self.bot = bot
 
     def _yes(self, prompt: str) -> bool:
@@ -116,6 +122,8 @@ class Swarm:
 
     def ask(self, prompt: str, context: str = "", verify=None):
         t0 = time.perf_counter()
+        jbot = self._judge_bot
+        j0 = self._judge_spend(jbot)  # taken first: covers() on the no-fact path is spend too
         if not context:  # a question with attached text (files) is never answered from the knowledge base
             for name, fn in self.free:
                 text = fn(prompt)
@@ -123,23 +131,31 @@ class Swarm:
                     return self._free(name, prompt, text, t0)
             if self.covered is not None and self.fallback is not None and not self._cached(prompt):
                 if not self.covered(prompt):  # after the cache lookup (a miss); no tier is called
-                    return self._free("no_fact", prompt, self.fallback, t0, verified=False)
+                    d, tried = self._judge_delta(jbot, j0)
+                    return self._free("no_fact", prompt, self.fallback, t0, verified=False, spent=d, tried=tried)
         chk = verify or ((lambda ans: self.check(prompt, ans)) if self.check else None)
-        jbot = self._judge_bot
-        j_before = jbot.stats() if jbot is not None else None
         a = self.bot.ask(prompt, context=context, verify=chk)
         if a["verified"] is False and self.fallback is not None:
             a = {**a, "answer": self.fallback}  # the failed answer is not served
-        if jbot is not None and j_before is not None:
-            j_after = jbot.stats()
-            j_dollars = j_after["dollars"] - j_before["dollars"]
-            j_tried = j_after.get("by_tier", {})
-            j_calls = {t: j_tried.get(t, 0) - j_before.get("by_tier", {}).get(t, 0) for t in j_tried
-                       if j_tried.get(t, 0) > j_before.get("by_tier", {}).get(t, 0)}
-            if j_dollars > 0 or j_calls:
-                extra_tried = [t for t, n in j_calls.items() for _ in range(n)]
-                a = {**a, "dollars": a["dollars"] + j_dollars, "tried": a["tried"] + extra_tried}
+        d, tried = self._judge_delta(jbot, j0)
+        if d or tried:  # the yes/no checks are model calls: their $ and tiers count with the answer's
+            a = {**a, "dollars": a["dollars"] + d, "tried": a["tried"] + tried}
         return a
+
+    @staticmethod
+    def _judge_spend(jbot):
+        if jbot is None:
+            return None
+        s = jbot.stats()
+        return s["dollars"], dict(s["by_tier"])
+
+    def _judge_delta(self, jbot, j0) -> tuple[float, list[str]]:
+        """Judge $ and model tiers called since j0 (cache tiers are not calls; the judge has no cache anyway)."""
+        if jbot is None or j0 is None:
+            return 0.0, []
+        d1, by1 = self._judge_spend(jbot)
+        tried = [t for t, n in by1.items() if t in jbot.ladder for _ in range(n - j0[1].get(t, 0))]
+        return d1 - j0[0], tried
 
     def _cached(self, prompt: str) -> bool:
         """Read-only cache lookup in the namespace Assistant.ask uses. True on a hit (exact or cosine)."""
@@ -152,27 +168,33 @@ class Swarm:
         except Exception:  # noqa: BLE001  cache down: a miss
             return False
 
-    def _free(self, name: str, prompt: str, text: str, t0: float, verified: bool | None = None):
+    def _free(self, name: str, prompt: str, text: str, t0: float, verified: bool | None = None, spent: float = 0.0,
+              tried: list[str] | None = None):
+        """A $0-module answer (rules, kb_lookup) or the no-fact fallback. `spent`: judge calls made on the way (the
+        no-fact covers() check), logged as spend in the telemetry row and the answer."""
         ms = round((time.perf_counter() - t0) * 1000, 3)
         tin = (len(getattr(self.bot, "cfg").instructions) + len(self.bot.knowledge(prompt) if self.bot.knowledge else "")
                + len(prompt)) // 4 + 1  # the prompt a model call would have sent
         tout = len(text) // 4 + 1
         top = self.bot._pools[0].top
-        saved = (tin * top.cost_per_1k_in + tout * top.cost_per_1k_out) / 1000 if top else 0.0
+        saved = max((tin * top.cost_per_1k_in + tout * top.cost_per_1k_out) / 1000 - spent, 0.0) if top else 0.0
+        tried = list(tried or [])
         self.bot.router.tracker.emit(Telemetry(
             tier_used="local", tier_name=name, tokens_saved=tin + tout, acceptance_rate_alpha=None, latency_ms=ms,
-            dollars_saved=saved, dollars_spent=0.0, tokens_in=0, tokens_out=0, ts=time.time(),
+            dollars_saved=saved, dollars_spent=spent, tokens_in=0, tokens_out=0, ts=time.time(),
             events=[{"step": "final", "tier": name, "model": name, "tokens_in": 0, "tokens_out": 0, "ms": ms,
-                     "dollars": 0.0, "dollars_saved": round(saved, 6), "tokens_kept_off_big": tin + tout, "cache": None}]))
+                     "dollars": round(spent, 8), "dollars_saved": round(saved, 6), "tokens_kept_off_big": tin + tout,
+                     "cache": None}]))
         with self.bot._lock:
             self._free_stats["by"][name] += 1
             self._free_stats["tokens_saved"] += tin + tout
             self._free_stats["dollars_saved"] += saved
-        return {"answer": text, "tier": name, "model": name, "tokens": 0, "tokens_saved": tin + tout, "dollars": 0.0,
-                "dollars_saved": round(saved, 6), "cache_hit": False, "latency_ms": ms, "verified": verified, "tried": [],
-                "steps": [{"tier": name, "model": name, "cache": False, "tokens": 0, "dollars": 0.0,
+        return {"answer": text, "tier": name, "model": name, "tokens": 0, "tokens_saved": tin + tout, "dollars": spent,
+                "dollars_saved": round(saved, 6), "cache_hit": False, "latency_ms": ms, "verified": verified,
+                "tried": tried,
+                "steps": [{"tier": name, "model": name, "cache": False, "tokens": 0, "dollars": spent,
                            "dollars_saved": round(saved, 6), "ms": ms, "tokens_saved": tin + tout, "verified": None,
-                           "tried": []}]}
+                           "tried": tried}]}
 
     def reset_stats(self) -> None:
         self.bot.reset_stats()

@@ -410,3 +410,26 @@ def test_a_yes_or_no_about_a_clock_time_is_never_backed():
     assert not time_verdict("Are you open on Sundays?", "No, phone support is closed on Sunday.")
     c = store.Catalog().attach(BagEmbedder())
     assert not swarm_check(c.lines(), c.semantic(), None, "Is the store open at 10 pm?", "No, it closes at 22:00.")
+
+
+def test_a_thing_no_entry_names_is_never_backed_by_a_nearby_entry():
+    """inv1: "reset my router" shares words with the password entry; no entry names a router."""
+    kb = helpdesk.KnowledgeBase()
+    assert not kb.checked("How do I reset my router?", PASSWORD)
+    assert kb.checked("How do I reset my password?", PASSWORD)
+
+
+def test_store_refuses_a_diet_tag_the_item_lacks_and_a_sale_item_at_full_price():
+    import datetime as dt
+    c = store.Catalog(today=dt.date(2026, 11, 26))  # Thursday: Bananas at 0.99 per kg
+    assert not c.grounded("Bananas, per kg: aisle 1, $1.29.")
+    assert "Bananas, per kg" not in [k for k, _ in c.lookup().raw]
+    assert not c.grounded("Free-range eggs, 12: aisle 3, $4.99 (vegan).")
+    assert c.grounded("Oat milk: aisle 3, $3.49 (vegan).")
+
+
+def test_a_judge_verdict_is_never_cached():
+    from skeleton.core import Assistant
+    from skeleton.core.swarm import Judge
+    j = Judge(Assistant({"mode": "demo", "namespace": "j", "ladder": ["cloud-top"]}, demo_models={"cloud-top": lambda p: "YES"}))
+    assert j.bot.router.shared is None
