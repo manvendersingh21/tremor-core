@@ -51,6 +51,17 @@ def joins_entries(texts: list[str], question: str, answer: str = "") -> bool:
     return bool(answer) and not one_source(texts, answer, question)
 
 
+_CLOCK = re.compile(r"\b\d{1,2}(:\d\d)?\s*(am|pm|a\.m\.|p\.m\.)|\b\d{1,2}:\d\d\b|\b(right now|now|currently|tonight)\b", re.I)
+_VERDICT = re.compile(r"^\W*(yes|no|nope|yep)\b", re.I)
+
+
+def time_verdict(question: str, answer: str) -> bool:
+    """The question asks about a clock time or "now" and the answer opens with yes or no. No entry states that verdict
+    (the bot does not know the time, and "open at 10 pm" when it closes at 22:00 is a judgement call): only the hours
+    themselves may be served."""
+    return bool(_CLOCK.search(question) and _VERDICT.search(answer))
+
+
 SENTENCE = re.compile(r"(?<=[.!?;])\s+|\s+(?:but|however)\s+", re.I)
 
 
@@ -295,7 +306,7 @@ def swarm_check(lines: list[str], sem: "Semantic | None", judge, question: str, 
       meaning with an entry but asks about another thing; the loose rule lets new wordings of a fact through.
     """
     # one entry must state every specific thing asked and answered: checked first, so no judge YES can override it
-    if joins_entries(sem.texts if sem is not None else lines, question, answer):
+    if joins_entries(sem.texts if sem is not None else lines, question, answer) or time_verdict(question, answer):
         return False
     if sem is None:
         return backed(lines, question, answer)

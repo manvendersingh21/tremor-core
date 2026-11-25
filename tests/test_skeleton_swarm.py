@@ -399,3 +399,14 @@ def test_live_swarm_fails_loudly_without_an_embedder(monkeypatch):
 def test_demo_swarm_has_no_judge_and_calls_no_extra_model():
     bot = helpdesk.make_assistant(swarm=True)
     assert bot.check.__self__.judge is None
+
+
+def test_a_yes_or_no_about_a_clock_time_is_never_backed():
+    """The bot does not know the time: "Is the store open at 10 pm?" may get the hours, never a verdict."""
+    from skeleton.core.kblookup import swarm_check, time_verdict
+    assert time_verdict("Is the store open at 10 pm?", "No, it closes at 22:00.")
+    assert time_verdict("Is the kitchen open now?", "Yes, until 20:00.")
+    assert not time_verdict("Is the store open at 10 pm?", "The store is open 7:00 to 22:00 every day.")
+    assert not time_verdict("Are you open on Sundays?", "No, phone support is closed on Sunday.")
+    c = store.Catalog().attach(BagEmbedder())
+    assert not swarm_check(c.lines(), c.semantic(), None, "Is the store open at 10 pm?", "No, it closes at 22:00.")
