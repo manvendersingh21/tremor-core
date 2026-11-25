@@ -2884,8 +2884,8 @@
    "kiro-setup",
    "router-ladder"
   ],
-  "properties": 43,
-  "property_files": 6,
+  "properties": 45,
+  "property_files": 7,
   "bugs_found": 4,
   "bugs_fixed": 4,
   "xfail_left": 0,
@@ -2977,9 +2977,9 @@
    },
    {
     "title": "Property tests",
-    "big": "43 properties",
+    "big": "45 properties",
     "lines": [
-     "Hypothesis tried to break 43 rules in 6 files, 200 examples each.",
+     "Hypothesis tried to break 45 rules in 7 files, 200 examples each.",
      "4 real bugs found, 4 fixed: 4 xfailed then 0. Now 0 xfail markers left."
     ],
     "src": [
@@ -3029,7 +3029,7 @@
   {
    "room": "workshop",
    "secs": 18,
-   "say": "The Workshop shows how Kiro built this castle: 7 steering files, 7 specs, 6 hooks, 4 custom agents, 3 MCP tools and a Power. Hypothesis tried 43 property tests and found 4 real bugs. 4 are fixed."
+   "say": "The Workshop shows how Kiro built this castle: 7 steering files, 7 specs, 6 hooks, 4 custom agents, 3 MCP tools and a Power. Hypothesis tried 45 property tests and found 4 real bugs. 4 are fixed."
   },
   {
    "room": "tower",

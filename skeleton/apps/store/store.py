@@ -14,6 +14,7 @@ import re
 
 from skeleton.core import Assistant
 from skeleton.core.demo import words
+from skeleton.core.kblookup import QWORDS, KBLookup, Semantic, backed, swarm_check, swarm_covered
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONFIG, FOODS, QUESTIONS = HERE / "store.toml", HERE / "foods.json", HERE / "questions.json"
@@ -31,6 +32,35 @@ class Catalog:
         self.version = f"{hashlib.sha256(raw.encode()).hexdigest()[:12]}:{self.day.isoformat()}"
         self.prices = set(re.findall(r"\d+\.\d\d", raw))
         self.text = "\n".join(self.lines())
+        self.embedder, self._sem, self.judge = None, None, None
+
+    def attach(self, embedder) -> "Catalog":
+        """Use meaning as well as shared words (the cache's embedder). None: word overlap only."""
+        self.embedder, self._sem = embedder, None
+        return self
+
+    def semantic(self) -> "Semantic | None":
+        if self.embedder is None:
+            return None
+        if self._sem is None:
+            d = self.data
+            lines = self.lines()
+            keys = list(lines)
+            for n, it in enumerate(d["items"]):  # an item line is asked for by its name: "vegan options" is not an item
+                at = lines.index(next(x for x in lines if x.startswith(it["name"] + ":")))
+                keys[at] = it["name"]
+            members = {}
+            hours = [i for i, x in enumerate(lines) if " hours: " in x]
+            lines.append("Opening hours. " + " ".join(f"{k.title()} hours: {v}." for k, v in d["hours"].items()))
+            keys.append("What are your opening hours? When do you close? What time are you open?")
+            members[len(lines) - 1] = hours
+            for tag in sorted({t for i in d["items"] for t in i.get("tags", [])}):
+                tagged = [i for i in d["items"] if tag in i.get("tags", [])]
+                lines.append(f"{tag.title()} items: " + "; ".join(f"{i['name']} aisle {i['aisle']}, ${i['price']}" for i in tagged) + ".")
+                keys.append(f"Do you have {tag} options, {tag} food or {tag} items?")
+                members[len(lines) - 1] = [next(k for k, x in enumerate(lines) if x.startswith(i["name"] + ":")) for i in tagged]
+            self._sem = Semantic(self.embedder, keys, lines, members)
+        return self._sem
 
     def lines(self) -> list[str]:
         d = self.data
@@ -47,12 +77,42 @@ class Catalog:
         return self.text
 
     def grounded(self, answer: str) -> bool:
-        """Non-empty, sure, and every quoted price and aisle exists in the catalog."""
+        """Non-empty, sure, and every quoted price and aisle exists in the catalog. When the question asks about an
+        item that is on special today, the regular price is not the right answer: refuse it."""
         if not answer.strip() or UNSURE.search(answer):
             return False
         prices = re.findall(r"\$\s?(\d+(?:\.\d\d)?)", answer)
         aisles = re.findall(r"\baisles?\s+(\d+)", answer, re.I)
         return all(p in self.prices for p in prices) and all(a in self.data["aisles"] for a in aisles)
+
+    def checked(self, question: str, answer: str) -> bool:
+        """The swarm's check: grounded (prices, aisles) AND backed by the guide lines that match the question.
+        An answer that quotes the regular price for a specials item is wrong: refuse it."""
+        if not self.grounded(answer):
+            return False
+        # specials guard: if the question is about an item on special today, the regular price is not right
+        specials_text = " ".join(self.data["specials"].get(self.weekday, [])).lower()
+        for item in self.data.get("items", []):
+            name = item["name"].lower()
+            regular = item["price"]
+            if name in specials_text and name in question.lower() and regular in answer:
+                return False  # the regular price for a specials item is not the current price
+        return swarm_check(self.lines(), self.semantic(), self.judge, question, answer)
+
+    def covered(self, question: str) -> bool:
+        """Does the knowledge base hold a fact for this question? False: no model is asked (the fallback is served)."""
+        return swarm_covered(self.semantic(), self.judge, question)
+
+    def lookup(self) -> KBLookup:
+        """$0 item lookup: "where are the eggs" -> that item's guide line, when exactly one item name fits the question."""
+        d = self.data
+        special = " ".join(d["specials"][self.weekday]).lower()  # an item on special today has a second price: not a lookup
+        return KBLookup([(i["name"], f"{i['name']}: aisle {i['aisle']}, ${i['price']}.") for i in d["items"]
+                         if i["name"].lower() not in special],
+                        drop=QWORDS | {"aisle", "price", "cost", "buy", "item"}, q_cov=1.0, k_cov=0.5, margin=0.3)
+
+
+FALLBACK = "I don't know. Please ask at the customer service desk."
 
 
 def demo_30b(prompt: str) -> str:
@@ -78,12 +138,26 @@ DEMO_MODELS = {"gpu-small": demo_30b,
                                            "Please ask at the customer service desk."}
 
 
-def make_assistant(live: bool = False, catalog: Catalog | None = None, no_gpu: bool = False) -> Assistant:
+SWARM_DEMO_MODELS = {"crusoe-small": demo_30b, "cloud-top": demo_30b, "cloud-deepseek": DEMO_MODELS["cloud-deepseek"]}
+
+
+def make_assistant(live: bool = False, catalog: Catalog | None = None, no_gpu: bool = False, swarm: bool = False,
+                   namespace: str | None = None, embedder=None, judge=None):
+    """swarm=True: item lookup at $0, then the cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU)."""
     import tomllib
     catalog = catalog or Catalog()
-    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {})}
+    cfg = {**tomllib.loads(CONFIG.read_text()), **({"mode": "live"} if live else {}),
+           **({"namespace": namespace} if namespace else {})}
     if no_gpu:
         cfg["ladder"] = ["cloud-deepseek"]
+    if swarm:
+        from skeleton.core.swarm import SWARM_LADDER, Swarm, make_judge, need_embedder
+        bot = Assistant({**cfg, "ladder": SWARM_LADDER}, knowledge=catalog, verify=catalog.grounded,
+                        demo_models=SWARM_DEMO_MODELS)
+        catalog.attach(need_embedder(bot, embedder))  # live: all-MiniLM-L6-v2, or fail loudly; demo/CI: word overlap
+        catalog.judge = judge if judge is not None else make_judge(bot.cfg.model_dump(), bot.cfg.namespace)
+        return Swarm(bot, free=[("kb_lookup", catalog.lookup().match)], check=catalog.checked, fallback=FALLBACK,
+                     covered=catalog.covered)
     return Assistant(cfg, knowledge=catalog, verify=catalog.grounded, demo_models=DEMO_MODELS)
 
 

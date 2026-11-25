@@ -94,3 +94,15 @@ def test_top_answer_is_cached_only_when_it_passes_the_check():
     r3, mid3, top3 = make(heavy_threshold=0.3)
     assert r3.generate(heavy, check=lambda t: 1 / 0).telemetry.tier_used == "top"  # a crashing check counts as failed
     assert r3.generate(heavy).telemetry.tier_used == "top"
+
+
+def test_top_backend_sends_temperature_zero_unless_the_caller_sets_one():
+    from chimera_core.ladder import TopBackend
+    sent = []
+    reply = {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}}
+
+    for kw, want in (({}, 0.0), ({"temperature": 0.7}, 0.7)):
+        b = TopBackend("m", {"reasoning_effort": "low"}, api_key="x", **kw)
+        b._post = lambda path, body: (sent.append(body), reply)[1]
+        assert b.complete("hi") == "ok"
+        assert sent[-1]["temperature"] == want

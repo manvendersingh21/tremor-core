@@ -16,7 +16,7 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 
-from skeleton.core import Answer, Assistant
+from skeleton.core import Answer, Assistant, Config
 from chimera_core.tiers import AllTiersFailed
 from apps.terminal.edits import parse_edits, plan, unified
 
@@ -104,6 +104,15 @@ class Coder:
         return p.read_text() if p.exists() else None
 
 
+def make_swarm(config=CONFIG, demo_models=None, namespace: str | None = None):
+    """Coder assistant for the swarm: cache, then crusoe-small, cloud-top, cloud-deepseek (no GPU). No free module: a
+    patch has no knowledge base. A patch that fails its tests is never served as verified and never cached."""
+    from skeleton.core.swarm import SWARM_LADDER, Swarm
+    cfg = Config.load(config).model_dump()
+    cfg = {**cfg, "ladder": SWARM_LADDER, **({"namespace": namespace} if namespace else {})}
+    return Swarm(Assistant(cfg, demo_models=demo_models), fallback="")
+
+
 def report(r: Result) -> str:
     a, lines = r.answer, []
     for i, s in enumerate(a["steps"], 1):
@@ -130,6 +139,8 @@ def main(argv: list[str] | None = None) -> int:
     ask.add_argument("--live", action="store_true", help="real tiers (A6000 30B, then 763B) and Supabase cache")
     ask.add_argument("--no-gpu", action="store_true", dest="no_gpu",
                      help="live but Crusoe 763B only (cache -> 763B); no GPU needed")
+    ask.add_argument("--swarm", action="store_true",
+                     help="cache, then crusoe-small, cloud-top, cloud-deepseek (live: Crusoe only, no GPU)")
     ask.add_argument("--apply", action="store_true", help="write the patch to the repo once the tests pass")
     sub.add_parser("demo", help="offline demo: a climb, a 30B answer and a cache hit")
     cls = sub.add_parser("class", help="a class: student 1 pays the model, students 2..N get the cache")
@@ -147,7 +158,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = {**_toml(), "mode": "live"} if (args.live or args.no_gpu) else CONFIG
     if args.no_gpu:
         cfg["ladder"] = ["cloud-deepseek"]
-    coder = Coder(args.repo, args.file, args.test, config=cfg)
+    coder = Coder(args.repo, args.file, args.test, config=cfg,
+                  assistant=make_swarm(cfg) if args.swarm else None)
     try:
         r = coder.ask(args.task)
     except AllTiersFailed as e:  # every tier failed or was unreachable: say so, no traceback, no made-up patch

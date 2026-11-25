@@ -32,7 +32,17 @@ def test_grounded(answer, ok):
     assert Catalog(today=TUESDAY).grounded(answer) is ok
 
 
-def test_warmed_cache_answers_repeats_and_paraphrases_without_models():
+def test_checked_refuses_regular_price_for_specials_items():
+    """When salmon is on special today, an answer with the regular price must fail the check."""
+    c = Catalog(today=TUESDAY)  # Tuesday: Salmon fillet at 5.99
+    q = "What is the price of salmon fillet?"
+    # regular price is in the catalog but wrong today
+    assert not c.checked(q, "Salmon fillet: aisle 4, $7.49.")
+    # a non-specials item still passes grounded (aisle check is a separate rule)
+    assert c.grounded("Oat milk: aisle 3, $3.49.")
+
+
+
     bot = make_assistant(catalog=Catalog(today=TUESDAY))
     warm = seed(bot)
     assert warm["questions"] == 30 and bot.stats()["questions"] == 0

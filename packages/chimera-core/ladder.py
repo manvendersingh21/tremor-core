@@ -44,15 +44,17 @@ class LadderConfig(RouterConfig):
 class TopBackend(CrusoeBackend):
     """Crusoe chat with caller-chosen chat_template_kwargs (gpt-oss: reasoning_effort, DeepSeek: thinking)."""
 
-    def __init__(self, model: str, template_kwargs: dict | None = None, logprobs: bool = False, **kw) -> None:
+    def __init__(self, model: str, template_kwargs: dict | None = None, logprobs: bool = False,
+                 temperature: float = 0.0, **kw) -> None:
         super().__init__(model=model, **kw)
         self.template_kwargs = template_kwargs or {}
+        self.temperature = temperature  # 0: the same prompt gets the same answer (repeat runs agree); a caller's value wins
         self.logprobs = logprobs  # vLLM: mean token probability of the answer -> last_confidence (the 30B gate)
         self.last_confidence: float | None = None
 
     def complete(self, prompt: str, max_tokens: int = 2500) -> str:
         body = {"model": self.model, "max_tokens": max_tokens, "chat_template_kwargs": self.template_kwargs,
-                "messages": [{"role": "user", "content": prompt}]}
+                "temperature": self.temperature, "messages": [{"role": "user", "content": prompt}]}
         if "reasoning_effort" in self.template_kwargs:  # vLLM gpt-oss reads it top-level, not from the template
             body["reasoning_effort"] = self.template_kwargs["reasoning_effort"]
         if self.logprobs:
