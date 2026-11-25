@@ -83,3 +83,8 @@ def test_an_answer_joining_two_separate_entries_is_never_backed(a, b, n, m):
     # control: when one entry states both things, the join rule does not refuse
     both = [f"The {a} plan comes with {b}."] + lines
     assert not joins_entries(both, q, ans)
+    # the answer joins two entries even when the question names one thing: each sentence from another entry
+    q2, ans2 = f"What does the {a} plan cost?", f"The {a} plan costs {n} dollars. We offer {b} in {m} days."
+    assert joins_entries(lines, q2, ans2)
+    assert not swarm_check(lines, sem, YesJudge(), q2, ans2)
+    assert not joins_entries(lines, q2, f"The {a} plan costs {n} dollars.")  # one entry: not a join

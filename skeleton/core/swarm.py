@@ -48,7 +48,9 @@ Customer question: {q}
 Proposed answer: {a}
 
 Reply YES when every claim in the proposed answer is stated by one of the entries (wording may differ) and the answer
-addresses what the question asks; a partial answer or a "no, but we offer X" built from the entries is fine.
+addresses what the question asks; a partial answer or a "no, but we offer X" built from the entries is fine. A "no" is
+also fine when one entry gives the full list (payment methods, countries, eligible items) and the thing asked is not
+on it or is excluded by it.
 Reply NO when the answer is about another product, device, service or action than the question, or when it makes a
 claim no single entry states, such as joining "express shipping exists" and "we ship to Canada" into "express
 shipping goes to Canada". Reply with one word: YES or NO."""

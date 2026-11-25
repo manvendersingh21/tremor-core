@@ -97,7 +97,8 @@ def run(app: str) -> None:
         climbs = Counter(e["climb_reason"] for t in tracker.events[n0:] for e in (t.events or []) if e.get("climb_reason"))
         climbs["failed_check"] += sum(1 for s in a["steps"][:-1] if s["verified"] is False)
         jd = (judge.bot.stats()["dollars"] - j0) if judge else 0.0  # the yes/no checks are spend too
-        row = {**r, "answer": a["answer"], "tier": a["tier"], "tried": a["tried"], "dollars": a["dollars"] + jd,
+        row = {**r, "answer": a["answer"], "tier": a["tier"], "tried": a["tried"], "dollars": a["dollars"],  # judge included
+
                "judge_dollars": jd,
                "tokens": a["tokens"], "cache_hit": a["cache_hit"], "ms": a["latency_ms"], "verified": a["verified"],
                "climbs": {k: v for k, v in climbs.items() if v}}

@@ -45,8 +45,27 @@ def joins_entries(texts: list[str], question: str, answer: str = "") -> bool:
     """True when the question and answer name two or more specific KB things that no single entry states together
     ("express shipping" in the cost entry, "Canada" in the international entry). Such an answer joins entries: it is
     never backed, whatever a judge says. Every check path calls this first (`one_entry` below)."""
-    key = key_things(texts, question)  # the answer's own facts are checked per entry by facts() and the judge
-    return len(key) >= 2 and not any(key <= content(t) for t in texts)
+    key = key_things(texts, question)
+    if len(key) >= 2 and not any(key <= content(t) for t in texts):
+        return True  # the question asks about things no one entry states together
+    return bool(answer) and not one_source(texts, answer, question)
+
+
+SENTENCE = re.compile(r"(?<=[.!?;])\s+|\s+(?:but|however)\s+", re.I)
+
+
+def one_source(texts: list[str], answer: str, question: str = "", min_frac: float = 0.6, min_words: int = 3) -> bool:
+    """One entry backs every sentence of the answer: at least `min_frac` of each sentence's content words are in that
+    entry or in the question (a sentence may restate or deny what was asked: "Germany is not available"). A sentence
+    with fewer than `min_words` content words ("Yes.") is skipped. An answer whose sentences need two entries ("edit
+    until it ships" from one, "after it ships, return it for a refund" from another) is a join."""
+    parts = [p for p in (content(s) for s in SENTENCE.split(answer)) if len(p) >= min_words]
+    if not parts:
+        return True
+    asked = content(question)
+    # each sentence needs a word of the entry itself: question words alone back nothing
+    return any(all(p & e and len(p & (e | asked)) >= min_frac * len(p) for p in parts)
+               for e in (content(t) for t in texts))
 
 
 class KBLookup:
@@ -303,6 +322,10 @@ def swarm_covered(sem: "Semantic | None", judge, question: str) -> bool:
         c = sem.candidates(question)
     except Unavailable:
         return True
+    # an entry that names a specific thing the question names is a candidate too, when meaning missed it
+    # ("track my package" -> the order entry's "click Track")
+    key = key_things(sem.texts, question)
+    c += [i for i, t in enumerate(sem.texts) if i not in c and key & content(t)][:4]
     if not c:
         return False
     return True if judge is None else judge.covers(question, [sem.texts[i] for i in c])
