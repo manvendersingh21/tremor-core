@@ -81,7 +81,7 @@ def test_an_answer_joining_two_separate_entries_is_never_backed(a, b, n, m):
     assert not swarm_covered(sem, YesJudge(), q)
     assert KBLookup([(e1, e1), (e2, e2)]).match(q) is None
     # control: when one entry states both things, the join rule does not refuse
-    both = [f"The {a} plan comes with {b}."] + lines
+    both = [f"The {a} plan comes with {b}: {n} dollars, {m} days."] + lines
     assert not joins_entries(both, q, ans)
     # the answer joins two entries even when the question names one thing: each sentence from another entry
     q2, ans2 = f"What does the {a} plan cost?", f"The {a} plan costs {n} dollars. We offer {b} in {m} days."

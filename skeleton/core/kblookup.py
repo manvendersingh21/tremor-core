@@ -48,7 +48,12 @@ def joins_entries(texts: list[str], question: str, answer: str = "") -> bool:
     key = key_things(texts, question)
     if len(key) >= 2 and not any(key <= content(t) for t in texts):
         return True  # the question asks about things no one entry states together
-    return bool(answer) and not one_source(texts, answer, question)
+    if not answer:
+        return False
+    mine = facts(answer)  # every number and day of the answer must sit in one entry ($5.99 special + aisle 4: two)
+    if any(mine.values()) and not any(all(mine[k] <= f[k] for k in mine) for f in map(facts, texts)):
+        return True
+    return not one_source(texts, answer, question)
 
 
 _CLOCK = re.compile(r"\b\d{1,2}(:\d\d)?\s*(am|pm|a\.m\.|p\.m\.)|\b\d{1,2}:\d\d\b|\b(right now|now|currently|tonight)\b", re.I)
@@ -73,6 +78,8 @@ def one_source(texts: list[str], answer: str, question: str = "", min_frac: floa
     parts = [p for p in (content(s) for s in SENTENCE.split(answer)) if len(p) >= min_words]
     if not parts:
         return True
+    # a question word may stand in a sentence ("Germany is not available"). shortcut: so may a KB thing the question
+    # names ("refunds go back to PayPal"); the live judge reads that one. Upgrade if a run serves such a join.
     asked = content(question)
     # each sentence needs a word of the entry itself: question words alone back nothing
     return any(all(p & e and len(p & (e | asked)) >= min_frac * len(p) for p in parts)
@@ -148,12 +155,14 @@ def _unit(v: list[float]) -> list[float]:
 
 
 _NUM = re.compile(r"\d[\d,.:\-]*\d|\d")
-_DAY = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b", re.I)
+_DAY = re.compile(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|every day|daily|weekend|weekday)s?\b", re.I)
 
 
 def facts(text: str) -> dict[str, frozenset[str]]:
     """The checkable facts in a text: every number (prices, aisles, hours, durations, phone numbers) and weekday."""
-    return {"num": frozenset(_NUM.findall(text)), "day": frozenset(d.lower() for d in _DAY.findall(text))}
+    days = {"daily": "every day"}  # one spelling per day claim
+    return {"num": frozenset(_NUM.findall(text)),
+            "day": frozenset(days.get(d.lower(), d.lower()) for d in _DAY.findall(text))}
 
 
 def agree(a: dict, b: dict) -> bool:
