@@ -77,18 +77,26 @@ class Catalog:
         return self.text
 
     def grounded(self, answer: str) -> bool:
-        """Non-empty, sure, and every quoted price and aisle exists in the catalog."""
+        """Non-empty, sure, and every quoted price and aisle exists in the catalog. When the question asks about an
+        item that is on special today, the regular price is not the right answer: refuse it."""
         if not answer.strip() or UNSURE.search(answer):
             return False
         prices = re.findall(r"\$\s?(\d+(?:\.\d\d)?)", answer)
         aisles = re.findall(r"\baisles?\s+(\d+)", answer, re.I)
         return all(p in self.prices for p in prices) and all(a in self.data["aisles"] for a in aisles)
 
-
     def checked(self, question: str, answer: str) -> bool:
-        """The swarm's check: grounded (prices, aisles) AND backed by the guide lines that match the question."""
+        """The swarm's check: grounded (prices, aisles) AND backed by the guide lines that match the question.
+        An answer that quotes the regular price for a specials item is wrong: refuse it."""
         if not self.grounded(answer):
             return False
+        # specials guard: if the question is about an item on special today, the regular price is not right
+        specials_text = " ".join(self.data["specials"].get(self.weekday, [])).lower()
+        for item in self.data.get("items", []):
+            name = item["name"].lower()
+            regular = item["price"]
+            if name in specials_text and name in question.lower() and regular in answer:
+                return False  # the regular price for a specials item is not the current price
         return swarm_check(self.lines(), self.semantic(), self.judge, question, answer)
 
     def covered(self, question: str) -> bool:

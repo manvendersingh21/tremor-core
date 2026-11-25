@@ -76,6 +76,9 @@ class Rules:
             return " ".join(f"Hours, {k}: {v}." for k, v in kb["hours"].items())
 
         def phone() -> str:
+            return next((c for c in kb["contact"] if re.search(r"\bphone\b", c, re.I)), " ".join(kb["contact"]))
+
+        def contact() -> str:
             return " ".join(kb["contact"])
 
         table: list[tuple[re.Pattern, Callable[[], str] | str]] = list(SMALL_TALK)
@@ -83,8 +86,10 @@ class Rules:
             (re.compile(r"^(what are your |what is your |what're your )?(opening |support |business )?hours$|"
                         r"^what are your (opening |support |business )?hours( of operation)?$|"
                         r"^when are you open$|^what time do you (open|close)$"), hours),
-            (re.compile(r"^(what is your |what's your |your )?(phone|telephone|contact) (number|details)$|"
-                        r"^(how do i |how can i )?(contact|call|reach) (you|support|a person|someone)$"), phone),
+            (re.compile(r"^(what is your |what's your |your )?(phone|telephone) (number)$|"
+                        r"^(how do i |how can i )?(call|phone) (you|support|a person|someone)$"), phone),
+            (re.compile(r"^(what is your |what's your |your )?contact (details|info|information)$|"
+                        r"^(how do i |how can i )?(contact|reach) (you|support|a person|someone)$"), contact),
             (re.compile(r"^(how (do|can) i )?(reset|change|recover) (my |the )?password$|"
                         r"^i forgot my password( how do i reset it)?$|^forgot (my )?password$"),
              faq["How do I reset my password?"]),

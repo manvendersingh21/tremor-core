@@ -23,6 +23,32 @@ def content(text: str, drop: frozenset[str] = QWORDS) -> set[str]:
     return set(words(text)) - drop
 
 
+KEY_DF = 3  # a word in at most this many entries names a specific thing ("express", "canada", "paypal")
+# Everyday words that are rare in a small KB but name no thing: function words, plain verbs, time words.
+NOT_THINGS = frozenset(
+    "one two if with without from into by as or and but not no never only still also just again instead even "
+    "take go use send add edit change forgot arrived end need want put come back new same other every first "
+    "until once after before during while today now tonight tomorrow yesterday usually always".split())
+
+
+def key_things(texts: list[str], text: str, max_df: int = KEY_DF) -> set[str]:
+    """Words of `text` that name a specific thing in the knowledge base: found in 1 to `max_df` entries.
+    Numbers are left to facts(); common words ("order", "shipping") are in too many entries to name one thing."""
+    df: dict[str, int] = {}
+    for t in texts:
+        for w in content(t):
+            df[w] = df.get(w, 0) + 1
+    return {w for w in content(text) - NOT_THINGS if not w.isdigit() and 0 < df.get(w, 0) <= max_df}
+
+
+def joins_entries(texts: list[str], question: str, answer: str = "") -> bool:
+    """True when the question and answer name two or more specific KB things that no single entry states together
+    ("express shipping" in the cost entry, "Canada" in the international entry). Such an answer joins entries: it is
+    never backed, whatever a judge says. Every check path calls this first (`one_entry` below)."""
+    key = key_things(texts, question)  # the answer's own facts are checked per entry by facts() and the judge
+    return len(key) >= 2 and not any(key <= content(t) for t in texts)
+
+
 class KBLookup:
     def __init__(self, entries: list[tuple[str, str]], *, drop: frozenset[str] = QWORDS, q_cov: float = 0.8,
                  k_cov: float = 0.8, margin: float = 0.2, semantic: "Semantic | None" = None, sem_sim: float = 0.84,
@@ -34,6 +60,8 @@ class KBLookup:
         self.entries = [(content(k, drop), a) for k, a in entries]
 
     def match(self, question: str) -> str | None:
+        if joins_entries([f"{k} {a}" for k, a in self.raw], question):
+            return None  # the question names things from two entries: no single FAQ answer is right
         if (hit := self._words(question)) is not None:
             return hit
         if self.semantic is not None:
@@ -73,7 +101,7 @@ def backed(lines: list[str], question: str, answer: str, *, min_frac: float = 0.
     line, and no other line holds more of them. An answer drawn from another entry therefore fails.
     shortcut: two lines that match the question equally are a miss (safe, it climbs); no synonyms."""
     q, a = content(question, drop), content(answer, drop)
-    if not q or not a:
+    if not q or not a or joins_entries(lines, question, answer):
         return False
     qs = sorted(((len(q & content(x, drop)), i) for i, x in enumerate(lines)), reverse=True)
     if qs[0][0] == 0 or (len(qs) > 1 and qs[0][0] == qs[1][0]):
@@ -191,6 +219,8 @@ class Semantic:
     def backed_loose(self, question: str, answer: str, a_sim: float = 0.50) -> bool:
         """The answer's closest entry is one the question may be about, and ONE entry in the cluster covers all its
         facts (no joined-entry claims). Entries that share facts with a candidate are added to the cluster first."""
+        if joins_entries(self.texts, question, answer):
+            return False
         try:
             qc = self.candidates(question)
             if not qc:
@@ -220,6 +250,8 @@ class Semantic:
         """The question picks a cluster of agreeing entries, the answer is closest to one of them, its numbers and
         weekdays are all in the cluster, AND one single entry covers every fact (no joined-entry claims).
         None when the embedder is unavailable: the caller uses word overlap."""
+        if joins_entries(self.texts, question, answer):
+            return False
         try:
             qc = self._cluster(question, 0, q_sim, q_margin)
             ac = self._cluster(answer, 1, a_sim, a_margin) if qc else []
@@ -243,6 +275,9 @@ def swarm_check(lines: list[str], sem: "Semantic | None", judge, question: str, 
       entries. The judge closes the near-miss class ("reset my router" vs the password entry), which shares words and
       meaning with an entry but asks about another thing; the loose rule lets new wordings of a fact through.
     """
+    # one entry must state every specific thing asked and answered: checked first, so no judge YES can override it
+    if joins_entries(sem.texts if sem is not None else lines, question, answer):
+        return False
     if sem is None:
         return backed(lines, question, answer)
     strict = sem.backed(question, answer)
@@ -262,6 +297,8 @@ def swarm_covered(sem: "Semantic | None", judge, question: str) -> bool:
     With a judge: it reads the candidate entries and says whether they answer this exact question."""
     if sem is None:
         return True
+    if joins_entries(sem.texts, question):
+        return False  # no single entry states it: no tier could pass the check, so none is asked
     try:
         c = sem.candidates(question)
     except Unavailable:

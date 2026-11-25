@@ -12,7 +12,7 @@ Every number is read from the file named in `site/demo.json`.
 | 0:36 | crypt | The Crypt is the cache in Supabase. Asked again, the hit rate was 0.95. A lookup takes 122 ms. 0 of 50 graded cache answers were wrong. |
 | 0:49 | ladder | The Ladder climbs one rung at a time: cache, then our own 30B, then the 763B. Per 1,000 coding calls the 763B costs $0.1576, GPT-5.5 costs $4.02. The bank of solved problems served 75 of 80 repeats, 0 wrong. |
 | 1:03 | familiar | The Familiar is a small model for your phone. It is written, but no phone has run it yet. I will not pretend otherwise. |
-| 1:12 | workshop | The Workshop shows how Kiro built this castle: 7 steering files, 7 specs, 6 hooks, 4 custom agents, 3 MCP tools and a Power. Hypothesis tried 44 property tests and found 4 real bugs. 4 are fixed. |
+| 1:12 | workshop | The Workshop shows how Kiro built this castle: 7 steering files, 7 specs, 6 hooks, 4 custom agents, 3 MCP tools and a Power. Hypothesis tried 45 property tests and found 4 real bugs. 4 are fixed. |
 | 1:30 | tower | The Tower holds the biggest models. We tried speculative decoding on Modal: EAGLE-3 in the same box ran 1.80x as fast, but a drafter on another box ran at only 0.23x. We show both. |
 | 1:42 | gpus | The Manor is our own GPU. A 30B on an H200 kept busy costs $0.070 per 1,000 calls. On our own V100, tuned and kept busy, it costs $0.178; before tuning it cost $11.02. |
 | 1:54 | guild | The Guild is for companies: an OpenAI-style gateway, keys per tenant, metrics for Prometheus. Change one address and one key. |
